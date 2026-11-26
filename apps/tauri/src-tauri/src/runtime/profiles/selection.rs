@@ -94,7 +94,7 @@ pub fn resolve_selected_runtime_binary_path<R: Runtime>(
     let Some(selection) = read_runtime_selection(app)? else {
         return Ok(None);
     };
-    validate_manifest_relative_path(&selection.entry)?;
+    crate::runtime::layered::manifest::validate_safe_subpath(&selection.entry)?;
     let install_dir = runtime_install_dir(app, &selection.version, &selection.profile)?;
     Ok(resolve_spawnable_runtime_binary(
         &install_dir,
@@ -161,6 +161,9 @@ pub fn resolve_acceleration_profile(
     if has_vendor_match(gpu_vendors, is_nvidia_vendor) {
         return "nvidia-cuda".to_string();
     }
+    if platform == "win32" && has_vendor_match(gpu_vendors, is_amd_vendor) {
+        return "windows-directml".to_string();
+    }
     if platform == "linux" && has_vendor_match(gpu_vendors, is_amd_vendor) {
         return "amd-rocm".to_string();
     }
@@ -174,7 +177,7 @@ fn runtime_selection_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, Run
     Ok(app.path().app_data_dir()?.join(RUNTIME_SELECTION_FILE_NAME))
 }
 
-pub(super) fn write_runtime_selection<R: Runtime>(
+pub(crate) fn write_runtime_selection<R: Runtime>(
     app: &AppHandle<R>,
     selection: &MiniBackendRuntimeSelection,
 ) -> Result<(), RuntimeError> {
@@ -187,7 +190,7 @@ pub(super) fn write_runtime_selection<R: Runtime>(
     Ok(())
 }
 
-pub(super) fn resolve_artifacts_url<R: Runtime>(
+pub(crate) fn resolve_artifacts_url<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Option<String>, RuntimeError> {
     Ok(Some(build_runtime_config(app).runtime_artifacts_url))
@@ -305,7 +308,7 @@ pub(super) fn list_artifact_options(
         .collect()
 }
 
-fn artifact_profile_order(platform: &str, include_tensorrt: bool) -> Vec<&'static str> {
+pub(crate) fn artifact_profile_order(platform: &str, include_tensorrt: bool) -> Vec<&'static str> {
     match platform {
         "win32" => {
             let mut profiles = vec![

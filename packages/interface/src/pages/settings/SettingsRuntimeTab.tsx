@@ -5,6 +5,7 @@ import RuntimeProfileSection from "../../components/runtime/RuntimeProfileSectio
 import ReleaseNotesMarkdownClassic from "../../components/updater/ReleaseNotesMarkdownClassic";
 import { SyncPanel } from "../../components/updater/SyncPanel";
 import type { useI18n } from "../../i18n";
+import { isSourceSyncVisible } from "../../hooks/useUpdaterSync";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
 import type {
   DesktopMiniBackendRuntimeArtifactOption,
@@ -40,6 +41,7 @@ interface SettingsRuntimeTabArgs {
   setSelectedRuntimeArtifactProfile: Dispatch<SetStateAction<string>>;
   handleUseRecommendedRuntimeProfile: (profile: string) => void;
   handleInstallSelectedRuntimeProfile: () => Promise<void>;
+  handleCancelRuntimeInstall?: () => Promise<void>;
   formatRuntimeProfileLabel: (profile: string) => string;
 }
 
@@ -68,6 +70,7 @@ export const renderSettingsRuntimeTab = ({
   setSelectedRuntimeArtifactProfile,
   handleUseRecommendedRuntimeProfile,
   handleInstallSelectedRuntimeProfile,
+  handleCancelRuntimeInstall,
   formatRuntimeProfileLabel,
 }: SettingsRuntimeTabArgs): JSX.Element => (
 <div className="koma-stg-panel" key="runtime">
@@ -154,16 +157,17 @@ export const renderSettingsRuntimeTab = ({
     )}
   </section>
 
-  {/* Source-sync control panel */}
-  <section className="koma-stg-section">
-    <div className="koma-stg-section__head">
-      <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
-        <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <h3 className="koma-stg-section__title">{t("update.sync.title")}</h3>
-    </div>
-    <SyncPanel />
-  </section>
+  {isSourceSyncVisible() && (
+    <section className="koma-stg-section">
+      <div className="koma-stg-section__head">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+          <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <h3 className="koma-stg-section__title">{t("update.sync.title")}</h3>
+      </div>
+      <SyncPanel />
+    </section>
+  )}
 
   {/* Action buttons */}
   <div className="koma-stg-actions koma-stg-actions--row">
@@ -184,6 +188,16 @@ export const renderSettingsRuntimeTab = ({
         {updater.autoInstallSupported
           ? t("update.modal.updateNow")
           : t("update.modal.openReleasePage")}
+      </button>
+    )}
+    {updater.status === "downloaded" && (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void updater.installUpdate()}
+        className="koma-btn koma-btn--primary koma-btn--sm"
+      >
+        {t("update.modal.restartToUpdate")}
       </button>
     )}
   </div>
@@ -228,6 +242,7 @@ export const renderSettingsRuntimeTab = ({
     onSelectedManualProfileChange={setSelectedRuntimeArtifactProfile}
     onUseRecommendedProfile={handleUseRecommendedRuntimeProfile}
     onInstallSelected={() => void handleInstallSelectedRuntimeProfile()}
+    onCancelInstall={handleCancelRuntimeInstall ? () => void handleCancelRuntimeInstall() : undefined}
     formatRuntimeProfileLabel={formatRuntimeProfileLabel}
   />
 </div>

@@ -6,6 +6,7 @@ import { describeUpdaterAction } from "../update-action";
 import SyncPanelNoir from "./SyncPanelNoir";
 import { LazyReleaseNotesMarkdown } from "../LazyReleaseNotesMarkdown";
 import UpdaterDownloadProgress from "../UpdaterDownloadProgress";
+import { isSourceSyncVisible } from "../../../hooks/useUpdaterSync";
 import type { UseUpdaterApi } from "../../../hooks/useUpdater";
 
 interface UpdateModalProps {
@@ -137,8 +138,7 @@ export const UpdateModalNoir = ({
               </div>
             </div>
 
-            {/* Sync control panel */}
-            <SyncPanelNoir />
+            {isSourceSyncVisible() && <SyncPanelNoir />}
 
             {/* Actions */}
             <div className="mt-5 flex flex-wrap gap-2 border-t border-paper/8 pt-4">

@@ -5,6 +5,7 @@ import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSec
 import ReleaseNotesMarkdown from "../../../components/updater/ReleaseNotesMarkdown";
 import SyncPanel from "../../../components/updater/SyncPanel";
 import type { useI18n } from "../../../i18n";
+import { isSourceSyncVisible } from "../../../hooks/useUpdaterSync";
 import type { UseUpdaterApi } from "../../../hooks/useUpdater";
 import type {
   DesktopMiniBackendRuntimeArtifactOption, DesktopMiniBackendRuntimeState, UpdaterChannel,
@@ -42,6 +43,7 @@ interface SettingsRuntimeTabArgs {
   setSelectedRuntimeArtifactProfile: Dispatch<SetStateAction<string>>;
   handleUseRecommendedRuntimeProfile: (profile: string) => void;
   handleInstallSelectedRuntimeProfile: () => Promise<void>;
+  handleCancelRuntimeInstall?: () => Promise<void>;
   formatRuntimeProfileLabel: (profile: string) => string;
 }
 
@@ -70,6 +72,16 @@ export const renderSettingsRuntimeTabNoir = (a: SettingsRuntimeTabArgs): React.R
                   : t("update.modal.openReleasePage")}
               </button>
             )}
+            {updater.status === "downloaded" && (
+              <button
+                type="button"
+                disabled={a.busy}
+                onClick={() => void updater.installUpdate()}
+                className={btnPrimary}
+              >
+                {t("update.modal.restartToUpdate")}
+              </button>
+            )}
           </div>
         }>
         <SpecGrid>
@@ -92,11 +104,12 @@ export const renderSettingsRuntimeTabNoir = (a: SettingsRuntimeTabArgs): React.R
           <div className="mt-3"><Alert tone="error">{updater.error}</Alert></div>
         )}
 
-        {/* Source-sync control panel */}
-        <div className="mt-4">
-          <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.24em] text-paper/40">{t("update.sync.title")}</p>
-          <SyncPanel />
-        </div>
+        {isSourceSyncVisible() && (
+          <div className="mt-4">
+            <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.24em] text-paper/40">{t("update.sync.title")}</p>
+            <SyncPanel />
+          </div>
+        )}
       </Sec>
 
       {/* ═══ CHANNEL ═══ */}
@@ -160,6 +173,7 @@ export const renderSettingsRuntimeTabNoir = (a: SettingsRuntimeTabArgs): React.R
         onSelectedManualProfileChange={a.setSelectedRuntimeArtifactProfile}
         onUseRecommendedProfile={a.handleUseRecommendedRuntimeProfile}
         onInstallSelected={() => void a.handleInstallSelectedRuntimeProfile()}
+        onCancelInstall={a.handleCancelRuntimeInstall ? () => { void a.handleCancelRuntimeInstall?.(); } : undefined}
         formatRuntimeProfileLabel={a.formatRuntimeProfileLabel}
       />
     </div>

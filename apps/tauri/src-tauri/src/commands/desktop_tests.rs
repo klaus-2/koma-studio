@@ -116,6 +116,7 @@
             "desktop:list-mini-backend-runtime-artifacts",
             "desktop:install-recommended-mini-backend-runtime",
             "desktop:install-mini-backend-runtime-profile",
+            "desktop:runtime:cancel-install",
             "desktop:reset-local-settings",
             "desktop:restart-app",
             "desktop:mini-backend:set-thread-override",
@@ -352,18 +353,7 @@
 
     #[test]
     fn defaults_to_the_github_runtime_feed() {
-        // Packaged builds pin the feed to their own release tag; dev keeps the
-        // moving latest slot (the crate version has no matching tag there).
-        let expected = if cfg!(dev) {
-            "https://github.com/klaus-2/koma-studio/releases/latest/download/".to_owned()
-        } else {
-            concat!(
-                "https://github.com/klaus-2/koma-studio/releases/download/v",
-                env!("CARGO_PKG_VERSION"),
-                "/"
-            )
-            .to_owned()
-        };
+        let expected = "https://github.com/klaus-2/koma-studio/releases/latest/download/";
         assert_eq!(default_runtime_artifacts_url(), expected);
         assert_eq!(UpdateChannel::from_version("1.2.3"), UpdateChannel::Stable);
         assert_eq!(

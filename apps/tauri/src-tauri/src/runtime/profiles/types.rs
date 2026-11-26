@@ -11,9 +11,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 
-pub(super) const RUNTIME_DOWNLOAD_DIR: &str = "koma-runtime-downloads";
+pub(crate) const RUNTIME_DOWNLOAD_DIR: &str = "koma-runtime-downloads";
 pub(super) const RUNTIME_SELECTION_FILE_NAME: &str = "mini-backend-runtime-selection.json";
-pub(super) const RUNTIME_DOWNLOAD_RETRY_COUNT: u32 = 2;
+pub(crate) const RUNTIME_DOWNLOAD_RETRY_COUNT: u32 = 2;
 pub(super) const MIN_RUNTIME_INSTALL_REQUIRED_BYTES: u64 = 512 * 1024 * 1024;
 pub(super) const RUNTIME_EVENT_CHANNEL: &str = "mini-backend-runtime:event";
 pub(super) const RUNTIME_RETRYABLE_HTTP_STATUSES: &[u16] = &[408, 429, 500, 502, 503, 504];
@@ -86,6 +86,7 @@ impl From<RuntimeError> for String {
 pub struct MiniBackendRuntimeStore {
     pub(super) state: Mutex<MiniBackendRuntimeState>,
     pub(super) installing: AtomicBool,
+    pub(super) cancel_requested: AtomicBool,
     pub(super) progress_channel: Mutex<Option<Channel<MiniBackendRuntimeState>>>,
 }
 
@@ -110,6 +111,7 @@ impl Default for MiniBackendRuntimeStore {
         Self {
             state: Mutex::new(initial_runtime_state()),
             installing: AtomicBool::new(false),
+            cancel_requested: AtomicBool::new(false),
             progress_channel: Mutex::new(None),
         }
     }
@@ -124,6 +126,7 @@ impl Drop for InstallSessionGuard<'_> {
         if let Ok(mut guard) = self.store.progress_channel.lock() {
             *guard = None;
         }
+        self.store.cancel_requested.store(false, Ordering::SeqCst);
         self.store.installing.store(false, Ordering::SeqCst);
     }
 }
@@ -136,10 +139,23 @@ impl MiniBackendRuntimeStore {
         if self.installing.swap(true, Ordering::SeqCst) {
             return None;
         }
+        self.cancel_requested.store(false, Ordering::SeqCst);
         if let Ok(mut guard) = self.progress_channel.lock() {
             *guard = channel;
         }
         Some(InstallSessionGuard { store: self })
+    }
+
+    pub fn request_cancel(&self) -> bool {
+        if !self.installing.load(Ordering::SeqCst) {
+            return false;
+        }
+        self.cancel_requested.store(true, Ordering::SeqCst);
+        true
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel_requested.load(Ordering::SeqCst)
     }
 }
 
@@ -297,7 +313,7 @@ fn initial_runtime_state() -> MiniBackendRuntimeState {
     }
 }
 
-pub(super) fn apply_patch(state: &mut MiniBackendRuntimeState, patch: MiniBackendRuntimePatch) {
+pub(crate) fn apply_patch(state: &mut MiniBackendRuntimeState, patch: MiniBackendRuntimePatch) {
     if let Some(value) = patch.status {
         state.status = value;
     }
@@ -360,7 +376,7 @@ pub(super) fn apply_patch(state: &mut MiniBackendRuntimeState, patch: MiniBacken
     }
 }
 
-pub(super) fn install_result(
+pub(crate) fn install_result(
     ok: bool,
     profile: &str,
     reason: &str,
@@ -372,7 +388,7 @@ pub(super) fn install_result(
     }
 }
 
-pub(super) fn now_millis() -> u64 {
+pub(crate) fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

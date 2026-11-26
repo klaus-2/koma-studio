@@ -23,6 +23,7 @@ interface RuntimeProfileSectionProps {
   onSelectedManualProfileChange: (profile: string) => void;
   onUseRecommendedProfile: (profile: string) => void;
   onInstallSelected: () => void;
+  onCancelInstall?: () => void;
   formatRuntimeProfileLabel: (profile: string) => string;
 }
 
@@ -38,7 +39,7 @@ export const RuntimeProfileSectionNoir = ({
   runtimeState, recommendedProfile, runtimeArtifactsAvailable, runtimeArtifactsAvailabilityLabel,
   runtimeInstallBusy, runtimeInstallInProgress, runtimeInstallMode, runtimeInstallButtonLabel,
   runtimeInstallFeedback, runtimeInstallError, manualArtifacts, selectedManualProfile,
-  onSelectedManualProfileChange, onUseRecommendedProfile, onInstallSelected, formatRuntimeProfileLabel,
+  onSelectedManualProfileChange, onUseRecommendedProfile, onInstallSelected, onCancelInstall, formatRuntimeProfileLabel,
 }: RuntimeProfileSectionProps) => {
   const showManualSelector = runtimeArtifactsAvailable && manualArtifacts.length > 0;
   const selectedManualArtifact = manualArtifacts.find((e) => e.profile === selectedManualProfile) ?? null;
@@ -64,7 +65,11 @@ export const RuntimeProfileSectionNoir = ({
           </span>
         </SpecRow>
         <SpecRow label="Runtime source" mono>
-          {runtimeState?.source === "downloaded-runtime" ? "DOWNLOADED" : "EMBEDDED CORE"}
+          {runtimeState?.version?.startsWith("engine-")
+            ? "LAYERED ENGINE"
+            : runtimeState?.source === "downloaded-runtime"
+              ? "DOWNLOADED"
+              : "EMBEDDED CORE"}
         </SpecRow>
         <SpecRow label="Manual install" mono>{runtimeArtifactsAvailabilityLabel}</SpecRow>
         {runtimeState?.installDir && (
@@ -124,6 +129,11 @@ export const RuntimeProfileSectionNoir = ({
                 ? <span className="blink">{runtimeInstallButtonLabel}</span>
                 : <><Download size={11} /> Install selected profile</>}
             </button>
+            {isManualInstallActive && onCancelInstall && (
+              <button type="button" className={btnGhost} onClick={() => onCancelInstall()}>
+                Cancel
+              </button>
+            )}
           </div>
           {selectedManualArtifact && (
             <div className="mt-2 flex flex-wrap gap-1.5">

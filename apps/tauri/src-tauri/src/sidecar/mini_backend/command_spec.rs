@@ -29,6 +29,7 @@ pub(crate) struct MiniBackendCommandSpec {
     pub(crate) install_dir: Option<PathBuf>,
     pub(crate) version: Option<String>,
     pub(crate) use_sidecar: bool,
+    pub(crate) extra_env: Vec<(String, String)>,
 }
 
 pub(crate) fn mini_venv_can_serve(python: &Path) -> bool {
@@ -73,6 +74,35 @@ pub(crate) fn resolve_mini_backend_command<R: Runtime>(
             install_dir: app_path.parent().map(Path::to_path_buf),
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
             use_sidecar: false,
+            extra_env: Vec::new(),
+        });
+    }
+
+    if let Some(layered) =
+        crate::runtime::layered::resolve_active_layered_runtime(app, Some(&profile))?
+    {
+        let short_hash = &layered.overlay_hash[..layered.overlay_hash.len().min(8)];
+        let overlay_str = path_to_string(&layered.overlay_dir);
+        return Ok(MiniBackendCommandSpec {
+            program: layered.python_bin,
+            args: vec![
+                "-s".to_string(),
+                "-B".to_string(),
+                path_to_string(&layered.app_py),
+            ],
+            cwd: layered.overlay_dir,
+            profile,
+            source: "downloaded-runtime".to_string(),
+            install_dir: Some(layered.engine_dir),
+            version: Some(format!(
+                "engine-{}-{}@{short_hash}",
+                layered.engine_abi, layered.engine_version
+            )),
+            use_sidecar: false,
+            extra_env: vec![
+                ("PYTHONNOUSERSITE".to_string(), "1".to_string()),
+                ("PYTHONPATH".to_string(), overlay_str),
+            ],
         });
     }
 
@@ -89,6 +119,7 @@ pub(crate) fn resolve_mini_backend_command<R: Runtime>(
             install_dir: selected_binary.parent().map(Path::to_path_buf),
             version: None,
             use_sidecar: false,
+            extra_env: Vec::new(),
         });
     }
 
@@ -105,6 +136,7 @@ pub(crate) fn resolve_mini_backend_command<R: Runtime>(
             install_dir: None,
             version: None,
             use_sidecar: false,
+            extra_env: Vec::new(),
         });
     }
 
@@ -120,6 +152,7 @@ pub(crate) fn resolve_mini_backend_command<R: Runtime>(
         install_dir: None,
         version: Some(env!("CARGO_PKG_VERSION").to_string()),
         use_sidecar: true,
+        extra_env: Vec::new(),
     })
 }
 

@@ -15,6 +15,7 @@ mod security;
 mod services;
 mod sidecar;
 mod state;
+mod updater;
 #[cfg(windows)]
 mod win32;
 
@@ -29,6 +30,14 @@ pub fn run() {
 
     // koma-image:// / koma-font:// — serve image/font bytes from disk with
     // scope allowlisting, Range and ETag (see protocol::media docs).
+    let hotswap_handle = updater::ui_hotswap::HotswapHandle::default();
+    let mut context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+    let embedded_assets = context.set_assets(Box::new(updater::ui_hotswap::NoopAssets));
+    context.set_assets(Box::new(updater::ui_hotswap::HotswapAssets::new(
+        embedded_assets,
+        hotswap_handle.clone(),
+    )));
+
     protocol::media::register(tauri::Builder::default())
         // Must stay the first registered plugin: it exits duplicate processes
         // before any other plugin or window spawns. When the OS protocol
@@ -109,6 +118,7 @@ pub fn run() {
         .manage(commands::api::auth::DesktopAuthStore::default())
         .manage(commands::logging::SessionLogSink::default())
         .manage(commands::desktop_updater::InstallerUpdaterStore::default())
+        .manage(hotswap_handle)
         .manage(
             commands::discord::DiscordPresence::spawn(
                 commands::discord::DEFAULT_DISCORD_CLIENT_ID.to_owned(),
@@ -145,8 +155,11 @@ pub fn run() {
             commands::desktop::open_logs_folder,
             commands::desktop::forwarded_files::read_forwarded,
             commands::desktop_updater::get_updater_state,
+            commands::desktop_updater::check_updater,
             commands::desktop_updater::download_updater,
             commands::desktop_updater::install_updater,
+            commands::desktop_updater::set_updater_auto_install,
+            commands::desktop_updater::ack_updater_ui_ready,
             commands::desktop_integrations::show_notification,
             commands::desktop_integrations::save_blob,
             commands::desktop_integrations::reveal_path,
@@ -162,6 +175,7 @@ pub fn run() {
             commands::logging::session_log,            runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,
+            runtime::profiles::cancel_mini_backend_runtime_install,
             commands::models::list_installed,
             commands::models::get_disk_space,
             commands::models::check_updates,
@@ -280,6 +294,12 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                     // Latched before the kill so the sidecar's own exit event
                     // cannot schedule a recovery attempt into a dying process.
+                    let updater_store =
+                        app_handle.state::<commands::desktop_updater::InstallerUpdaterStore>();
+                    commands::desktop::updater::install_on_quit_if_staged(
+                        app_handle,
+                        &updater_store,
+                    );
                     services::batch_state::release_keep_awake(app_handle);
                     let _ = sidecar::recovery::mark_app_exiting(app_handle);
                     let _ = sidecar::mini_backend::stop_mini_backend(app_handle);

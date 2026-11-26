@@ -1,10 +1,21 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
 use url::Url;
+
+use crate::updater::{
+    delta::{cache_verified_installer, try_download_and_reconstruct_delta},
+    release_manifest::{
+        KomaReleaseManifest, ReleaseManifestFetch, UPDATER_MINISIGN_PUBKEY, UiBundleDescriptor,
+        UpdateStrategy, current_native_abi_version, decide_update_strategy, effective_version,
+        fetch_release_manifest, verify_minisign_bytes, verify_minisign_trusted_version,
+    },
+    ui_hotswap::{HotswapHandle, apply_staged_ui_hotswap, download_and_stage_ui_bundle},
+};
 
 pub const UPDATER_EVENT_CHANNEL: &str = "updater:event";
 const PROGRESS_EVENT_MIN_INTERVAL_MS: u128 = 100;
@@ -191,8 +202,16 @@ pub fn progress_percent(transferred: u64, total: Option<u64>) -> f64 {
     }
 }
 
-pub fn is_supported_runtime(is_dev: bool, is_windows: bool) -> bool {
-    !is_dev && is_windows
+pub fn is_supported_runtime(is_dev: bool, is_supported_os: bool) -> bool {
+    !is_dev && is_supported_os
+}
+
+const fn is_updater_os() -> bool {
+    cfg!(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux"
+    ))
 }
 
 pub struct UpdaterSession {
@@ -201,6 +220,11 @@ pub struct UpdaterSession {
     pub update: Option<tauri_plugin_updater::Update>,
     pub downloaded_bytes: Option<Vec<u8>>,
     pub install_scheduled: bool,
+    pub etag_by_channel: HashMap<&'static str, String>,
+    pub pending_manifest_url: Option<String>,
+    pub pending_manifest: Option<KomaReleaseManifest>,
+    pub pending_ui_bundle: Option<UiBundleDescriptor>,
+    pub staged_ui_version: Option<String>,
     progress_emitted_at: Option<Instant>,
 }
 
@@ -212,6 +236,11 @@ impl UpdaterSession {
             update: None,
             downloaded_bytes: None,
             install_scheduled: false,
+            etag_by_channel: HashMap::new(),
+            pending_manifest_url: None,
+            pending_manifest: None,
+            pending_ui_bundle: None,
+            staged_ui_version: None,
             progress_emitted_at: None,
         }
     }
@@ -226,8 +255,12 @@ impl UpdaterSession {
         transition: UpdaterTransition,
     ) {
         self.state.apply(&transition, self.last_channel);
+        self.broadcast(app, updater_transition_event_name(&transition));
+    }
+
+    pub fn broadcast<R: tauri::Runtime>(&self, app: &tauri::AppHandle<R>, event_name: &str) {
         let payload = serde_json::json!({
-            "event": updater_transition_event_name(&transition),
+            "event": event_name,
             "state": self.state,
         });
         if let Err(error) = app.emit(UPDATER_EVENT_CHANNEL, payload) {
@@ -265,13 +298,19 @@ fn ensure_session<'a, R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     guard: &'a mut Option<UpdaterSession>,
 ) -> Result<&'a mut UpdaterSession, String> {
+    let native_version = app.package_info().version.to_string();
+    let ui_version = app
+        .try_state::<HotswapHandle>()
+        .and_then(|handle| handle.active_version());
+    let current = effective_version(&native_version, ui_version.as_deref());
     if guard.is_none() {
-        let version = app.package_info().version.to_string();
-        *guard = Some(UpdaterSession::new(version));
+        *guard = Some(UpdaterSession::new(current.clone()));
     }
-    guard
+    let session = guard
         .as_mut()
-        .ok_or_else(|| "updater session unavailable".to_owned())
+        .ok_or_else(|| "updater session unavailable".to_owned())?;
+    session.state.current_version = current;
+    Ok(session)
 }
 
 pub type UpdaterFlowResult<T> = Result<T, String>;
@@ -280,7 +319,7 @@ pub fn get_state_snapshot<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     store: &InstallerUpdaterStore,
 ) -> Option<UpdaterState> {
-    if !is_supported_runtime(cfg!(dev), cfg!(windows)) {
+    if !is_supported_runtime(cfg!(dev), is_updater_os()) {
         return None;
     }
     let mut guard = store.lock();
@@ -289,17 +328,203 @@ pub fn get_state_snapshot<R: tauri::Runtime>(
         .map(|session| session.state.clone())
 }
 
+pub fn set_auto_install<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    store: &InstallerUpdaterStore,
+    enabled: bool,
+) -> Option<UpdaterState> {
+    if !is_supported_runtime(cfg!(dev), is_updater_os()) {
+        return None;
+    }
+    let mut guard = store.lock();
+    let session = ensure_session(app, &mut guard).ok()?;
+    session.state.auto_install_on_quit = enabled;
+    Some(session.state.clone())
+}
+
+pub fn install_on_quit_if_staged<R: tauri::Runtime>(
+    _app: &tauri::AppHandle<R>,
+    store: &InstallerUpdaterStore,
+) {
+    let staged = {
+        let mut guard = store.lock();
+        let Some(session) = guard.as_mut() else {
+            return;
+        };
+        if !session.state.auto_install_on_quit
+            || session.state.status != UpdaterStatusValue::Downloaded
+            || session.install_scheduled
+        {
+            return;
+        }
+        if session.staged_ui_version.is_some() {
+            return;
+        }
+        match (session.update.take(), session.downloaded_bytes.take()) {
+            (Some(update), Some(bytes)) => {
+                session.install_scheduled = true;
+                Some((update, bytes))
+            }
+            _ => None,
+        }
+    };
+
+    if let Some((update, bytes)) = staged {
+        if let Err(error) = update.install(bytes) {
+            tracing::error!(
+                operation = "updater_install_on_quit",
+                "failed to launch staged installer on exit: {error}"
+            );
+        }
+    }
+}
+
 pub async fn run_check<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     store: &InstallerUpdaterStore,
     channel: &'static str,
 ) -> UpdaterFlowResult<UpdaterState> {
-    {
+    let (cached_etag, current_effective, native_version) = {
         let mut guard = store.lock();
         let session = ensure_session(app, &mut guard)?;
         session.last_channel = channel;
         session.clear_install_latch();
-        session.commit(app, UpdaterTransition::Checking);
+        let etag = session.etag_by_channel.get(channel).cloned();
+        let current_eff = session.state.current_version.clone();
+        if session.state.status != UpdaterStatusValue::Downloaded
+            && session.state.status != UpdaterStatusValue::Downloading
+        {
+            session.commit(app, UpdaterTransition::Checking);
+        }
+        (etag, current_eff, app.package_info().version.to_string())
+    };
+
+    let manifest_fetch = fetch_release_manifest(app, channel, cached_etag.as_deref()).await;
+    match manifest_fetch {
+        Ok(ReleaseManifestFetch::NotModified) => {
+            let mut guard = store.lock();
+            let session = ensure_session(app, &mut guard)?;
+            if session.state.status == UpdaterStatusValue::Downloaded {
+                return Ok(session.state.clone());
+            }
+            if let Some(manifest) = session.pending_manifest.clone() {
+                match decide_update_strategy(
+                    &manifest,
+                    &current_effective,
+                    &native_version,
+                    current_native_abi_version(),
+                    !cfg!(dev),
+                ) {
+                    UpdateStrategy::UpToDate => {
+                        session.update = None;
+                        session.pending_ui_bundle = None;
+                        session.staged_ui_version = None;
+                        session.commit(
+                            app,
+                            UpdaterTransition::NotAvailable {
+                                checked_at: now_ms(),
+                            },
+                        );
+                        return Ok(session.state.clone());
+                    }
+                    UpdateStrategy::UiHotswap(ui_bundle) => {
+                        session.pending_ui_bundle = Some(ui_bundle);
+                        session.state.mandatory = manifest.mandatory;
+                        session.commit(
+                            app,
+                            UpdaterTransition::Available {
+                                version: manifest.version,
+                                release_notes: manifest.release_notes,
+                                checked_at: now_ms(),
+                            },
+                        );
+                        return Ok(session.state.clone());
+                    }
+                    UpdateStrategy::NativeInstaller => {}
+                }
+            }
+        }
+        Ok(ReleaseManifestFetch::Found {
+            manifest,
+            etag,
+            url,
+        }) => {
+            let strategy = decide_update_strategy(
+                &manifest,
+                &current_effective,
+                &native_version,
+                current_native_abi_version(),
+                !cfg!(dev),
+            );
+            let mut guard = store.lock();
+            let session = ensure_session(app, &mut guard)?;
+            if let Some(etag) = etag {
+                session.etag_by_channel.insert(channel, etag);
+            }
+            session.pending_manifest_url = Some(url);
+            session.pending_manifest = Some(manifest.as_ref().clone());
+
+            match strategy {
+                UpdateStrategy::UpToDate => {
+                    session.update = None;
+                    session.downloaded_bytes = None;
+                    session.pending_ui_bundle = None;
+                    session.staged_ui_version = None;
+                    session.state.mandatory = false;
+                    session.commit(
+                        app,
+                        UpdaterTransition::NotAvailable {
+                            checked_at: now_ms(),
+                        },
+                    );
+                    return Ok(session.state.clone());
+                }
+                UpdateStrategy::UiHotswap(ui_bundle) => {
+                    session.update = None;
+                    session.downloaded_bytes = None;
+                    session.staged_ui_version = None;
+                    session.pending_ui_bundle = Some(ui_bundle);
+                    session.state.mandatory = manifest.mandatory;
+                    session.state.blocking = manifest.mandatory;
+                    session.commit(
+                        app,
+                        UpdaterTransition::Available {
+                            version: manifest.version,
+                            release_notes: manifest.release_notes,
+                            checked_at: now_ms(),
+                        },
+                    );
+                    return Ok(session.state.clone());
+                }
+                UpdateStrategy::NativeInstaller => {
+                    session.pending_ui_bundle = None;
+                    session.staged_ui_version = None;
+                    session.state.mandatory = manifest.mandatory;
+                    session.state.blocking = manifest.mandatory;
+                }
+            }
+        }
+        Ok(ReleaseManifestFetch::NotFound) => {
+            let mut guard = store.lock();
+            let session = ensure_session(app, &mut guard)?;
+            session.pending_manifest = None;
+            session.pending_manifest_url = None;
+            session.pending_ui_bundle = None;
+        }
+        Err(error) => {
+            let mut guard = store.lock();
+            let session = ensure_session(app, &mut guard)?;
+            session.update = None;
+            session.downloaded_bytes = None;
+            session.pending_ui_bundle = None;
+            session.commit(
+                app,
+                UpdaterTransition::Failed {
+                    message: error.clone(),
+                },
+            );
+            return Err(error);
+        }
     }
 
     let checked: Result<Option<tauri_plugin_updater::Update>, String> =
@@ -371,12 +596,102 @@ pub async fn run_download<R: tauri::Runtime>(
     }
 
     run_check(app, store, channel).await?;
-    let update = {
+
+    let (ui_task, native_task) = {
         let mut guard = store.lock();
         let session = ensure_session(app, &mut guard)?;
-        session.update.clone()
+        let ui = match (
+            session.pending_ui_bundle.clone(),
+            session.pending_manifest_url.clone(),
+            session.state.new_version.clone(),
+        ) {
+            (Some(bundle), Some(manifest_url), Some(version)) => {
+                Some((bundle, manifest_url, version))
+            }
+            _ => None,
+        };
+        let native = session.update.clone().map(|u| {
+            (
+                u,
+                session.pending_manifest.clone(),
+                session.pending_manifest_url.clone(),
+            )
+        });
+        (ui, native)
+    };
+
+    if let Some((bundle, manifest_url, target_version)) = ui_task {
+        {
+            let mut guard = store.lock();
+            let session = ensure_session(app, &mut guard)?;
+            session.commit(
+                app,
+                UpdaterTransition::Progress {
+                    progress: UpdaterProgressPayload {
+                        percent: 0.0,
+                        transferred: 0,
+                        total: bundle.size,
+                        speed: 0.0,
+                    },
+                },
+            );
+        }
+
+        let callback_app = app.clone();
+        let callback_store = store.clone();
+        let dl_result = download_and_stage_ui_bundle(
+            app,
+            &manifest_url,
+            &bundle,
+            &target_version,
+            move |transferred, total, speed| {
+                let mut guard = callback_store.lock();
+                let Some(session) = guard.as_mut() else {
+                    return;
+                };
+                session.commit(
+                    &callback_app,
+                    UpdaterTransition::Progress {
+                        progress: UpdaterProgressPayload {
+                            percent: progress_percent(transferred, Some(total)),
+                            transferred,
+                            total,
+                            speed,
+                        },
+                    },
+                );
+            },
+        )
+        .await;
+
+        let mut guard = store.lock();
+        let session = ensure_session(app, &mut guard)?;
+        return match dl_result {
+            Ok(()) => {
+                session.staged_ui_version = Some(target_version);
+                session.downloaded_bytes = None;
+                session.commit(
+                    app,
+                    UpdaterTransition::Downloaded {
+                        downloaded_at: now_ms(),
+                    },
+                );
+                Ok(())
+            }
+            Err(error) => {
+                session.commit(
+                    app,
+                    UpdaterTransition::Failed {
+                        message: error.clone(),
+                    },
+                );
+                Err(error)
+            }
+        };
     }
-    .ok_or_else(|| "No update is available for this platform.".to_owned())?;
+
+    let (update, pending_manifest, pending_manifest_url) =
+        native_task.ok_or_else(|| "No update is available for this platform.".to_owned())?;
 
     {
         let mut guard = store.lock();
@@ -394,48 +709,110 @@ pub async fn run_download<R: tauri::Runtime>(
         );
     }
 
-    let callback_app = app.clone();
-    let callback_store = store.clone();
-    let mut transferred: u64 = 0;
-    let mut speed_base: Option<(Instant, u64)> = None;
-    let download_result = update
-        .download(
-            move |chunk: usize, total: Option<u64>| {
-                transferred += chunk as u64;
-                let mut guard = callback_store.lock();
-                let Some(session) = guard.as_mut() else {
-                    return;
-                };
-                if !session.should_emit_progress() {
-                    return;
-                }
-                let speed = match speed_base {
-                    Some((instant, base_bytes)) => {
-                        let elapsed = instant.elapsed().as_secs_f64();
-                        if elapsed > 0.0 {
-                            (transferred - base_bytes) as f64 / elapsed
-                        } else {
-                            0.0
-                        }
-                    }
-                    None => 0.0,
-                };
-                speed_base = Some((Instant::now(), transferred));
-                session.commit(
-                    &callback_app,
-                    UpdaterTransition::Progress {
-                        progress: UpdaterProgressPayload {
-                            percent: progress_percent(transferred, total),
-                            transferred,
-                            total: total.unwrap_or_default(),
-                            speed,
-                        },
+    let native_pkg_version = app.package_info().version.to_string();
+    let delta_bytes = if let (Some(manifest), Some(manifest_url)) =
+        (pending_manifest.as_ref(), pending_manifest_url.as_deref())
+    {
+        if let Some(delta) = manifest.native_deltas.get(&update.target) {
+            if delta.from_version == native_pkg_version {
+                let delta_app = app.clone();
+                let delta_store = store.clone();
+                let started = Instant::now();
+                let candidate = try_download_and_reconstruct_delta(
+                    app,
+                    manifest_url,
+                    delta,
+                    &update.target,
+                    move |transferred, total| {
+                        let mut guard = delta_store.lock();
+                        let Some(session) = guard.as_mut() else {
+                            return;
+                        };
+                        let elapsed = started.elapsed().as_secs_f64().max(0.001);
+                        session.commit(
+                            &delta_app,
+                            UpdaterTransition::Progress {
+                                progress: UpdaterProgressPayload {
+                                    percent: progress_percent(transferred, Some(total)),
+                                    transferred,
+                                    total,
+                                    speed: (transferred as f64) / elapsed,
+                                },
+                            },
+                        );
                     },
-                );
-            },
-            || {},
-        )
-        .await;
+                )
+                .await;
+
+                candidate.filter(|bytes| {
+                    verify_minisign_bytes(UPDATER_MINISIGN_PUBKEY, bytes, &update.signature)
+                        .and_then(|comment| {
+                            verify_minisign_trusted_version(&comment, &update.version, true)
+                        })
+                        .is_ok()
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let download_result = match delta_bytes {
+        Some(bytes) => Ok(bytes),
+        None => {
+            let callback_app = app.clone();
+            let callback_store = store.clone();
+            let mut transferred: u64 = 0;
+            let mut speed_base: Option<(Instant, u64)> = None;
+            update
+                .download(
+                    move |chunk: usize, total: Option<u64>| {
+                        transferred += chunk as u64;
+                        let mut guard = callback_store.lock();
+                        let Some(session) = guard.as_mut() else {
+                            return;
+                        };
+                        if !session.should_emit_progress() {
+                            return;
+                        }
+                        let speed = match speed_base {
+                            Some((instant, base_bytes)) => {
+                                let elapsed = instant.elapsed().as_secs_f64();
+                                if elapsed > 0.0 {
+                                    (transferred - base_bytes) as f64 / elapsed
+                                } else {
+                                    0.0
+                                }
+                            }
+                            None => 0.0,
+                        };
+                        speed_base = Some((Instant::now(), transferred));
+                        session.commit(
+                            &callback_app,
+                            UpdaterTransition::Progress {
+                                progress: UpdaterProgressPayload {
+                                    percent: progress_percent(transferred, total),
+                                    transferred,
+                                    total: total.unwrap_or_default(),
+                                    speed,
+                                },
+                            },
+                        );
+                    },
+                    || {},
+                )
+                .await
+                .map_err(|error| error.to_string())
+        }
+    };
+
+    if let Ok(ref bytes) = download_result {
+        cache_verified_installer(app, &update.version, &update.target, bytes);
+    }
 
     let mut guard = store.lock();
     let session = ensure_session(app, &mut guard)?;
@@ -469,10 +846,10 @@ pub async fn run_download<R: tauri::Runtime>(
             session.commit(
                 app,
                 UpdaterTransition::Failed {
-                    message: error.to_string(),
+                    message: error.clone(),
                 },
             );
-            Err(error.to_string())
+            Err(error)
         }
     }
 }
@@ -481,7 +858,7 @@ pub fn run_install<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     store: &InstallerUpdaterStore,
 ) -> UpdaterFlowResult<()> {
-    let (update, bytes) = {
+    let (staged_ui, native) = {
         let mut guard = store.lock();
         let session = ensure_session(app, &mut guard)?;
         if session.state.status != UpdaterStatusValue::Downloaded {
@@ -490,16 +867,52 @@ pub fn run_install<R: tauri::Runtime>(
         if session.install_scheduled {
             return Err("Update installation is already in progress.".to_owned());
         }
-        session.install_scheduled = true;
-        match (session.update.clone(), session.downloaded_bytes.take()) {
-            (Some(update), Some(bytes)) => (update, bytes),
-            _ => {
-                session.install_scheduled = false;
-                return Err("No downloaded update is ready to install.".to_owned());
+        if let Some(ui_ver) = session.staged_ui_version.clone() {
+            session.install_scheduled = true;
+            (Some(ui_ver), None)
+        } else {
+            session.install_scheduled = true;
+            match (session.update.clone(), session.downloaded_bytes.take()) {
+                (Some(update), Some(bytes)) => (None, Some((update, bytes))),
+                _ => {
+                    session.install_scheduled = false;
+                    return Err("No downloaded update is ready to install.".to_owned());
+                }
             }
         }
     };
 
+    if let Some(staged_version) = staged_ui {
+        let handle = app.state::<HotswapHandle>();
+        let apply_res = apply_staged_ui_hotswap(app, &handle, &staged_version);
+        let mut guard = store.lock();
+        if let Some(session) = guard.as_mut() {
+            session.install_scheduled = false;
+            match apply_res {
+                Ok(()) => {
+                    session.state.current_version = staged_version;
+                    session.state.new_version = None;
+                    session.state.progress = None;
+                    session.state.downloaded_at = None;
+                    session.staged_ui_version = None;
+                    session.pending_ui_bundle = None;
+                    session.state.status = UpdaterStatusValue::NotAvailable;
+                    session.broadcast(app, "not-available");
+                }
+                Err(ref error) => {
+                    session.commit(
+                        app,
+                        UpdaterTransition::Failed {
+                            message: error.clone(),
+                        },
+                    );
+                }
+            }
+        }
+        return apply_res;
+    }
+
+    let (update, bytes) = native.ok_or_else(|| "No downloaded update is ready to install.".to_owned())?;
     let spawn_app = app.clone();
     let spawn_store = store.clone();
     tauri::async_runtime::spawn(async move {
@@ -523,159 +936,5 @@ pub fn run_install<R: tauri::Runtime>(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn initial() -> UpdaterState {
-        UpdaterState::initial("1.3.1".to_owned())
-    }
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct GoldenScenario {
-        name: String,
-        initial_version: String,
-        channel: String,
-        #[serde(default)]
-        pre_transitions: Vec<UpdaterTransition>,
-        transition: UpdaterTransition,
-        expected_state: UpdaterState,
-    }
-
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct GoldenFixture {
-        scenarios: Vec<GoldenScenario>,
-    }
-
-    #[test]
-    fn initial_state_carries_safe_defaults() {
-        let state = initial();
-        assert_eq!(state.status, UpdaterStatusValue::Idle);
-        assert_eq!(state.current_version, "1.3.1");
-        assert_eq!(state.channel, "stable");
-        assert_eq!(state.provider, "github");
-        assert!(state.auto_install_on_quit);
-        assert!(!state.allow_prerelease);
-        assert_eq!(state.progress, None);
-        assert_eq!(state.blocking_reason, None);
-    }
-
-    #[test]
-    fn golden_fixture_pins_reducer_parity_with_the_electron_shell() {
-        let raw = include_str!(
-            "../../../../../../apps/electron/scripts/fixtures/updater-transitions.golden.json"
-        );
-        let golden: GoldenFixture = serde_json::from_str(raw).expect("parse golden fixture");
-        assert!(
-            !golden.scenarios.is_empty(),
-            "the fixture carries scenarios"
-        );
-
-        for scenario in &golden.scenarios {
-            let mut state = UpdaterState::initial(scenario.initial_version.clone());
-            for transition in &scenario.pre_transitions {
-                state.apply(transition, &scenario.channel);
-            }
-            state.apply(&scenario.transition, &scenario.channel);
-            assert_eq!(
-                state, scenario.expected_state,
-                "scenario: {}",
-                scenario.name
-            );
-        }
-    }
-
-    #[test]
-    fn status_serializes_with_kebab_case_values() {
-        let state = initial();
-        let json = serde_json::to_value(&state).expect("serialize");
-        assert_eq!(json["status"], "idle");
-
-        let mut unavailable = initial();
-        unavailable.apply(&UpdaterTransition::NotAvailable { checked_at: 0 }, "stable");
-        let json = serde_json::to_value(&unavailable).expect("serialize");
-        assert_eq!(json["status"], "not-available");
-        assert_eq!(json["currentVersion"], "1.3.1");
-        assert_eq!(json["autoInstallOnQuit"], true);
-        assert_eq!(json["blockingReason"], serde_json::Value::Null);
-    }
-
-    #[test]
-    fn transitions_serialize_with_the_golden_wire_tags() {
-        let json = serde_json::to_value(UpdaterTransition::Checking).expect("serialize");
-        assert_eq!(json["type"], "checking");
-
-        let json = serde_json::to_value(UpdaterTransition::NotAvailable { checked_at: 1 })
-            .expect("serialize");
-        assert_eq!(json["type"], "not-available");
-
-        let json = serde_json::to_value(UpdaterTransition::Failed {
-            message: "x".into(),
-        })
-        .expect("serialize");
-        assert_eq!(json["type"], "error");
-        assert_eq!(json["message"], "x");
-    }
-
-    #[test]
-    fn channel_parsing_is_strict() {
-        assert_eq!(parse_channel("stable"), Ok("stable"));
-        assert_eq!(parse_channel("beta"), Ok("beta"));
-        assert!(parse_channel("canary").is_err());
-        assert!(parse_channel("").is_err());
-    }
-
-    #[test]
-    fn beta_channel_overrides_the_feed_and_stable_keeps_the_configured_endpoint() {
-        let feed = updater_feed_override("beta").expect("beta feed parses");
-        assert_eq!(
-            feed.as_ref().map(url::Url::as_str),
-            Some("https://github.com/klaus-2/koma-studio/releases/download/beta/latest.json")
-        );
-        assert_eq!(updater_feed_override("stable").expect("stable parses"), None);
-        assert_eq!(updater_feed_override("canary").expect("unknown parses"), None);
-        for channel in ["stable", "beta"] {
-            let parsed = parse_channel(channel).expect("channel accepted by parse_channel");
-            let overrides = updater_feed_override(parsed)
-                .expect("override parses")
-                .is_some();
-            assert_eq!(
-                overrides,
-                channel == "beta",
-                "channel {channel} must resolve to the beta feed iff it is beta"
-            );
-        }
-    }
-
-    #[test]
-    fn progress_percent_handles_unknown_and_zero_totals() {
-        assert_eq!(progress_percent(50, Some(100)), 50.0);
-        assert_eq!(progress_percent(150, Some(100)), 100.0);
-        assert_eq!(progress_percent(50, None), 0.0);
-        assert_eq!(progress_percent(50, Some(0)), 0.0);
-    }
-
-    #[test]
-    fn support_gate_matches_the_electron_rule() {
-        assert!(
-            !is_supported_runtime(true, true),
-            "dev builds are never supported"
-        );
-        assert!(
-            !is_supported_runtime(false, false),
-            "non-Windows is out of the feed"
-        );
-        assert!(is_supported_runtime(false, true));
-    }
-
-    #[test]
-    fn progress_throttle_requires_an_interval() {
-        let mut session = UpdaterSession::new("1.3.1".to_owned());
-        assert!(session.should_emit_progress(), "first chunk always emits");
-        assert!(
-            !session.should_emit_progress(),
-            "immediate second chunk is throttled"
-        );
-    }
-}
+#[path = "updater_tests.rs"]
+mod tests;

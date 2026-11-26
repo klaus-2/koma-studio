@@ -75,8 +75,27 @@ export const UpdateToastClassic = () => {
   }, [updater.currentVersion, updater.error, updater.newVersion, updater.status]);
 
   const toastContent = useMemo(() => {
+    if (updater.status === "downloaded")
+      return {
+        downloaded: true,
+        title: t("update.modal.restartToUpdate"),
+        description: t("update.toast.availableDescription", {
+          version: updater.newVersion ?? t("update.toast.newVersionFallback"),
+          channel: updater.channel === "beta" ? t("update.channel.beta") : t("update.channel.stable"),
+        }),
+        icon: (
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ),
+      };
     if (updater.status === "available")
       return {
+        downloaded: false,
         title: t("update.toast.availableTitle"),
         description: t("update.toast.availableDescription", {
           version: updater.newVersion ?? t("update.toast.newVersionFallback"),
@@ -95,7 +114,8 @@ export const UpdateToastClassic = () => {
     return null;
   }, [t, updater.channel, updater.newVersion, updater.status]);
 
-  const shouldShowBanner = toastContent !== null && dismissed !== dismissedKey && !sync.running;
+  const shouldShowBanner =
+    toastContent !== null && (toastContent.downloaded || dismissed !== dismissedKey) && !sync.running;
 
   return (
     <>
@@ -124,10 +144,18 @@ export const UpdateToastClassic = () => {
           <div className="koma-toast__actions">
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                if (toastContent.downloaded) {
+                  void updater.installUpdate();
+                } else {
+                  setModalOpen(true);
+                }
+              }}
               className="koma-toast__btn koma-toast__btn--primary"
             >
-              {t("update.button.updateNow")}
+              {toastContent.downloaded
+                ? t("update.modal.restartToUpdate")
+                : t("update.button.updateNow")}
             </button>
             <button
               type="button"

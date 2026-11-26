@@ -14,7 +14,7 @@ use super::types::{
     RUNTIME_RETRYABLE_HTTP_STATUSES, RuntimeError,
 };
 
-pub(super) fn progress_snapshot(
+pub(crate) fn progress_snapshot(
     transferred_bytes: u64,
     total_bytes: u64,
     speed_bytes_per_second: f64,
@@ -32,7 +32,7 @@ pub(super) fn progress_snapshot(
     }
 }
 
-pub(super) fn existing_download_bytes(
+pub(crate) fn existing_download_bytes(
     output_path: &Path,
     expected_total_bytes: u64,
 ) -> Result<u64, RuntimeError> {
@@ -47,7 +47,7 @@ pub(super) fn existing_download_bytes(
     Ok(size)
 }
 
-pub(super) fn ensure_runtime_disk_space(
+pub(crate) fn ensure_runtime_disk_space(
     targets: &[&Path],
     required_bytes: u64,
 ) -> Result<(), RuntimeError> {
@@ -70,7 +70,7 @@ pub(super) fn ensure_runtime_disk_space(
     Ok(())
 }
 
-pub(super) fn estimate_runtime_install_required_bytes(archive_bytes: u64) -> u64 {
+pub(crate) fn estimate_runtime_install_required_bytes(archive_bytes: u64) -> u64 {
     MIN_RUNTIME_INSTALL_REQUIRED_BYTES.max(archive_bytes.saturating_mul(3))
 }
 
@@ -88,7 +88,7 @@ fn existing_ancestor(path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub(super) fn sha512_base64_file(path: &Path) -> Result<String, RuntimeError> {
+pub(crate) fn sha512_base64_file(path: &Path) -> Result<String, RuntimeError> {
     let mut file = File::open(path)?;
     let mut hasher = Sha512::new();
     let mut buffer = [0_u8; 64 * 1024];
@@ -135,7 +135,7 @@ pub(super) fn extract_runtime_archive(
     Ok(())
 }
 
-pub(super) fn resolve_runtime_transfer_timeout(expected_total_bytes: u64) -> Duration {
+pub(crate) fn resolve_runtime_transfer_timeout(expected_total_bytes: u64) -> Duration {
     if expected_total_bytes == 0 {
         return Duration::from_secs(2 * 60 * 60);
     }
@@ -143,11 +143,11 @@ pub(super) fn resolve_runtime_transfer_timeout(expected_total_bytes: u64) -> Dur
     Duration::from_secs((transfer_seconds + 5 * 60).clamp(30 * 60, 8 * 60 * 60))
 }
 
-pub(super) fn is_retryable_status(status: u16) -> bool {
+pub(crate) fn is_retryable_status(status: u16) -> bool {
     RUNTIME_RETRYABLE_HTTP_STATUSES.contains(&status)
 }
 
-pub(super) fn is_retryable_error(error: &RuntimeError) -> bool {
+pub(crate) fn is_retryable_error(error: &RuntimeError) -> bool {
     match error {
         RuntimeError::Integrity(_) => false,
         RuntimeError::Io(_) => false,

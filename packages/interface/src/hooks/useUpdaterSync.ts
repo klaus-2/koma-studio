@@ -42,8 +42,22 @@ export const updaterSyncStateEquivalent = (
     left.logLines[left.logLines.length - 1] === right.logLines[right.logLines.length - 1] &&
     left.dirtyFiles.join("\n") === right.dirtyFiles.join("\n"));
 
+export const isSourceSyncVisible = (): boolean => {
+  try {
+    if (desktopBridge.getRuntimeConfig()?.appPackaged === true) {
+      return false;
+    }
+    return (desktopBridge.updaterSync ?? null) !== null;
+  } catch {
+    return false;
+  }
+};
+
 export const useUpdaterSync = (): UseUpdaterSyncApi => {
-  const bridge = useMemo(() => desktopBridge.updaterSync ?? null, []);
+  const bridge = useMemo(
+    () => (isSourceSyncVisible() ? desktopBridge.updaterSync ?? null : null),
+    [],
+  );
   const [state, setState] = useState<UpdaterSyncState>(createInitialUpdaterSyncState);
 
   useEffect(() => {

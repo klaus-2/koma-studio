@@ -72,8 +72,20 @@ export const UpdateToastNoir = () => {
   }, [updater.currentVersion, updater.error, updater.newVersion, updater.status]);
 
   const toastContent = useMemo(() => {
+    if (updater.status === "downloaded")
+      return {
+        downloaded: true,
+        tone: "crimson" as const,
+        title: t("update.modal.restartToUpdate"),
+        description: t("update.toast.availableDescription", {
+          version: updater.newVersion ?? t("update.toast.newVersionFallback"),
+          channel: updater.channel === "beta" ? t("update.channel.beta") : t("update.channel.stable"),
+        }),
+        icon: <DownloadCloud size={16} />,
+      };
     if (updater.status === "available")
       return {
+        downloaded: false,
         tone: "crimson" as const,
         title: t("update.toast.availableTitle"),
         description: t("update.toast.availableDescription", {
@@ -85,7 +97,8 @@ export const UpdateToastNoir = () => {
     return null;
   }, [t, updater.channel, updater.newVersion, updater.status]);
 
-  const shouldShowBanner = toastContent !== null && dismissed !== dismissedKey && !sync.running;
+  const shouldShowBanner =
+    toastContent !== null && (toastContent.downloaded || dismissed !== dismissedKey) && !sync.running;
 
   const toneCls = { bar: "bg-crimson", icon: "border-crimson bg-crimson/10 text-crimson" };
 
@@ -129,8 +142,20 @@ export const UpdateToastNoir = () => {
             </div>
 
             <div className="mt-3 flex gap-2 border-t border-paper/8 pt-3">
-              <button type="button" onClick={() => setModalOpen(true)} className={`${btnPrimary} flex-1`}>
-                {t("update.button.updateNow")}
+              <button
+                type="button"
+                onClick={() => {
+                  if (toastContent.downloaded) {
+                    void updater.installUpdate();
+                  } else {
+                    setModalOpen(true);
+                  }
+                }}
+                className={`${btnPrimary} flex-1`}
+              >
+                {toastContent.downloaded
+                  ? t("update.modal.restartToUpdate")
+                  : t("update.button.updateNow")}
               </button>
               <button type="button" onClick={() => setModalOpen(true)} className={btnGhost}>
                 {t("update.button.details")}

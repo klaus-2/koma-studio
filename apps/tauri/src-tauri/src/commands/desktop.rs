@@ -432,6 +432,13 @@ pub fn reset_local_settings_at(
         }
     }
 
+    let layered_state = user_data_dir
+        .join("mini-backend-runtimes")
+        .join(crate::runtime::layered::manifest::LAYERED_STATE_FILE_NAME);
+    if remove_path_if_present(&layered_state).map_err(|_| DesktopError::ClearLocalSettings)? {
+        cleared_paths.push(layered_state.to_string_lossy().into_owned());
+    }
+
     tracing::info!(
         operation = "reset_local_settings",
         removed_count = cleared_paths.len(),

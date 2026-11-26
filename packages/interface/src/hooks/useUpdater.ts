@@ -6,7 +6,6 @@ import { fetchWithTimeoutAndRetry } from "../utils/http";
 import { desktopBridge } from "@/lib/desktop-bridge";
 
 import { useInstallerUpdaterBridge } from "./useInstallerUpdaterBridge";
-import type { IUpdaterBridge } from "@shared/desktop-api";
 import type {
   UpdaterChannel,
   UpdaterProgress,
@@ -30,7 +29,8 @@ const installFailureMessage = (error: unknown): string =>
 const CHANNEL_STORAGE_KEY = "updater-channel";
 const CHANNEL_STORAGE_EXPLICIT_KEY = "updater-channel-explicit";
 const CHECK_DELAY_MS = 8_000;
-const PERIODIC_CHECK_MS = 60 * 1_000;
+const PERIODIC_CHECK_MS = 4 * 60 * 60 * 1_000;
+const FOCUS_COOLDOWN_MS = 30 * 60 * 1_000;
 // api.github.com allows 60 req/h per IP unauthenticated — back off before retrying.
 const MAX_BACKOFF_ATTEMPTS = 4;
 
@@ -118,6 +118,21 @@ interface GithubReleasePayload {
   draft?: boolean;
   prerelease?: boolean;
 }
+
+interface StaticReleaseManifestPayload {
+  schemaVersion?: number;
+  version?: string;
+  channel?: string;
+  releaseNotes?: string | null;
+}
+
+const isStaticManifestPayload = (value: unknown): value is StaticReleaseManifestPayload => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return candidate.schemaVersion === 1 && typeof candidate.version === "string";
+};
 
 const normalizeVersion = (value: string | null | undefined): string => {
   if (!value) {
@@ -220,41 +235,6 @@ export const compareVersions = (a: string, b: string): number => {
   return comparePrerelease(left.prerelease ?? "", right.prerelease ?? "");
 };
 
-const fetchGithubRelease = async (
-  channel: UpdaterChannel,
-): Promise<GithubReleasePayload | null> => {
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
-
-  if (channel === "stable") {
-    const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`, {
-      headers,
-    });
-    if (!response.ok) {
-      throw new Error(`GitHub API respondeu ${response.status}.`);
-    }
-    return (await response.json()) as GithubReleasePayload;
-  }
-
-  const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=20`, {
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(`GitHub API respondeu ${response.status}.`);
-  }
-
-  const releases = (await response.json()) as GithubReleasePayload[];
-  const match = releases.find(
-    (release) =>
-      !release.draft &&
-      typeof release.tag_name === "string" &&
-      (BETA_TAG_PATTERN.test(release.tag_name) || STABLE_TAG_PATTERN.test(release.tag_name)),
-  );
-  return match ?? null;
-};
-
 const buildReleasePageUrl = (
   channel: UpdaterChannel,
   version: string | null,
@@ -268,6 +248,80 @@ const buildReleasePageUrl = (
     return `${base}/latest`;
   }
   return base;
+};
+
+const parseGithubReleaseJson = (
+  raw: unknown,
+  channel: UpdaterChannel,
+): GithubReleasePayload | null => {
+  if (isStaticManifestPayload(raw) && raw.version) {
+    const version = normalizeVersion(raw.version);
+    return {
+      tag_name: `v${version}`,
+      name: `KOMA Studio ${version}`,
+      body: typeof raw.releaseNotes === "string" ? raw.releaseNotes : undefined,
+      html_url: buildReleasePageUrl(channel, version),
+      draft: false,
+      prerelease: raw.channel === "beta",
+    };
+  }
+  if (Array.isArray(raw)) {
+    const releases = raw as GithubReleasePayload[];
+    const match = releases.find(
+      (release) =>
+        !release.draft &&
+        typeof release.tag_name === "string" &&
+        (BETA_TAG_PATTERN.test(release.tag_name) || STABLE_TAG_PATTERN.test(release.tag_name)),
+    );
+    return match ?? null;
+  }
+  if (raw && typeof raw === "object") {
+    return raw as GithubReleasePayload;
+  }
+  return null;
+};
+
+const staticManifestUrlForChannel = (channel: UpdaterChannel): string =>
+  channel === "beta"
+    ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/beta/koma-release-manifest.json`
+    : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/koma-release-manifest.json`;
+
+const fetchGithubRelease = async (
+  channel: UpdaterChannel,
+): Promise<GithubReleasePayload | null> => {
+  try {
+    const staticRes = await fetchWithTimeoutAndRetry(staticManifestUrlForChannel(channel));
+    if (staticRes.ok) {
+      return parseGithubReleaseJson(await staticRes.json(), channel);
+    }
+  } catch {
+  }
+
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  if (channel === "stable") {
+    const response = await fetchWithTimeoutAndRetry(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      { headers },
+    );
+    if (!response.ok) {
+      throw new Error(`GitHub API respondeu ${response.status}.`);
+    }
+    return parseGithubReleaseJson(await response.json(), channel);
+  }
+
+  const response = await fetchWithTimeoutAndRetry(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=20`,
+    { headers },
+  );
+  if (!response.ok) {
+    throw new Error(`GitHub API respondeu ${response.status}.`);
+  }
+
+  return parseGithubReleaseJson(await response.json(), channel);
 };
 
 export interface UseUpdaterApi {
@@ -309,19 +363,11 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
   const [state, dispatch] = useReducer(updaterStateReducer, null, createInitialState);
   const releasePageUrlRef = useRef<string | null>(null);
   const githubBackoffAttemptsRef = useRef(0);
+  const lastCheckAttemptAtRef = useRef<number>(0);
 
   const patchState = useCallback((patch: Partial<UpdaterState>) => {
     dispatch(patch);
   }, []);
-
-  const installStagedUpdate = useCallback((bridge: IUpdaterBridge): void => {
-    void bridge.install().catch((error: unknown) => {
-      patchState({
-        status: "error",
-        error: installFailureMessage(error),
-      });
-    });
-  }, [patchState]);
 
   const statusRef = useRef<UpdaterStatus>(state.status);
 
@@ -332,15 +378,24 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
   const { autoInstallSupported, updaterBridgeRef } = useInstallerUpdaterBridge({
     patchState,
     statusRef,
-    installStagedUpdate,
   });
 
   const runGithubCheck = useCallback(async (
     channelOverride?: UpdaterChannel,
-    options?: { background?: boolean },
+    options?: { background?: boolean; reason?: "focus" | "timer" },
   ): Promise<void> => {
     const installedVersion = state.currentVersion;
     if (!installedVersion) {
+      return;
+    }
+
+    const now = Date.now();
+    if (
+      options?.background &&
+      options.reason === "focus" &&
+      lastCheckAttemptAtRef.current > 0 &&
+      now - lastCheckAttemptAtRef.current < FOCUS_COOLDOWN_MS
+    ) {
       return;
     }
 
@@ -350,7 +405,9 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
       return;
     }
 
+    lastCheckAttemptAtRef.current = now;
     const effectiveChannel = channelOverride ?? state.channel;
+    const nativeCheck = updaterBridgeRef.current?.check;
 
     if (!lifecycleActive) {
       patchState({
@@ -358,8 +415,50 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
         provider: "github",
         error: null,
         progress: null,
-        checkedAt: Date.now(),
+        checkedAt: now,
       });
+    }
+
+    if (nativeCheck) {
+      try {
+        const nextState = await nativeCheck({ channel: effectiveChannel });
+        githubBackoffAttemptsRef.current = 0;
+        if (nextState) {
+          releasePageUrlRef.current = buildReleasePageUrl(
+            effectiveChannel,
+            nextState.newVersion,
+          );
+          if (lifecycleActive) {
+            patchState({
+              newVersion: nextState.newVersion,
+              releaseNotes: nextState.releaseNotes,
+              checkedAt: nextState.checkedAt ?? Date.now(),
+            });
+            return;
+          }
+          patchState({
+            status: nextState.status,
+            currentVersion: nextState.currentVersion ?? state.currentVersion,
+            newVersion: nextState.newVersion,
+            mandatory: nextState.mandatory,
+            blocking: nextState.blocking,
+            blockingReason: nextState.blockingReason,
+            releaseNotes: nextState.releaseNotes,
+            checkedAt: nextState.checkedAt ?? Date.now(),
+            error: nextState.error,
+          });
+        }
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to check for updates.";
+        if (!lifecycleActive) {
+          patchState({
+            status: "error",
+            error: `Failed to check for updates: ${message}`,
+          });
+        }
+        return;
+      }
     }
 
     try {
@@ -450,7 +549,7 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
         error: `Failed to check for updates: ${message}`,
       });
     }
-  }, [patchState, state.channel, state.currentVersion]);
+  }, [patchState, state.channel, state.currentVersion, updaterBridgeRef]);
 
   useEffect(() => {
     const storedChannel = localStorage.getItem(CHANNEL_STORAGE_KEY);
@@ -469,10 +568,10 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const tick = (): void => {
-      void runGithubCheck(undefined, { background: true }).finally(() => {
+      void runGithubCheck(undefined, { background: true, reason: "timer" }).finally(() => {
         if (cancelled) return;
         const attempts = githubBackoffAttemptsRef.current;
-        const delay = Math.min(PERIODIC_CHECK_MS * 2 ** attempts, PERIODIC_CHECK_MS * 8);
+        const delay = Math.min(PERIODIC_CHECK_MS * 2 ** attempts, PERIODIC_CHECK_MS * 4);
         timer = setTimeout(tick, delay);
       });
     };
@@ -497,7 +596,7 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
         return;
       }
 
-      void runGithubCheck(undefined, { background: true });
+      void runGithubCheck(undefined, { background: true, reason: "focus" });
     };
 
     window.addEventListener("focus", handleForegroundCheck);
@@ -637,6 +736,13 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
       patchState({
         autoInstallOnQuit: enabled,
       });
+      try {
+        const nextState = await updaterBridgeRef.current?.setAutoInstall?.({ enabled });
+        if (nextState) {
+          patchState({ autoInstallOnQuit: nextState.autoInstallOnQuit });
+        }
+      } catch {
+      }
     },
   }), [
     autoInstallSupported,
@@ -657,6 +763,7 @@ const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } 
     state.releaseNotes,
     state.status,
     t,
+    updaterBridgeRef,
   ]);
 
   const progress = useMemo<UpdaterProgress>(

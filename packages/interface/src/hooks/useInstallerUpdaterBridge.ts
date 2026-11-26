@@ -17,13 +17,12 @@ export interface InstallerUpdaterBridgeHandle {
 interface UseInstallerUpdaterBridgeOptions {
   patchState: (patch: Partial<UpdaterState>) => void;
   statusRef: React.RefObject<UpdaterStatus>;
-  installStagedUpdate: (bridge: IUpdaterBridge) => void;
 }
 
 export const useInstallerUpdaterBridge = (
   options: UseInstallerUpdaterBridgeOptions,
 ): InstallerUpdaterBridgeHandle => {
-  const { patchState, statusRef, installStagedUpdate } = options;
+  const { patchState, statusRef } = options;
   const [autoInstallSupported, setAutoInstallSupported] = useState(false);
   const updaterBridgeRef = useRef<IUpdaterBridge | null>(null);
 
@@ -35,8 +34,47 @@ export const useInstallerUpdaterBridge = (
 
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
+    let ackRafId = 0;
 
     const handleUpdaterEvent = (payload: UpdaterEventPayload): void => {
+      if (payload.event === "checking") {
+        patchState({
+          status: "checking",
+          error: null,
+          progress: null,
+          checkedAt: payload.state.checkedAt,
+        });
+        return;
+      }
+      if (payload.event === "available") {
+        patchState({
+          status: "available",
+          newVersion: payload.state.newVersion,
+          mandatory: payload.state.mandatory,
+          blocking: payload.state.blocking,
+          blockingReason: payload.state.blockingReason,
+          releaseNotes: payload.state.releaseNotes,
+          checkedAt: payload.state.checkedAt,
+          error: null,
+        });
+        return;
+      }
+      if (payload.event === "not-available") {
+        patchState({
+          status: "not-available",
+          currentVersion: payload.state.currentVersion,
+          newVersion: null,
+          mandatory: false,
+          blocking: false,
+          blockingReason: null,
+          releaseNotes: null,
+          progress: null,
+          downloadedAt: null,
+          checkedAt: payload.state.checkedAt,
+          error: null,
+        });
+        return;
+      }
       if (payload.event === "progress") {
         patchState({
           status: "downloading",
@@ -50,13 +88,15 @@ export const useInstallerUpdaterBridge = (
           status: "downloaded",
           progress: payload.state.progress,
           downloadedAt: payload.state.downloadedAt,
+          error: null,
         });
-        installStagedUpdate(bridge);
         return;
       }
       if (
         payload.event === "error" &&
-        (statusRef.current === "downloading" || statusRef.current === "downloaded")
+        (statusRef.current === "downloading" ||
+          statusRef.current === "downloaded" ||
+          statusRef.current === "checking")
       ) {
         patchState({
           status: "error",
@@ -71,6 +111,10 @@ export const useInstallerUpdaterBridge = (
       }
       updaterBridgeRef.current = bridge;
       setAutoInstallSupported(true);
+      patchState({
+        autoInstallOnQuit: bridgeState.autoInstallOnQuit,
+        ...(bridgeState.currentVersion ? { currentVersion: bridgeState.currentVersion } : {}),
+      });
       if (
         bridgeState.status === "downloading" ||
         bridgeState.status === "downloaded" ||
@@ -83,16 +127,21 @@ export const useInstallerUpdaterBridge = (
           error: bridgeState.error,
         });
       }
-      if (bridgeState.status === "downloaded") {
-        installStagedUpdate(bridge);
-      }
       unsubscribe = bridge.on(handleUpdaterEvent);
+      if (bridge.ackUiReady) {
+        ackRafId = requestAnimationFrame(() => {
+          void bridge.ackUiReady?.().catch(() => {});
+        });
+      }
     }).catch((error: unknown) => {
       console.warn("[updater] installer bridge getState failed:", error);
     });
 
     return () => {
       cancelled = true;
+      if (ackRafId !== 0) {
+        cancelAnimationFrame(ackRafId);
+      }
       unsubscribe?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use super::archive::{estimate_runtime_install_required_bytes, is_retryable_error};
 use super::selection::{
     ensure_manifest_schema_v2, is_manifest_for_current_platform, list_artifact_options, node_arch,
-    node_platform, normalize_profile_override, resolve_manifest_url_for_platform,
+    node_platform, normalize_profile_override, resolve_acceleration_profile,
+    resolve_manifest_url_for_platform,
 };
 use super::types::{
     MIN_RUNTIME_INSTALL_REQUIRED_BYTES, MiniBackendRuntimeArtifactManifest,
@@ -228,4 +229,48 @@ fn extraction_restores_the_executable_bit_from_zip_modes() {
     assert_eq!(mode & 0o111, 0o111, "the entry must stay executable");
 
     fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn resolves_acceleration_profile_across_platforms() {
+    assert_eq!(
+        resolve_acceleration_profile(
+            "win32",
+            "x86_64",
+            None,
+            &["AMD Radeon RX 7800 XT".to_string()]
+        ),
+        "windows-directml"
+    );
+    assert_eq!(
+        resolve_acceleration_profile(
+            "linux",
+            "x86_64",
+            None,
+            &["AMD Radeon RX 7800 XT".to_string()]
+        ),
+        "amd-rocm"
+    );
+    assert_eq!(
+        resolve_acceleration_profile(
+            "win32",
+            "x86_64",
+            None,
+            &["NVIDIA GeForce GTX 1060 6GB".to_string()]
+        ),
+        "nvidia-cuda-legacy"
+    );
+    assert_eq!(
+        resolve_acceleration_profile(
+            "win32",
+            "x86_64",
+            None,
+            &["NVIDIA GeForce RTX 4070".to_string()]
+        ),
+        "nvidia-cuda"
+    );
+    assert_eq!(
+        resolve_acceleration_profile("darwin", "aarch64", None, &[]),
+        "apple-mps"
+    );
 }

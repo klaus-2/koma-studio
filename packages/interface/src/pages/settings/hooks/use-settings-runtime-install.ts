@@ -157,6 +157,17 @@ export const useSettingsRuntimeInstall = ({ t }: UseSettingsRuntimeInstallArgs) 
     }
   }, [loadRuntimeArtifactOptions, runtimeConfig?.appPackaged, selectedRuntimeArtifactProfile, t]);
 
+  const handleCancelRuntimeInstall = useCallback(async () => {
+    if (!desktopBridge.desktop?.cancelMiniBackendRuntimeInstall) {
+      return;
+    }
+    try {
+      await desktopBridge.desktop.cancelMiniBackendRuntimeInstall();
+      setRuntimeInstallFeedback("Runtime installation cancelled. Partial downloads are kept for resume.");
+    } catch {
+    }
+  }, []);
+
   return {
     runtimeState,
     recommendedRuntimeProfile,
@@ -173,5 +184,6 @@ export const useSettingsRuntimeInstall = ({ t }: UseSettingsRuntimeInstallArgs) 
     setSelectedRuntimeArtifactProfile,
     handleUseRecommendedRuntimeProfile,
     handleInstallSelectedRuntimeProfile,
+    handleCancelRuntimeInstall,
   };
 };

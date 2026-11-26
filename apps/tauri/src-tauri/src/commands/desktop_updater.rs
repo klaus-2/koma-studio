@@ -23,6 +23,14 @@ impl Serialize for UpdaterCommandError {
     }
 }
 
+const fn is_updater_platform() -> bool {
+    cfg!(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux"
+    ))
+}
+
 #[tauri::command(rename = "desktop:updater:get-state")]
 pub fn get_updater_state<R: Runtime>(
     app: AppHandle<R>,
@@ -31,13 +39,29 @@ pub fn get_updater_state<R: Runtime>(
     updater::get_state_snapshot(&app, &store)
 }
 
+#[tauri::command(async, rename = "desktop:updater:check")]
+pub async fn check_updater<R: Runtime>(
+    app: AppHandle<R>,
+    store: State<'_, InstallerUpdaterStore>,
+    channel: String,
+) -> Result<updater::UpdaterState, UpdaterCommandError> {
+    if !updater::is_supported_runtime(cfg!(dev), is_updater_platform()) {
+        return Err(UpdaterCommandError::Unsupported);
+    }
+    let channel =
+        updater::parse_channel(&channel).map_err(|_| UpdaterCommandError::InvalidChannel)?;
+    updater::run_check(&app, &store, channel)
+        .await
+        .map_err(UpdaterCommandError::Updater)
+}
+
 #[tauri::command(async, rename = "desktop:updater:download")]
 pub async fn download_updater<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, InstallerUpdaterStore>,
     channel: String,
 ) -> Result<(), UpdaterCommandError> {
-    if !updater::is_supported_runtime(cfg!(dev), cfg!(windows)) {
+    if !updater::is_supported_runtime(cfg!(dev), is_updater_platform()) {
         return Err(UpdaterCommandError::Unsupported);
     }
     let channel =
@@ -52,8 +76,22 @@ pub fn install_updater<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, InstallerUpdaterStore>,
 ) -> Result<(), UpdaterCommandError> {
-    if !updater::is_supported_runtime(cfg!(dev), cfg!(windows)) {
+    if !updater::is_supported_runtime(cfg!(dev), is_updater_platform()) {
         return Err(UpdaterCommandError::Unsupported);
     }
     updater::run_install(&app, &store).map_err(UpdaterCommandError::Updater)
+}
+
+#[tauri::command(rename = "desktop:updater:set-auto-install")]
+pub fn set_updater_auto_install<R: Runtime>(
+    app: AppHandle<R>,
+    store: State<'_, InstallerUpdaterStore>,
+    enabled: bool,
+) -> Option<updater::UpdaterState> {
+    updater::set_auto_install(&app, &store, enabled)
+}
+
+#[tauri::command(rename = "desktop:updater:ack-ui-ready")]
+pub fn ack_updater_ui_ready<R: Runtime>(app: AppHandle<R>) -> bool {
+    crate::updater::ui_hotswap::ack_ui_ready(&app)
 }

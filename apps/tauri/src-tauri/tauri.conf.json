@@ -55,7 +55,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
+    "resources": [
+      "resources/koma-backend-overlay.tar.zst",
+      "resources/koma-backend-overlay.json"
+    ],
     "externalBin": [],
     "copyright": "© KŌMA Studio",
     "category": "Productivity",

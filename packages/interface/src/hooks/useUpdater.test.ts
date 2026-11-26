@@ -23,8 +23,8 @@ interface GithubReleaseJson {
 }
 
 type ReleaseResponse = {
-  ok: true;
-  json: () => Promise<GithubReleaseJson | GithubReleaseJson[]>;
+  ok: boolean;
+  json: () => Promise<unknown>;
 };
 
 const LATEST_RELEASE: GithubReleaseJson = {
@@ -296,7 +296,7 @@ describe("useUpdater", () => {
     expect(view.result.current.progress.transferred).toBe(10);
   });
 
-  it("auto-installs when the download completes", async () => {
+  it("stages downloaded updates without force-installing until explicit confirmation", async () => {
     getAppVersionMock.mockReturnValue("1.0.9");
     const bridge = createTestUpdaterBridge();
     bridge.getState.mockResolvedValue(buildBridgeState({ status: "idle" }));
@@ -323,6 +323,11 @@ describe("useUpdater", () => {
 
     expect(view.result.current.api.status).toBe("downloaded");
     expect(view.result.current.api.downloadedAt).toBe(123);
+    expect(bridge.install).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await view.result.current.api.installUpdate();
+    });
     expect(bridge.install).toHaveBeenCalledTimes(1);
   });
 
@@ -414,7 +419,7 @@ describe("useUpdater", () => {
     expect(view.result.current.progress.percent).toBe(12);
   });
 
-  it("resumes auto-install when hydration adopts a downloaded update", async () => {
+  it("adopts a downloaded update on hydration without force-restarting", async () => {
     getAppVersionMock.mockReturnValue("1.0.9");
     const bridge = createTestUpdaterBridge();
     bridge.getState.mockResolvedValue(
@@ -430,7 +435,7 @@ describe("useUpdater", () => {
     await act(async () => {});
 
     expect(view.result.current.api.status).toBe("downloaded");
-    expect(bridge.install).toHaveBeenCalledTimes(1);
+    expect(bridge.install).not.toHaveBeenCalled();
   });
 
   it("does not adopt availability state from the bridge on hydration", async () => {
@@ -449,7 +454,7 @@ describe("useUpdater", () => {
     expect(view.result.current.api.newVersion).toBeNull();
   });
 
-  it("surfaces an auto-install rejection as an error state", async () => {
+  it("surfaces a manual install rejection as an error state", async () => {
     getAppVersionMock.mockReturnValue("1.0.9");
     const bridge = createTestUpdaterBridge();
     bridge.getState.mockResolvedValue(buildBridgeState({ status: "idle" }));
@@ -472,6 +477,11 @@ describe("useUpdater", () => {
           downloadedAt: 123,
         }),
       });
+    });
+
+    expect(view.result.current.api.status).toBe("downloaded");
+    await act(async () => {
+      await view.result.current.api.installUpdate();
     });
 
     expect(view.result.current.api.status).toBe("error");
@@ -748,5 +758,80 @@ describe("useUpdater", () => {
 
     expect(view.result.current.api.status).toBe("not-available");
     expect(view.result.current.api.newVersion).toBeNull();
+  });
+
+  it("parses static koma-release-manifest.json payloads without falling back to GitHub API", async () => {
+    getAppVersionMock.mockReturnValue("1.4.0");
+    fetchReleaseMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        schemaVersion: 1,
+        version: "1.4.1",
+        channel: "stable",
+        releaseNotes: "Hot UI fix",
+      }),
+    });
+
+    const result = await checkForUpdate();
+    expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
+    expect(result.current.api.status).toBe("available");
+    expect(result.current.api.newVersion).toBe("1.4.1");
+    expect(result.current.api.releaseNotes).toBe("Hot UI fix");
+  });
+
+  it("prefers native bridge check and acks UI readiness without hitting GitHub API", async () => {
+    getAppVersionMock.mockReturnValue("1.4.0");
+    const bridge = createTestUpdaterBridge();
+    const checkMock = vi.fn(async () =>
+      buildBridgeState({
+        status: "available",
+        currentVersion: "1.4.0",
+        newVersion: "1.4.2",
+        releaseNotes: "Instant UI OTA",
+      }),
+    );
+    const setAutoInstallMock = vi.fn(async ({ enabled }: { enabled: boolean }) =>
+      buildBridgeState({ autoInstallOnQuit: enabled }),
+    );
+    const ackUiReadyMock = vi.fn(async () => true);
+    Object.assign(bridge, {
+      check: checkMock,
+      setAutoInstall: setAutoInstallMock,
+      ackUiReady: ackUiReadyMock,
+    });
+    bridge.getState.mockResolvedValue(buildBridgeState({ currentVersion: "1.4.0" }));
+    updaterBridgeRef.current = bridge;
+
+    const view = renderUpdater();
+    await act(async () => {});
+    await act(async () => {
+      await view.result.current.api.checkForUpdates();
+    });
+
+    expect(checkMock).toHaveBeenCalledWith({ channel: "stable" });
+    expect(fetchReleaseMock).not.toHaveBeenCalled();
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.4.2");
+
+    await act(async () => {
+      await view.result.current.api.setAutoInstall(false);
+    });
+    expect(setAutoInstallMock).toHaveBeenCalledWith({ enabled: false });
+    expect(view.result.current.api.autoInstallOnQuit).toBe(false);
+  });
+
+  it("enforces the 30-minute focus check cooldown", async () => {
+    getAppVersionMock.mockReturnValue("1.0.9");
+    const view = renderUpdater();
+
+    await act(async () => {
+      await view.result.current.api.checkForUpdates();
+    });
+    expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
   });
 });

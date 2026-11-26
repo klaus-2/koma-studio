@@ -34,10 +34,10 @@ mod thread_override;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use command_spec::embedded_mini_backend_enabled;
 use command_spec::{
     NO_RUNTIME_INSTALLED_SOURCE, PROVISIONING_POLL_INTERVAL, PROVISIONING_WAIT,
-    embedded_mini_backend_enabled, mini_venv_provisioning, path_to_string,
-    resolve_mini_backend_command, resolve_resources_dir,
+    mini_venv_provisioning, path_to_string, resolve_mini_backend_command, resolve_resources_dir,
 };
 #[cfg(test)]
 use command_spec::{REQUIRED_SIDECAR_MODULES, mini_venv_can_serve};
@@ -297,6 +297,9 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
 
     if let Ok(path_value) = env::var("PATH") {
         command = command.env("PATH", path_value);
+    }
+    for (key, value) in &command_spec.extra_env {
+        command = command.env(key, value);
     }
 
     let thread_override = app

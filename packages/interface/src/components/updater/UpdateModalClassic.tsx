@@ -4,6 +4,7 @@ import { describeUpdaterAction } from "./update-action";
 import SyncPanelClassic from "./SyncPanelClassic";
 import { LazyReleaseNotesMarkdown } from "./LazyReleaseNotesMarkdown";
 import UpdaterDownloadProgress from "./UpdaterDownloadProgress";
+import { isSourceSyncVisible } from "../../hooks/useUpdaterSync";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
 
 interface UpdateModalProps {
@@ -155,8 +156,7 @@ export const UpdateModalClassic = ({
           </div>
         </div>
 
-        {/* Sync control panel */}
-        <SyncPanelClassic />
+        {isSourceSyncVisible() && <SyncPanelClassic />}
 
         {/* Actions */}
         <div className="koma-modal__actions">

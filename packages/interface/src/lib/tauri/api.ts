@@ -54,11 +54,9 @@ import type {
   DesktopEventPayloadMap,
   MiniBackendRuntimeListener,
   ModelManagerListener,
-  UpdaterChannel,
-  UpdaterEventPayload,
-  UpdaterListener,
 } from "@shared/desktop-events";
-import { parseUpdaterEventPayload, parseUpdaterStatusPayload } from "@shared/desktop-events";
+
+import { tauriUpdaterBridge } from "./updater-bridge";
 
 import {
   invokeCommand,
@@ -435,6 +433,10 @@ const tauriDesktopBridge: IDesktopBridge = {
     invokeCommand(
       desktopCommandChannels.runtime.installMiniBackendRuntimeProfile,
       { profile },
+    ),
+  cancelMiniBackendRuntimeInstall: () =>
+    invokeCommand<boolean>(
+      desktopCommandChannels.runtime.cancelMiniBackendRuntimeInstall,
     ),
   resetLocalSettings: () =>
     invokeCommand(desktopCommandChannels.runtime.resetLocalSettings),
@@ -890,60 +892,6 @@ const tauriDesktopBridge: IDesktopBridge = {
         payload.data,
         { headers: { "x-koma-mime-type": encodeURIComponent(payload.mimeType) } },
       ),
-  },
-};
-
-const updaterListeners = new Set<UpdaterListener>();
-let updaterEventsBound = false;
-
-const bindUpdaterEvents = (): void => {
-  if (updaterEventsBound) return;
-  updaterEventsBound = true;
-  listenToDesktopEvent("updater:event", (payload) => {
-    const parsed: UpdaterEventPayload | null = parseUpdaterEventPayload(payload);
-    if (!parsed) {
-      console.warn("[tauri-updater] dropped malformed updater:event payload");
-      return;
-    }
-    updaterListeners.forEach((listener) => {
-      try {
-        listener(parsed);
-      } catch {
-        // Listener failures should not break event dispatch.
-      }
-    });
-  }).catch((error: unknown) => {
-    updaterEventsBound = false;
-    console.warn("[tauri-updater] failed to bind updater events:", error);
-  });
-};
-
-const assertTauriUpdaterChannel = (channel: UpdaterChannel): UpdaterChannel => {
-  if (channel === "stable" || channel === "beta") {
-    return channel;
-  }
-  throw new Error("Invalid update channel.");
-};
-
-const tauriUpdaterBridge: IUpdaterBridge = {
-  getState: async () =>
-    parseUpdaterStatusPayload(
-      await invokeCommand<unknown>(desktopCommandChannels.updater.getState),
-    ),
-  download: async (payload: { channel: UpdaterChannel }) => {
-    await invokeCommand<unknown>(desktopCommandChannels.updater.download, {
-      channel: assertTauriUpdaterChannel(payload.channel),
-    });
-  },
-  install: async () => {
-    await invokeCommand<unknown>(desktopCommandChannels.updater.install);
-  },
-  on: (listener: UpdaterListener) => {
-    bindUpdaterEvents();
-    updaterListeners.add(listener);
-    return () => {
-      updaterListeners.delete(listener);
-    };
   },
 };
 

@@ -22,22 +22,27 @@ mod tests;
 pub(crate) use install::ensure_startup_runtime;
 use install::{install_recommended_runtime, install_runtime_profile, list_runtime_artifacts};
 
-use archive::{
+use archive::extract_runtime_archive;
+pub(crate) use archive::{
     ensure_runtime_disk_space, estimate_runtime_install_required_bytes, existing_download_bytes,
-    extract_runtime_archive, is_retryable_error, is_retryable_status, progress_snapshot,
-    resolve_runtime_transfer_timeout, sha512_base64_file,
+    is_retryable_error, is_retryable_status, progress_snapshot, resolve_runtime_transfer_timeout,
+    sha512_base64_file,
 };
 use selection::{
     ensure_manifest_schema_v2, format_runtime_fallback_reason, is_manifest_for_current_platform,
-    list_artifact_options, node_arch, node_platform, normalize_profile_override,
-    resolve_artifacts_url, resolve_manifest_url, runtime_install_dir, write_runtime_selection,
+    list_artifact_options, normalize_profile_override, resolve_manifest_url, runtime_install_dir,
+};
+pub(crate) use selection::{
+    artifact_profile_order, node_arch, node_platform, resolve_artifacts_url, sanitize_profile,
+    write_runtime_selection,
 };
 pub use selection::{resolve_runtime_profile, resolve_selected_runtime_binary_path};
 use types::{
-    MiniBackendRuntimeArtifactManifest, MiniBackendRuntimeArtifactOption,
-    MiniBackendRuntimeArtifactPart, MiniBackendRuntimeInstallResult, MiniBackendRuntimeSelection,
-    RUNTIME_DOWNLOAD_DIR, RUNTIME_DOWNLOAD_RETRY_COUNT, RUNTIME_EVENT_CHANNEL, apply_patch,
-    install_result, now_millis,
+    MiniBackendRuntimeArtifactManifest, MiniBackendRuntimeInstallResult, RUNTIME_EVENT_CHANNEL,
+};
+pub(crate) use types::{
+    MiniBackendRuntimeArtifactOption, MiniBackendRuntimeSelection, RUNTIME_DOWNLOAD_DIR,
+    RUNTIME_DOWNLOAD_RETRY_COUNT, apply_patch, install_result, now_millis,
 };
 pub use types::{
     MiniBackendRuntimePatch, MiniBackendRuntimeState, MiniBackendRuntimeStore, RuntimeError,
@@ -94,6 +99,11 @@ pub async fn install_mini_backend_runtime_profile<R: Runtime>(
     };
 
     install_runtime_profile(&app, &store, &profile).await
+}
+
+#[tauri::command(rename = "desktop:runtime:cancel-install")]
+pub fn cancel_mini_backend_runtime_install(store: State<'_, MiniBackendRuntimeStore>) -> bool {
+    store.request_cancel()
 }
 
 pub fn snapshot_runtime_state<R: Runtime>(

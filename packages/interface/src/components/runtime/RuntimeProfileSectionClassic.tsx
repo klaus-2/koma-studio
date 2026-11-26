@@ -22,6 +22,7 @@ interface RuntimeProfileSectionProps {
   onSelectedManualProfileChange: (profile: string) => void;
   onUseRecommendedProfile: (profile: string) => void;
   onInstallSelected: () => void;
+  onCancelInstall?: () => void;
   formatRuntimeProfileLabel: (profile: string) => string;
 }
 
@@ -57,6 +58,7 @@ export const RuntimeProfileSectionClassic = ({
   onSelectedManualProfileChange,
   onUseRecommendedProfile,
   onInstallSelected,
+  onCancelInstall,
   formatRuntimeProfileLabel,
 }: RuntimeProfileSectionProps) => {
   const showManualSelector = runtimeArtifactsAvailable && manualArtifacts.length > 0;
@@ -93,7 +95,13 @@ export const RuntimeProfileSectionClassic = ({
         </div>
         <div className="koma-stg-item">
           <span className="koma-stg-item__label">Runtime source</span>
-          <span className="koma-stg-item__value">{runtimeState?.source === "downloaded-runtime" ? "Downloaded runtime" : "Embedded core"}</span>
+          <span className="koma-stg-item__value">
+            {runtimeState?.version?.startsWith("engine-")
+              ? "Layered Python Engine"
+              : runtimeState?.source === "downloaded-runtime"
+                ? "Downloaded runtime"
+                : "Embedded core"}
+          </span>
         </div>
         <div className="koma-stg-item">
           <span className="koma-stg-item__label">Manual install availability</span>
@@ -173,6 +181,15 @@ export const RuntimeProfileSectionClassic = ({
                 "Install selected profile"
               )}
             </button>
+            {isManualInstallActive && onCancelInstall && (
+              <button
+                type="button"
+                onClick={() => onCancelInstall()}
+                className="koma-btn koma-btn--ghost koma-btn--sm"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </>
       )}

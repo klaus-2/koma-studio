@@ -1,15 +1,17 @@
-use std::{io::Write, time::Instant};
-
 use super::*;
+use crate::runtime::layered::{
+    install::{
+        LayeredManifestFetch, download_file_with_resume, fetch_layered_manifest,
+        install_layered_runtime_from_manifest, list_layered_artifact_options,
+        reconcile_startup_overlay,
+    },
+    manifest::runtimes_root_dir,
+    resolve_active_layered_runtime,
+};
 use crate::runtime::manifest_trust::{
     PINNED_ARTIFACTS_PUBKEY, ensure_runtime_archive_url, validate_manifest_relative_path,
     verify_artifacts_manifest_signature,
 };
-use futures_util::StreamExt;
-
-/// Progress emit cadence. bytes_stream() yields far faster than the UI (or the
-/// IPC bus) can consume; throttle to ~10 updates/s and always emit a final one.
-const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub(super) async fn install_recommended_runtime<R: Runtime>(
     app: &AppHandle<R>,
@@ -24,7 +26,7 @@ pub(super) async fn install_recommended_runtime<R: Runtime>(
             "runtime_manual_install_dev_only_unavailable",
         ));
     }
-    if profile == "cpu" {
+    if profile == "cpu" && crate::sidecar::mini_backend::embedded_mini_backend_enabled() {
         set_manual_install_blocked(app, store, "cpu-not-required", &profile)?;
         return Ok(install_result(
             false,
@@ -33,7 +35,7 @@ pub(super) async fn install_recommended_runtime<R: Runtime>(
         ));
     }
 
-    install_and_restart(app, store, &profile, false).await
+    install_and_restart(app, store, &profile, true).await
 }
 
 pub(super) async fn install_runtime_profile<R: Runtime>(
@@ -65,6 +67,13 @@ pub(crate) async fn ensure_startup_runtime<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
 ) -> Result<bool, RuntimeError> {
+    if resolve_active_layered_runtime(app, None)?.is_some() {
+        if let Err(error) = reconcile_startup_overlay(app, store).await {
+            log::warn!("mini-backend-runtime: startup overlay reconcile skipped: {error}");
+        }
+        return Ok(true);
+    }
+
     if resolve_selected_runtime_binary_path(app)?.is_some() {
         return Ok(true);
     }
@@ -174,6 +183,17 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         return Ok(None);
     }
 
+    match fetch_layered_manifest(app, store, false).await? {
+        LayeredManifestFetch::Found(manifest_url, manifest) => {
+            return Ok(
+                install_layered_runtime_from_manifest(app, store, &manifest_url, &manifest, profile)
+                    .await?
+                    .map(|(version, entry)| InstalledRuntime { version, entry }),
+            );
+        }
+        LayeredManifestFetch::NotFound => {}
+    }
+
     let manifest_url = match resolve_manifest_url(app)? {
         Some(url) => url,
         None => return Ok(None),
@@ -197,9 +217,6 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         Ok(None)
     };
 
-    // A foreign-platform manifest (e.g. win32 feed read by a linux build) must
-    // not produce any download: profiles like cpu resolve platform-agnostically,
-    // so without this gate a thin linux build would fetch a win32 zip.
     if !is_manifest_for_current_platform(&manifest) {
         return fail_to_fallback(format!(
             "Runtime manifest platform mismatch: manifest is {}/{}, build is {}/{}.",
@@ -214,15 +231,10 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         return fail_to_fallback(format!("Runtime profile not available in manifest: {profile}"));
     };
 
-    // Defense in depth: the manifest reader and runtime_install_dir already
-    // validate these segments; re-checking here keeps install safe even if a
-    // future caller passes a manifest that skipped the reader.
     validate_manifest_relative_path(&manifest.version)?;
     validate_manifest_relative_path(&record.entry)?;
     for part in &record.parts {
         validate_manifest_relative_path(&part.file)?;
-        // Part URLs are absolute tag-pinned release URLs; origin policy is the
-        // same anti-misdirection check the single-file flow always enforced.
         ensure_runtime_archive_url(&manifest_url, &part.url)?;
     }
     let install_dir = runtime_install_dir(app, &manifest.version, profile)?;
@@ -267,8 +279,6 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         .map(|part| temp_dir.join(&part.file))
         .collect();
     let total_bytes = record.total_part_bytes();
-    // Verified part files already on disk are the cross-restart resume ledger;
-    // they do not count against the space this attempt still needs.
     let existing_part_bytes: u64 = record
         .parts
         .iter()
@@ -292,20 +302,20 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         ensure_runtime_disk_space(&disk_targets, required_bytes)?;
         let mut completed_bytes: u64 = 0;
         for (part, part_path) in record.parts.iter().zip(&part_paths) {
-            // Skip parts that are already fully on disk and hash-verified.
             if fs::metadata(part_path).map(|meta| meta.len()).ok() == Some(part.size)
                 && sha512_base64_file(part_path)? == part.sha512
             {
                 completed_bytes += part.size;
                 continue;
             }
-            download_runtime_part(
+            download_file_with_resume(
                 app,
                 store,
                 profile,
-                part,
+                &part.file,
                 &part.url,
                 part_path,
+                part.size,
                 completed_bytes,
                 total_bytes,
             )
@@ -322,7 +332,10 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     ..Default::default()
                 },
             )?;
-            let actual_sha512 = sha512_base64_file(part_path)?;
+            let check_path = part_path.clone();
+            let actual_sha512 = tokio::task::spawn_blocking(move || sha512_base64_file(&check_path))
+                .await
+                .map_err(|error| RuntimeError::Message(error.to_string()))??;
             if actual_sha512 != part.sha512 {
                 return Err(RuntimeError::Integrity(format!(
                     "Runtime part sha512 mismatch: {}",
@@ -345,28 +358,37 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                 ..Default::default()
             },
         )?;
-        // One clean slate for the whole runtime; each part then extracts into
-        // the same tree without wiping the previous part's files.
-        if temp_extract_dir.exists() {
-            fs::remove_dir_all(&temp_extract_dir)?;
-        }
-        for part_path in &part_paths {
-            extract_runtime_archive(part_path, &temp_extract_dir)?;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let entry_path = temp_extract_dir.join(&record.entry);
-            let mut permissions = fs::metadata(&entry_path)?.permissions();
-            if permissions.mode() & 0o111 == 0 {
-                permissions.set_mode(permissions.mode() | 0o755);
-                fs::set_permissions(&entry_path, permissions)?;
+        let tmp_extract_clone = temp_extract_dir.clone();
+        let parts_clone = part_paths.clone();
+        let entry_clone = record.entry.clone();
+        let install_clone = install_dir.clone();
+        tokio::task::spawn_blocking(move || {
+            if tmp_extract_clone.exists() {
+                fs::remove_dir_all(&tmp_extract_clone)?;
             }
-        }
-        if install_dir.exists() {
-            fs::remove_dir_all(&install_dir)?;
-        }
-        fs::rename(&temp_extract_dir, &install_dir)?;
+            for part_path in &parts_clone {
+                extract_runtime_archive(part_path, &tmp_extract_clone)?;
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let entry_path = tmp_extract_clone.join(&entry_clone);
+                let mut permissions = fs::metadata(&entry_path)?.permissions();
+                if permissions.mode() & 0o111 == 0 {
+                    permissions.set_mode(permissions.mode() | 0o755);
+                    fs::set_permissions(&entry_path, permissions)?;
+                }
+            }
+            #[cfg(not(unix))]
+            let _ = entry_clone;
+            if install_clone.exists() {
+                fs::remove_dir_all(&install_clone)?;
+            }
+            fs::rename(&tmp_extract_clone, &install_clone)?;
+            Ok::<(), RuntimeError>(())
+        })
+        .await
+        .map_err(|error| RuntimeError::Message(error.to_string()))??;
         Ok::<(), RuntimeError>(())
     }
     .await
@@ -394,8 +416,6 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     ..Default::default()
                 },
             )?;
-            // Part files are the resume ledger until the install commits;
-            // only then may they go away.
             for part_path in &part_paths {
                 let _ = fs::remove_file(part_path);
             }
@@ -406,8 +426,6 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         }
         Err(error) => {
             let message = error.to_string();
-            // Part files survive a failed attempt so the next one resumes from
-            // the verified bytes; only the extraction tree is discarded.
             let _ = fs::remove_dir_all(&temp_extract_dir);
             patch_runtime_state(
                 app,
@@ -439,16 +457,28 @@ pub(super) async fn list_runtime_artifacts<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
 ) -> Result<Vec<MiniBackendRuntimeArtifactOption>, RuntimeError> {
+    if let LayeredManifestFetch::Found(_url, manifest) =
+        fetch_layered_manifest(app, store, true).await?
+    {
+        if manifest.platform != node_platform() || manifest.arch != node_arch() {
+            return Ok(Vec::new());
+        }
+        let recommended = resolve_runtime_profile(app, store, true, true)?;
+        let root = runtimes_root_dir(app)?;
+        return Ok(list_layered_artifact_options(
+            &root,
+            &manifest,
+            Some(&recommended),
+        ));
+    }
+
     let Some(manifest) = read_runtime_manifest(app, store, true).await? else {
         return Ok(Vec::new());
     };
-    // A foreign-platform manifest must not be offered for install at all.
     if !is_manifest_for_current_platform(&manifest) {
         return Ok(Vec::new());
     }
     let recommended = resolve_runtime_profile(app, store, true, true)?;
-    // The same predicate the spawn guard uses: a profile the shell would
-    // refuse to start is not an installed profile.
     let installed_profiles = manifest
         .profiles
         .values()
@@ -571,192 +601,10 @@ async fn read_runtime_manifest<R: Runtime>(
                 }
             }
         }
-        // Only back off when another attempt is actually coming; never waste a
-        // seconds-long sleep right before returning on the final iteration.
         if attempt <= RUNTIME_DOWNLOAD_RETRY_COUNT {
             tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
         }
     }
 
     Ok(None)
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn download_runtime_part<R: Runtime>(
-    app: &AppHandle<R>,
-    store: &MiniBackendRuntimeStore,
-    profile: &str,
-    part: &MiniBackendRuntimeArtifactPart,
-    part_url: &str,
-    output_path: &Path,
-    completed_bytes: u64,
-    total_bytes: u64,
-) -> Result<(), RuntimeError> {
-    let max_attempts = RUNTIME_DOWNLOAD_RETRY_COUNT + 1;
-    for attempt in 1..=max_attempts {
-        let existing = existing_download_bytes(output_path, part.size)?;
-        patch_runtime_state(
-            app,
-            store,
-            MiniBackendRuntimePatch {
-                status: Some("downloading".to_string()),
-                status_message: Some(Some(if existing > 0 {
-                    format!(
-                        "Resuming {profile} runtime part {} ({attempt}/{max_attempts}).",
-                        part.file
-                    )
-                } else {
-                    format!(
-                        "Downloading {profile} runtime part {} ({attempt}/{max_attempts}).",
-                        part.file
-                    )
-                })),
-                last_error: Some(None),
-                attempt: Some(attempt),
-                max_attempts: Some(max_attempts),
-                progress: Some(Some(progress_snapshot(
-                    completed_bytes + existing,
-                    total_bytes,
-                    0.0,
-                ))),
-                ..Default::default()
-            },
-        )?;
-
-        match download_url_to_file_with_resume(
-            app,
-            store,
-            part_url,
-            output_path,
-            part.size,
-            completed_bytes,
-            total_bytes,
-        )
-        .await
-        {
-            Ok(()) => return Ok(()),
-            Err(error) => {
-                if attempt >= max_attempts || !is_retryable_error(&error) {
-                    return Err(error);
-                }
-                patch_runtime_state(
-                    app,
-                    store,
-                    MiniBackendRuntimePatch {
-                        last_error: Some(Some(error.to_string())),
-                        attempt: Some(attempt + 1),
-                        max_attempts: Some(max_attempts),
-                        ..Default::default()
-                    },
-                )?;
-                tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
-            }
-        }
-    }
-    Err(RuntimeError::Message("Runtime download failed.".to_string()))
-}
-
-async fn download_url_to_file_with_resume<R: Runtime>(
-    app: &AppHandle<R>,
-    store: &MiniBackendRuntimeStore,
-    archive_url: &str,
-    output_path: &Path,
-    part_size: u64,
-    completed_bytes: u64,
-    total_bytes: u64,
-) -> Result<(), RuntimeError> {
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let client = crate::security::cert_pinning::pinned_http_client(
-        app,
-        resolve_runtime_transfer_timeout(part_size),
-    )
-    .map_err(|error| RuntimeError::Message(error.to_string()))?;
-    let mut request = client
-        .get(archive_url)
-        .timeout(resolve_runtime_transfer_timeout(part_size));
-    let existing = existing_download_bytes(output_path, part_size)?;
-    if existing > 0 {
-        request = request.header(reqwest::header::RANGE, format!("bytes={existing}-"));
-    }
-    let response = request.send().await?;
-    if !response.status().is_success() {
-        return Err(RuntimeError::Message(format!("HTTP {}", response.status())));
-    }
-    let can_append = existing > 0 && response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
-    if existing > 0 && !can_append {
-        fs::remove_file(output_path)?;
-    }
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .append(can_append)
-        .write(true)
-        .truncate(!can_append)
-        .open(output_path)?;
-    // Coalesce many small stream chunks into fewer syscalls.
-    let mut writer = std::io::BufWriter::with_capacity(256 * 1024, file);
-
-    let started_at = now_millis();
-    let mut transferred = if can_append { existing } else { 0 };
-    let mut last_emit = Instant::now();
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        writer.write_all(&chunk)?;
-        transferred += chunk.len() as u64;
-
-        // Throttle IPC to ~10 updates/s instead of one per chunk; progress is
-        // aggregated across all parts of the runtime.
-        if last_emit.elapsed() >= PROGRESS_EMIT_INTERVAL {
-            last_emit = Instant::now();
-            emit_download_progress(
-                app,
-                store,
-                completed_bytes + transferred,
-                total_bytes,
-                started_at,
-                transferred,
-            )?;
-        }
-    }
-    writer.flush()?;
-    // Guarantee the final (100%) frame lands even if the last chunk arrived
-    // inside the throttle window; sha512_base64_file reopens the path next.
-    emit_download_progress(
-        app,
-        store,
-        completed_bytes + transferred,
-        total_bytes,
-        started_at,
-        transferred,
-    )?;
-    Ok(())
-}
-
-fn emit_download_progress<R: Runtime>(
-    app: &AppHandle<R>,
-    store: &MiniBackendRuntimeStore,
-    transferred: u64,
-    total: u64,
-    started_at: u64,
-    part_transferred: u64,
-) -> Result<(), RuntimeError> {
-    let speed = compute_speed(part_transferred, started_at);
-    patch_runtime_state(
-        app,
-        store,
-        MiniBackendRuntimePatch {
-            status: Some("downloading".to_string()),
-            progress: Some(Some(progress_snapshot(transferred, total, speed))),
-            last_error: Some(None),
-            ..Default::default()
-        },
-    )?;
-    Ok(())
-}
-
-fn compute_speed(transferred: u64, started_at: u64) -> f64 {
-    let elapsed = ((now_millis().saturating_sub(started_at)).max(1) as f64) / 1000.0;
-    (transferred as f64 / elapsed).round()
 }

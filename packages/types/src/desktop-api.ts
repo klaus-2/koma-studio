@@ -488,6 +488,7 @@ export const desktopCommandChannels = {
       "desktop:install-recommended-mini-backend-runtime",
     installMiniBackendRuntimeProfile:
       "desktop:install-mini-backend-runtime-profile",
+    cancelMiniBackendRuntimeInstall: "desktop:runtime:cancel-install",
     resetLocalSettings: "desktop:reset-local-settings",
     restartApp: "desktop:restart-app",
     setMiniBackendThreadOverride: "desktop:mini-backend:set-thread-override",
@@ -497,8 +498,11 @@ export const desktopCommandChannels = {
   },
   updater: {
     getState: "desktop:updater:get-state",
+    check: "desktop:updater:check",
     download: "desktop:updater:download",
     install: "desktop:updater:install",
+    setAutoInstall: "desktop:updater:set-auto-install",
+    ackUiReady: "desktop:updater:ack-ui-ready",
   },
   localBackend: {
     check: "desktop:check-local-backend",
@@ -876,6 +880,7 @@ export interface IDesktopBridge {
   installMiniBackendRuntimeProfile(
     profile: string,
   ): Promise<MiniBackendRuntimeInstallResult>;
+  cancelMiniBackendRuntimeInstall?(): Promise<boolean>;
   resetLocalSettings(): Promise<unknown>;
   restartApp(): Promise<unknown>;
   setMiniBackendThreadOverride(payload: {
@@ -949,7 +954,10 @@ export interface IUpdaterSyncBridge {
 
 export interface IUpdaterBridge {
   getState(): Promise<UpdaterStatusPayload | null>;
+  check?(payload: { channel: UpdaterChannel }): Promise<UpdaterStatusPayload | null>;
   download(payload: { channel: UpdaterChannel }): Promise<void>;
   install(): Promise<void>;
+  setAutoInstall?(payload: { enabled: boolean }): Promise<UpdaterStatusPayload | null>;
+  ackUiReady?(): Promise<boolean>;
   on(listener: UpdaterListener): () => void;
 }
