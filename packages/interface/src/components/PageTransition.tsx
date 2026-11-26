@@ -36,59 +36,43 @@ const PageTransitionNoir = ({
 
   const enteredAtRef = useRef(0);
   const phaseRef = useRef<TransitionPhase>("idle");
-  const phaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onExitCompleteRef = useRef(onExitComplete);
 
   const updatePhase = useCallback((next: TransitionPhase) => {
     phaseRef.current = next;
     setPhase(next);
   }, []);
-  const clearTimers = useCallback(() => {
-    if (phaseTimeoutRef.current) { clearTimeout(phaseTimeoutRef.current); phaseTimeoutRef.current = null; }
-    if (exitTimeoutRef.current) { clearTimeout(exitTimeoutRef.current); exitTimeoutRef.current = null; }
-  }, []);
 
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  useEffect(() => { onExitCompleteRef.current = onExitComplete; }, [onExitComplete]);
 
   useEffect(() => {
-    let phaseTimer: ReturnType<typeof setTimeout> | null = null;
-    let exitTimer: ReturnType<typeof setTimeout> | null = null;
-    const clearOwned = () => {
-      if (phaseTimer) clearTimeout(phaseTimer);
-      if (exitTimer) clearTimeout(exitTimer);
-      phaseTimer = null;
-      exitTimer = null;
-      phaseTimeoutRef.current = null;
-      exitTimeoutRef.current = null;
-    };
-
     if (active) {
-      if (phaseRef.current === "idle" || phaseRef.current === "done" || phaseRef.current === "exiting") {
-        clearTimers();
-        updatePhase("entering");
+      if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
         enteredAtRef.current = Date.now();
-        phaseTimer = setTimeout(() => updatePhase("visible"), ENTER_DURATION);
-        phaseTimeoutRef.current = phaseTimer;
+        updatePhase("entering");
       }
-      return clearOwned;
+      return;
     }
-    if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
-      return clearOwned;
-    }
-    clearTimers();
-    const elapsed = Date.now() - enteredAtRef.current;
-    const remaining = Math.max(0, minDuration - elapsed);
-    phaseTimer = setTimeout(() => {
-      updatePhase("exiting");
-      exitTimer = setTimeout(() => {
-        updatePhase("done");
-        onExitComplete?.();
-      }, EXIT_DURATION);
-      exitTimeoutRef.current = exitTimer;
-    }, remaining);
-    phaseTimeoutRef.current = phaseTimer;
-    return clearOwned;
-  }, [active, clearTimers, message, minDuration, onExitComplete, updatePhase]);
+    if (phaseRef.current !== "entering" && phaseRef.current !== "visible") return;
+    const remaining = Math.max(0, minDuration - (Date.now() - enteredAtRef.current));
+    const id = setTimeout(() => updatePhase("exiting"), remaining);
+    return () => clearTimeout(id);
+  }, [active, minDuration, updatePhase]);
+
+  useEffect(() => {
+    if (phase !== "entering") return;
+    const id = setTimeout(() => updatePhase("visible"), ENTER_DURATION);
+    return () => clearTimeout(id);
+  }, [phase, updatePhase]);
+
+  useEffect(() => {
+    if (phase !== "exiting") return;
+    const id = setTimeout(() => {
+      updatePhase("done");
+      onExitCompleteRef.current?.();
+    }, EXIT_DURATION);
+    return () => clearTimeout(id);
+  }, [phase, updatePhase]);
 
   useEffect(() => {
     if (phase !== "visible" || Boolean(message)) return;
@@ -102,7 +86,8 @@ const PageTransitionNoir = ({
   const displayedMessage = message?.trim() ? message : tips[tipIndex];
 
   return (
-    <div className="fixed inset-0 z-[300] overflow-hidden" role="alert" aria-live="assertive"
+    <div className={`fixed inset-0 z-[300] overflow-hidden${exiting ? " pointer-events-none" : ""}`}
+      role="alert" aria-live="assertive"
       aria-label={t("transition.ariaLabel")}>
 
       <div className="absolute inset-0 flex" aria-hidden>
@@ -125,7 +110,6 @@ const PageTransitionNoir = ({
         transition={{ duration: 0.5, ease: EASE }}
       />
 
-      {/* ── Katakana vertical + SFX ── */}
       <span aria-hidden className="v-text pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 select-none font-display text-3xl font-black tracking-[0.3em] text-paper/[0.05] lg:block">
         ページ切替中
       </span>
@@ -150,14 +134,12 @@ const PageTransitionNoir = ({
         </div>
       )}
 
-      {/* ── Centro ── */}
       <m.div
         className="absolute inset-0 flex flex-col items-center justify-center gap-5"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: exiting ? 0 : 1, y: exiting ? -12 : 0 }}
         transition={{ duration: 0.35, delay: exiting ? 0 : 0.3, ease: EASE }}
       >
-        {/* Logo hanko */}
         <m.div
           className="panel-cut-sm relative flex h-20 w-20 items-center justify-center border-2 border-crimson bg-crimson/8"
           initial={{ rotate: -8, scale: 0.7 }}
@@ -194,7 +176,6 @@ const PageTransitionNoir = ({
         </m.p>
       </m.div>
 
-      {/* ── Crop marks ── */}
       {(["left-5 top-5 border-l border-t", "right-5 top-5 border-r border-t",
         "bottom-5 left-5 border-b border-l", "bottom-5 right-5 border-b border-r"] as const).map((pos) => (
           <span key={pos} aria-hidden className={`absolute h-5 w-5 border-paper/20 ${pos}`} />

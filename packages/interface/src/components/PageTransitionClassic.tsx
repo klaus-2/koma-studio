@@ -156,86 +156,51 @@ export const PageTransitionClassic = ({
 
   const enteredAtRef = useRef(0);
   const phaseRef = useRef<TransitionPhase>("idle");
-  const phaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onExitCompleteRef = useRef(onExitComplete);
 
   const updatePhase = useCallback((nextPhase: TransitionPhase) => {
     phaseRef.current = nextPhase;
     setPhase(nextPhase);
   }, []);
 
-  const clearTimers = useCallback(() => {
-    if (phaseTimeoutRef.current) {
-      clearTimeout(phaseTimeoutRef.current);
-      phaseTimeoutRef.current = null;
-    }
-
-    if (exitTimeoutRef.current) {
-      clearTimeout(exitTimeoutRef.current);
-      exitTimeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(
-    () => () => {
-      clearTimers();
-    },
-    [clearTimers],
-  );
+  useEffect(() => {
+    onExitCompleteRef.current = onExitComplete;
+  }, [onExitComplete]);
 
   useEffect(() => {
-    let visibleTimer: ReturnType<typeof setTimeout> | null = null;
-    let doneTimer: ReturnType<typeof setTimeout> | null = null;
-
     if (active) {
-      if (
-        phaseRef.current === "idle" ||
-        phaseRef.current === "done" ||
-        phaseRef.current === "exiting"
-      ) {
-        clearTimers();
-        updatePhase("entering");
+      if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
         enteredAtRef.current = Date.now();
-
-        visibleTimer = setTimeout(() => {
-          updatePhase("visible");
-        }, ENTER_DURATION);
-        phaseTimeoutRef.current = visibleTimer;
+        updatePhase("entering");
       }
-    } else if (
-      phaseRef.current === "entering" ||
-      phaseRef.current === "visible"
-    ) {
-      clearTimers();
-      const elapsed = Date.now() - enteredAtRef.current;
-      const remaining = Math.max(0, minDuration - elapsed);
-
-      visibleTimer = setTimeout(() => {
-        updatePhase("exiting");
-      }, remaining);
-      doneTimer = setTimeout(() => {
-        updatePhase("done");
-        onExitComplete?.();
-      }, remaining + EXIT_DURATION);
-      phaseTimeoutRef.current = visibleTimer;
-      exitTimeoutRef.current = doneTimer;
+      return;
     }
+    if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
+      return;
+    }
+    const remaining = Math.max(0, minDuration - (Date.now() - enteredAtRef.current));
+    const timer = setTimeout(() => updatePhase("exiting"), remaining);
+    return () => clearTimeout(timer);
+  }, [active, minDuration, updatePhase]);
 
-    return () => {
-      if (visibleTimer) {
-        if (phaseTimeoutRef.current === visibleTimer) {
-          phaseTimeoutRef.current = null;
-        }
-        clearTimeout(visibleTimer);
-      }
-      if (doneTimer) {
-        if (exitTimeoutRef.current === doneTimer) {
-          exitTimeoutRef.current = null;
-        }
-        clearTimeout(doneTimer);
-      }
-    };
-  }, [active, clearTimers, minDuration, onExitComplete, updatePhase]);
+  useEffect(() => {
+    if (phase !== "entering") {
+      return;
+    }
+    const timer = setTimeout(() => updatePhase("visible"), ENTER_DURATION);
+    return () => clearTimeout(timer);
+  }, [phase, updatePhase]);
+
+  useEffect(() => {
+    if (phase !== "exiting") {
+      return;
+    }
+    const timer = setTimeout(() => {
+      updatePhase("done");
+      onExitCompleteRef.current?.();
+    }, EXIT_DURATION);
+    return () => clearTimeout(timer);
+  }, [phase, updatePhase]);
 
   useEffect(() => {
     if (phase !== "visible" || Boolean(message)) {
@@ -257,7 +222,13 @@ export const PageTransitionClassic = ({
   const displayedMessage = message?.trim() ? message : tips[tipIndex];
 
   return (
-    <div className={stateClass} role="alert" aria-live="assertive" aria-label={t("transition.ariaLabel")}>
+    <div
+      className={stateClass}
+      style={phase === "exiting" ? { pointerEvents: "none" } : undefined}
+      role="alert"
+      aria-live="assertive"
+      aria-label={t("transition.ariaLabel")}
+    >
       <div className="koma-transition__backdrop" />
 
       <div className="koma-transition__orb koma-transition__orb--purple" aria-hidden="true" />
