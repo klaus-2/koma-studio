@@ -17,7 +17,9 @@ dist/
 dist-electron/
 dist-ssr/
 release/
+!/scripts/release/
 release-desktop/
+/release-artifacts/
 out/
 .next/
 target/
@@ -116,3 +118,6 @@ packages/mini-backend/build/
 
 # benchmark scratch output
 packages/interface/.tmp-bench/
+
+/apps/tauri/src-tauri/resources/koma-backend-overlay.tar.zst
+/apps/tauri/src-tauri/resources/koma-backend-overlay.json
