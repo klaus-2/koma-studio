@@ -1,15 +1,16 @@
+import { lazy, memo, Suspense, type MouseEvent } from 'react';
+
 import BugReportModal from '../BugReportModal';
 import ShortcutCenterModal from '../ShortcutCenterModal';
 import CommandPalette from '../CommandPalette';
 
+import type { SettingsTab } from '../../pages/settings/settings.types';
 import type { KeyboardShortcutConfigV2 } from '../../shortcuts/keyboardShortcuts';
 import type { ToolMode } from '../../types/dashboard.types';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
-import { lazy, memo, Suspense } from 'react';
 
-// Compare review pulls the render-canvas pipeline; the chunk loads only when
-// the overlay is opened.
 const CompareReviewOverlay = lazy(() => import('./CompareReviewOverlay'));
+const OnboardingModal = lazy(() => import('../onboarding/OnboardingModal'));
 
 interface DashboardOverlaysProps {
   shortcutCenterOpen: boolean;
@@ -21,6 +22,18 @@ interface DashboardOverlaysProps {
   mode: ToolMode;
   statusMessage: string;
   userEmail: string;
+  onboardingOpen: boolean;
+  userId: string | null;
+  githubUrl: string;
+  onCloseOnboarding: () => void;
+  onStartTour: () => void;
+  onOpenSettingsTab: (tab: SettingsTab) => void;
+  onOpenExternalUrl: (event: MouseEvent<HTMLElement>, url: string) => void | Promise<void>;
+  onOpenModelManager: () => void;
+  onInstallModels: (modelIds?: string[]) => Promise<unknown>;
+  onRetryModel: (modelId: string) => Promise<void>;
+  onCancelModel: (modelId: string) => Promise<void>;
+  onCancelAllModels: () => Promise<void>;
 }
 
 export default memo(function DashboardOverlays({
@@ -33,6 +46,18 @@ export default memo(function DashboardOverlays({
   mode,
   statusMessage,
   userEmail,
+  onboardingOpen,
+  userId,
+  githubUrl,
+  onCloseOnboarding,
+  onStartTour,
+  onOpenSettingsTab,
+  onOpenExternalUrl,
+  onOpenModelManager,
+  onInstallModels,
+  onRetryModel,
+  onCancelModel,
+  onCancelAllModels,
 }: DashboardOverlaysProps) {
   const commandPaletteOpen = useUiShellStore((s) => s.commandPaletteOpen);
   const setCommandPaletteOpen = useUiShellStore((s) => s.setCommandPaletteOpen);
@@ -42,6 +67,24 @@ export default memo(function DashboardOverlays({
   );
   return (
     <>
+      {onboardingOpen && (
+        <Suspense fallback={null}>
+          <OnboardingModal
+            open={onboardingOpen}
+            userId={userId}
+            githubUrl={githubUrl}
+            onClose={onCloseOnboarding}
+            onStartTour={onStartTour}
+            onOpenSettingsTab={onOpenSettingsTab}
+            onOpenExternalUrl={onOpenExternalUrl}
+            onOpenModelManager={onOpenModelManager}
+            onInstallModels={onInstallModels}
+            onRetryModel={onRetryModel}
+            onCancelModel={onCancelModel}
+            onCancelAllModels={onCancelAllModels}
+          />
+        </Suspense>
+      )}
       {commandPaletteOpen && (
         <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
       )}

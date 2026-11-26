@@ -2,6 +2,7 @@ import { useState, type ReactNode, type RefObject } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
+  Compass,
   Download,
   FolderOpen,
   FolderX,
@@ -28,6 +29,7 @@ type KomaTopbarUserMenuProps = {
   onOpenSettings?: () => void;
   onOpenModelRankings?: () => void;
   onOpenScanlationFeed?: () => void;
+  onOpenOnboarding?: () => void;
   onReplayTour?: () => void;
   onToggle: () => void;
   onClose: () => void;
@@ -45,6 +47,7 @@ export default function KomaTopbarUserMenuNoir({
   onOpenSettings,
   onOpenModelRankings,
   onOpenScanlationFeed,
+  onOpenOnboarding,
   onReplayTour,
   onToggle,
   onClose,
@@ -178,7 +181,22 @@ export default function KomaTopbarUserMenuNoir({
               <MenuItem icon={Download} label={t('dashboard.topbar.exportWorkspace')} onClick={() => { onClose(); onExportWorkspace(); }} />
               <MenuItem icon={FolderOpen} label={t('dashboard.topbar.importWorkspace')} onClick={() => { onClose(); onImportWorkspace(); }} />
               <MenuItem icon={FolderX} label={t('dashboard.topbar.closeWorkspace')} danger onClick={() => { onClose(); onCloseWorkspace(); }} />
-              {onReplayTour && <MenuItem icon={BookOpen} label={t('dashboard.topbar.replayTour')} onClick={() => { onClose(); onReplayTour(); }} />}
+              {onOpenOnboarding && (
+                <MenuItem
+                  icon={Compass}
+                  label={t('dashboard.topbar.openOnboarding')}
+                  dataTour="topbar-user-onboarding"
+                  onClick={() => { onClose(); onOpenOnboarding(); }}
+                />
+              )}
+              {onReplayTour && (
+                <MenuItem
+                  icon={BookOpen}
+                  label={t('dashboard.topbar.replayTour')}
+                  dataTour="topbar-user-replay-tour"
+                  onClick={() => { onClose(); onReplayTour(); }}
+                />
+              )}
               <MenuItem icon={Megaphone} label={t('dashboard.topbar.scanlationFeed')} onClick={() => { onClose(); onOpenScanlationFeed?.(); }} />
               <MenuItem icon={Trophy} label={t('dashboard.topbar.rankings')} onClick={() => { onClose(); onOpenModelRankings?.(); }} />
               <div className="my-1 border-t border-paper/10" />
@@ -213,16 +231,18 @@ function ThemePill({ children, active, onClick, label }: {
   );
 }
 
-function MenuItem({ icon: Icon, label, danger, onClick }: {
+function MenuItem({ icon: Icon, label, danger, dataTour, onClick }: {
   icon: LucideIcon;
   label: string;
   danger?: boolean;
+  dataTour?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       role="menuitem"
+      data-tour={dataTour}
       onClick={onClick}
       className={cn(
         'panel-cut-sm group flex items-center gap-2.5 px-2.5 py-2 text-left transition-all duration-150',

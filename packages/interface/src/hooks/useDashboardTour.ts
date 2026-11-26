@@ -1,24 +1,28 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { useLatestRef } from '../utils/shallowStable';
-
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   driver,
-  type Alignment,
   type DriveStep,
   type Driver,
-  type Side,
+  type DriverHook,
 } from 'driver.js';
-import { useI18n } from '../i18n';
 // Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
 import 'driver.js/dist/driver.css';
+
+import { useI18n } from '../i18n';
+import type { ToolMode } from '../types/dashboard.types';
+import { useLatestRef } from '../utils/shallowStable';
+import {
+  navigateResolvableTourStep,
+  settleTourUi,
+  stepToDriveElement,
+  waitForNextPaint,
+  type ResolvableTourStep,
+  type TourSelectorSpec,
+} from './tourNavigation';
 import './DashboardTour.css';
 
 type TFunc = ReturnType<typeof useI18n>['t'];
-
-import type { ToolMode } from '../types/dashboard.types';
-
 type DashboardTourToolMode = ToolMode;
-
 type DashboardTourSubMode = 'auto' | 'manual';
 
 export type DashboardTourForcedDropdown =
@@ -73,20 +77,18 @@ interface DashboardTourSnapshot {
   toolsPanelVisible: boolean;
 }
 
-interface DashboardTourInternalStep {
+interface DashboardTourInternalStep extends ResolvableTourStep {
   id: DashboardTourStepId;
-  selector?: string;
+  selectors?: TourSelectorSpec;
   title: string;
   body: string;
   previewKind: DashboardTourPreviewKind;
-  side?: Side;
-  align?: Alignment;
-  prepare?: () => Promise<void> | void;
 }
 
-interface UseDashboardTourOptions {
+export interface UseDashboardTourOptions {
   userId?: string | null;
   isReady: boolean;
+  suppressAutoStart?: boolean;
   mode: DashboardTourToolMode;
   subMode: DashboardTourSubMode;
   activeId: string | null;
@@ -105,60 +107,8 @@ interface UseDashboardTourOptions {
 const DASHBOARD_TOUR_STORAGE_PREFIX = 'koma-studio.dashboard-tour.v1';
 export const DASHBOARD_TOUR_CONTENT_VERSION = '2026-03-dashboard-main-flow';
 
-const wait = (ms: number): Promise<void> =>
-  new Promise((resolve) => window.setTimeout(resolve, ms));
-
-const waitForNextPaint = async (): Promise<void> => {
-  await new Promise<void>((resolve) =>
-    window.requestAnimationFrame(() => resolve()),
-  );
-  await new Promise<void>((resolve) =>
-    window.requestAnimationFrame(() => resolve()),
-  );
-};
-
-const settleTourUi = async (): Promise<void> => {
-  await waitForNextPaint();
-  await wait(36);
-};
-
-const isElementVisible = (element: Element | null): element is HTMLElement => {
-  if (!(element instanceof HTMLElement)) {
-    return false;
-  }
-
-  return Boolean(
-    element.offsetWidth ||
-    element.offsetHeight ||
-    element.getClientRects().length,
-  );
-};
-
-const queryVisibleElement = (selector: string): HTMLElement | null => {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  const element = document.querySelector(selector);
-  return isElementVisible(element) ? element : null;
-};
-
-const waitForVisibleElement = async (
-  selector: string,
-  timeoutMs = 1400,
-): Promise<HTMLElement | null> => {
-  const startedAt = performance.now();
-
-  while (performance.now() - startedAt < timeoutMs) {
-    const element = queryVisibleElement(selector);
-    if (element) {
-      return element;
-    }
-    await waitForNextPaint();
-  }
-
-  return null;
-};
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const buildStorageKey = (userId: string): string =>
   `${DASHBOARD_TOUR_STORAGE_PREFIX}:${encodeURIComponent(userId)}`;
@@ -176,9 +126,12 @@ export const readDashboardTourState = (
       return null;
     }
 
-    const parsed = JSON.parse(raw) as Partial<DashboardTourStateV1> | null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
     if (
-      !parsed ||
       parsed.tourVersion !== DASHBOARD_TOUR_CONTENT_VERSION ||
       (parsed.status !== 'completed' && parsed.status !== 'dismissed') ||
       typeof parsed.seenAt !== 'string'
@@ -186,7 +139,11 @@ export const readDashboardTourState = (
       return null;
     }
 
-    return parsed as DashboardTourStateV1;
+    return {
+      tourVersion: parsed.tourVersion,
+      status: parsed.status,
+      seenAt: parsed.seenAt,
+    };
   } catch {
     return null;
   }
@@ -355,7 +312,7 @@ const buildPopoverDescription = (
   <div class="koma-tour-popover__body">
     ${renderPreviewMarkup(previewKind, t)}
     <div class="koma-tour-popover__copy">
-      <p>${description}</p>
+      <p>${escapeHtml(description)}</p>
     </div>
   </div>
 `;
@@ -363,6 +320,7 @@ const buildPopoverDescription = (
 export const useDashboardTour = ({
   userId,
   isReady,
+  suppressAutoStart = false,
   mode,
   subMode,
   activeId,
@@ -378,13 +336,14 @@ export const useDashboardTour = ({
   setForcedDropdown,
 }: UseDashboardTourOptions) => {
   const { t } = useI18n();
+  const [isTourActive, setIsTourActive] = useState(false);
   const driverRef = useRef<Driver | null>(null);
   const stepsRef = useRef<DashboardTourInternalStep[]>([]);
   const autoStartedUserRef = useRef<string | null>(null);
   const persistIntentRef = useRef<DashboardTourStatus | 'restart' | null>(null);
   const snapshotRef = useRef<DashboardTourSnapshot | null>(null);
   const mountedRef = useRef(true);
-  const navigatingRef = useRef(false);
+  const navSeqRef = useRef(0);
   const latestStateRef = useLatestRef<DashboardTourSnapshot>({
     mode,
     subMode,
@@ -418,6 +377,7 @@ export const useDashboardTour = ({
 
   const stopActiveTour = useCallback(
     (intent: DashboardTourStatus | 'restart' | null) => {
+      navSeqRef.current += 1;
       const activeDriver = driverRef.current;
       if (!activeDriver) {
         setForcedDropdown(null);
@@ -455,9 +415,9 @@ export const useDashboardTour = ({
       await settleTourUi();
     };
 
-    const stageSelector = hasImages
-      ? '[data-tour="dashboard-stage-grid"]'
-      : '[data-tour="dashboard-stage-empty"]';
+    const stageSelectors: TourSelectorSpec = hasImages
+      ? ['[data-tour="dashboard-stage-grid"]', '[data-tour="dashboard-stage"]']
+      : ['[data-tour="dashboard-stage-empty"]', '[data-tour="dashboard-stage"]'];
 
     const steps: DashboardTourInternalStep[] = [
       {
@@ -466,14 +426,11 @@ export const useDashboardTour = ({
         body: t('dashboard.tour.welcome.body'),
         previewKind: 'welcome',
         align: 'center',
-        prepare: async () => {
-          setForcedDropdown(null);
-          await settleTourUi();
-        },
+        prepare: settleWorkspace,
       },
       {
         id: 'sidebar',
-        selector: '[data-tour="dashboard-sidebar"]',
+        selectors: '[data-tour="dashboard-sidebar"]',
         title: t('dashboard.tour.sidebar.title'),
         body: t('dashboard.tour.sidebar.body'),
         previewKind: 'sidebar',
@@ -483,7 +440,7 @@ export const useDashboardTour = ({
       },
       {
         id: 'upload',
-        selector: '[data-tour="dashboard-dropzone"]',
+        selectors: '[data-tour="dashboard-dropzone"]',
         title: t('dashboard.tour.upload.title'),
         body: t('dashboard.tour.upload.body'),
         previewKind: 'upload',
@@ -493,34 +450,45 @@ export const useDashboardTour = ({
       },
       {
         id: 'modes',
-        selector: isCompactViewport
-          ? '[data-tour="topbar-mode-pill"]'
-          : '[data-tour="topbar-main-nav"]',
+        selectors: isCompactViewport
+          ? ['[data-tour="topbar-mode-pill"]', '[data-tour="topbar-main-nav"]']
+          : ['[data-tour="topbar-main-nav"]', '[data-tour="topbar-mode-pill"]'],
         title: t('dashboard.tour.modes.title'),
         body: t('dashboard.tour.modes.body'),
         previewKind: 'modes',
         side: 'bottom',
         align: 'center',
-        prepare: async () => {
-          setForcedDropdown(null);
-          await settleTourUi();
-        },
+        prepare: settleWorkspace,
       },
       {
         id: 'production',
-        selector: '[data-tour="topbar-production-panel"]',
+        selectors: [
+          '[data-tour="topbar-production-panel"]',
+          '[data-tour="topbar-production-group"]',
+          '[data-tour="topbar-mode-pill"]',
+        ],
         title: t('dashboard.tour.production.title'),
         body: t('dashboard.tour.production.body'),
         previewKind: 'production',
         side: 'bottom',
         align: 'center',
         prepare: async () => {
-          await ensureDropdown('production');
+          if (
+            typeof document !== 'undefined' &&
+            document.querySelector('[data-tour="topbar-production-trigger"]')
+          ) {
+            await ensureDropdown('production');
+          } else {
+            await settleWorkspace();
+          }
         },
       },
       {
         id: 'utils',
-        selector: '[data-tour="topbar-utils-panel"]',
+        selectors: [
+          '[data-tour="topbar-utils-panel"]',
+          '[data-tour="topbar-utils-trigger"]',
+        ],
         title: t('dashboard.tour.utils.title'),
         body: t('dashboard.tour.utils.body'),
         previewKind: 'utils',
@@ -532,7 +500,7 @@ export const useDashboardTour = ({
       },
       {
         id: 'pipeline',
-        selector: '[data-tour="dashboard-aio-pipeline"]',
+        selectors: '[data-tour="dashboard-aio-pipeline"]',
         title: t('dashboard.tour.pipeline.title'),
         body: t('dashboard.tour.pipeline.body'),
         previewKind: 'pipeline',
@@ -544,7 +512,10 @@ export const useDashboardTour = ({
       },
       {
         id: 'stage-config',
-        selector: '[data-tour="dashboard-aio-stage-config"]',
+        selectors: [
+          '[data-tour="dashboard-aio-stage-config"]',
+          '[data-tour="dashboard-tools-panel"]',
+        ],
         title: t('dashboard.tour.stageConfig.title'),
         body: t('dashboard.tour.stageConfig.body'),
         previewKind: 'config',
@@ -556,7 +527,7 @@ export const useDashboardTour = ({
       },
       {
         id: 'stage',
-        selector: stageSelector,
+        selectors: stageSelectors,
         title: hasImages
           ? t('dashboard.tour.stage.withImagesTitle')
           : t('dashboard.tour.stage.emptyTitle'),
@@ -575,7 +546,7 @@ export const useDashboardTour = ({
     if (hasImages && !isCompactViewport) {
       steps.push({
         id: 'manual-dock',
-        selector: '[data-tour="dashboard-manual-dock"]',
+        selectors: '[data-tour="dashboard-manual-dock"]',
         title: t('dashboard.tour.manualDock.title'),
         body: t('dashboard.tour.manualDock.body'),
         previewKind: 'manual-dock',
@@ -590,7 +561,10 @@ export const useDashboardTour = ({
     if (hasDownloadActions) {
       steps.push({
         id: 'download',
-        selector: '[data-tour="topbar-download-panel"]',
+        selectors: [
+          '[data-tour="topbar-download-panel"]',
+          '[data-tour="topbar-download-trigger"]',
+        ],
         title: t('dashboard.tour.download.title'),
         body: t('dashboard.tour.download.body'),
         previewKind: 'download',
@@ -604,7 +578,11 @@ export const useDashboardTour = ({
 
     steps.push({
       id: 'replay',
-      selector: '[data-tour="topbar-user-replay-tour"]',
+      selectors: [
+        '[data-tour="topbar-user-replay-tour"]',
+        '[data-tour="topbar-user-onboarding"]',
+        '[data-tour="topbar-user-panel"]',
+      ],
       title: t('dashboard.tour.replay.title'),
       body: t('dashboard.tour.replay.body'),
       previewKind: 'replay',
@@ -621,74 +599,36 @@ export const useDashboardTour = ({
     hasDownloadActions,
     hasImages,
     isCompactViewport,
-    mode,
+    latestStateRef,
     setActiveId,
     setForcedDropdown,
     setMode,
     setSubMode,
     setToolsPanelVisible,
+    t,
   ]);
+
+  const completeTour = useCallback((currentDriver: Driver) => {
+    navSeqRef.current += 1;
+    persistIntentRef.current = 'completed';
+    currentDriver.destroy();
+    driverRef.current = null;
+  }, []);
 
   const navigateToStep = useCallback(
     async (currentDriver: Driver, targetIndex: number, direction: 1 | -1) => {
-      // Re-entry guard: double-click races could stack prepare() calls.
-      if (navigatingRef.current) {
-        return;
-      }
-
-      const currentSteps = stepsRef.current;
-
-      if (targetIndex < 0) {
-        currentDriver.moveTo(0);
-        return;
-      }
-
-      if (targetIndex >= currentSteps.length) {
-        persistIntentRef.current = 'completed';
-        currentDriver.destroy();
-        driverRef.current = null;
-        return;
-      }
-
-      if (!currentDriver.isActive()) {
-        return;
-      }
-
-      const nextStep = currentSteps[targetIndex];
-      if (!nextStep) return;
-
-      navigatingRef.current = true;
-      try {
-        await nextStep.prepare?.();
-      } catch {
-        return;
-      } finally {
-        navigatingRef.current = false;
-      }
-
-      if (!currentDriver.isActive()) {
-        return;
-      }
-
-      if (nextStep.selector) {
-        const element = await waitForVisibleElement(nextStep.selector);
-        if (!element) {
-          // Only skip when still inside bounds — do not close the tour.
-          const skipIndex = targetIndex + direction;
-          if (skipIndex >= 0 && skipIndex < currentSteps.length) {
-            await navigateToStep(currentDriver, skipIndex, direction);
-          }
-          return;
-        }
-      }
-
-      if (!currentDriver.isActive()) {
-        return;
-      }
-
-      currentDriver.moveTo(targetIndex);
+      const sequenceToken = (navSeqRef.current += 1);
+      await navigateResolvableTourStep({
+        driver: currentDriver,
+        steps: stepsRef.current,
+        startIndex: targetIndex,
+        direction,
+        sequenceToken,
+        getCurrentToken: () => navSeqRef.current,
+        onComplete: () => completeTour(currentDriver),
+      });
     },
-    [],
+    [completeTour],
   );
 
   const startTour = useCallback(
@@ -719,10 +659,28 @@ export const useDashboardTour = ({
       const animate = !window.matchMedia('(prefers-reduced-motion: reduce)')
         .matches;
 
+      const handleNextClick: DriverHook = (_element, _step, opts) => {
+        void navigateToStep(
+          opts.driver,
+          (opts.driver.getActiveIndex() ?? 0) + 1,
+          1,
+        );
+      };
+
+      const handlePrevClick: DriverHook = (_element, _step, opts) => {
+        void navigateToStep(
+          opts.driver,
+          (opts.driver.getActiveIndex() ?? 0) - 1,
+          -1,
+        );
+      };
+
+      const handleDoneClick: DriverHook = (_element, _step, opts) => {
+        completeTour(opts.driver);
+      };
+
       const driverSteps: DriveStep[] = steps.map((step) => ({
-        element: step.selector
-          ? () => document.querySelector(step.selector!) as Element
-          : undefined,
+        element: stepToDriveElement(step.selectors),
         popover: {
           title: escapeHtml(step.title),
           description: buildPopoverDescription(step.body, step.previewKind, t),
@@ -731,20 +689,9 @@ export const useDashboardTour = ({
           showButtons: ['previous', 'next', 'close'],
           showProgress: true,
           popoverClass: `koma-tour-popover koma-tour-popover--${step.previewKind}`,
-          onNextClick: (_element, _step, opts) => {
-            void navigateToStep(
-              opts.driver,
-              (opts.driver.getActiveIndex() ?? 0) + 1,
-              1,
-            );
-          },
-          onPrevClick: (_element, _step, opts) => {
-            void navigateToStep(
-              opts.driver,
-              (opts.driver.getActiveIndex() ?? 0) - 1,
-              -1,
-            );
-          },
+          onNextClick: handleNextClick,
+          onPrevClick: handlePrevClick,
+          onDoneClick: handleDoneClick,
         },
       }));
 
@@ -767,6 +714,9 @@ export const useDashboardTour = ({
         stageRadius: 20,
         smoothScroll: true,
         steps: driverSteps,
+        onNextClick: handleNextClick,
+        onPrevClick: handlePrevClick,
+        onDoneClick: handleDoneClick,
         onPopoverRender: (popover, opts) => {
           const activeStep =
             stepsRef.current[opts.driver.getActiveIndex() ?? 0];
@@ -789,6 +739,7 @@ export const useDashboardTour = ({
           );
         },
         onCloseClick: (_element, _step, opts) => {
+          navSeqRef.current += 1;
           persistIntentRef.current = 'dismissed';
           opts.driver.destroy();
           driverRef.current = null;
@@ -799,31 +750,42 @@ export const useDashboardTour = ({
           }
         },
         onDestroyed: () => {
+          navSeqRef.current += 1;
           const intent = persistIntentRef.current;
           if (userId && (intent === 'completed' || intent === 'dismissed')) {
             persistDashboardTourState(userId, intent);
           }
           persistIntentRef.current = null;
           driverRef.current = null;
+          if (mountedRef.current) {
+            setIsTourActive(false);
+          }
           restoreSnapshot();
         },
       });
 
       driverRef.current = driverObj;
+      if (mountedRef.current) {
+        setIsTourActive(true);
+      }
       await steps[0]?.prepare?.();
       driverObj.drive(0);
       await waitForNextPaint();
-      driverObj.refresh();
+      if (driverRef.current === driverObj && driverObj.isActive()) {
+        driverObj.refresh();
+      }
     },
     [
       activeId,
       buildSteps,
+      completeTour,
       isReady,
       mode,
       navigateToStep,
       restoreSnapshot,
       stopActiveTour,
       subMode,
+      t,
       toolsPanelVisible,
       userId,
     ],
@@ -835,28 +797,30 @@ export const useDashboardTour = ({
       return;
     }
 
-    if (!isReady || autoStartedUserRef.current === userId) {
+    if (!isReady || suppressAutoStart || autoStartedUserRef.current === userId) {
       return;
     }
 
     autoStartedUserRef.current = userId;
     void startTour(false);
-  }, [isReady, startTour, userId]);
+  }, [isReady, startTour, suppressAutoStart, userId]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      navSeqRef.current += 1;
       if (driverRef.current) {
         persistIntentRef.current = 'restart';
         driverRef.current.destroy();
         driverRef.current = null;
       }
     };
-  }, [setForcedDropdown]);
+  }, []);
 
   const replayTour = useCallback(() => {
     void startTour(true);
   }, [startTour]);
 
-  return { replayTour };
+  return { replayTour, isTourActive };
 };

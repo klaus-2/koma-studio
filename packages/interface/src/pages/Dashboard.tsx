@@ -9,6 +9,7 @@ import { getApiConfig } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardTour } from '../hooks/useDashboardTour';
 import { useDashboardModeCoachmarks } from '../hooks/useDashboardModeCoachmarks';
+import { useOnboardingSession, useOnboardingState } from '../hooks/useOnboardingFlow';
 
 import { useModelManager } from '../hooks/useModelManager';
 import {
@@ -470,10 +471,12 @@ export const DashboardPage = ({
     shortcutCenterOpen,
     bugReportModalOpen,
     setBugReportModalOpen,
+    openSettingsOnTab,
     openSettingsOnPresetsTab,
     openSettingsOnIntegrationsTab, openSettingsOnRuntimeTab,
     projectWebsiteUrl,
     projectDiscordUrl,
+    projectGithubUrl,
     openProjectExternalLink,
     openBugReportModal,
     openShortcutCenter,
@@ -1582,9 +1585,12 @@ export const DashboardPage = ({
     hasAioRenderRegionsForPsd,
   } = useExportDownloadAvailability({ activeImage });
 
-  const { replayTour } = useDashboardTour({
+  const onboarding = useOnboardingState(authUser?.id ?? null);
+
+  const { replayTour, isTourActive } = useDashboardTour({
     userId: authUser?.id ?? null,
     isReady: !authLoading,
+    suppressAutoStart: onboarding.suppressAutoTour,
     mode,
     subMode,
     activeId,
@@ -1599,14 +1605,25 @@ export const DashboardPage = ({
     setToolsPanelVisible,
     setForcedDropdown: setForcedTourDropdown,
   });
+
+  useOnboardingSession({
+    userId: authUser?.id ?? null,
+    isAuthReady: !authLoading,
+    replayTour,
+    onboarding,
+  });
+
   useDashboardModeCoachmarks({
     userId: authUser?.id ?? null,
     isReady: !authLoading,
+    suppressed: onboarding.isOpen || isTourActive,
     mode,
     subMode,
     hasImages: images.length > 0,
     hasDownloadActions,
     isCompactViewport,
+    setForcedDropdown: setForcedTourDropdown,
+    setToolsPanelVisible,
   });
   const manualDockVisible =
     (isAioManualMode || isCleanerToolMode) &&
@@ -1734,6 +1751,7 @@ export const DashboardPage = ({
       verifyEmailSending={verifyEmailSending}
       handleSendVerificationEmail={handleSendVerificationEmail}
       replayTour={replayTour}
+      onboarding={onboarding}
       // ── External actions ──
       openShortcutCenter={openShortcutCenter}
       shortcutCenterOpen={shortcutCenterOpen}
@@ -1744,6 +1762,8 @@ export const DashboardPage = ({
       openProjectExternalLink={openProjectExternalLink}
       projectDiscordUrl={projectDiscordUrl}
       projectWebsiteUrl={projectWebsiteUrl}
+      projectGithubUrl={projectGithubUrl}
+      openSettingsOnTab={openSettingsOnTab}
       openSettingsOnPresetsTab={openSettingsOnPresetsTab}
       openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} openSettingsOnRuntimeTab={openSettingsOnRuntimeTab}
       // ── Footer / dock derivations ──

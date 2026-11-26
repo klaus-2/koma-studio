@@ -35,6 +35,10 @@ import {
   SETTINGS_REQUESTED_TAB_STORAGE_KEY,
   formatRuntimeProfileLabel,
 } from "./settings/settings.constants";
+import {
+  requestOpenOnboardingOnDashboard,
+  requestReplayTourOnDashboard,
+} from "../components/onboarding/onboardingStorage";
 import './SettingsPresets.css';
 import './SettingsIntegrations.css';
 
@@ -95,6 +99,14 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const travelToken = useSettingsTravelToken({ user, isDesktop, t, fmtDate, travelDaysLabel });
   const updaterControls = useSettingsUpdaterControls({ updater, t });
   const appPreferences = useSettingsAppPreferences({ t });
+  const handleOpenOnboarding = useCallback(() => {
+    requestOpenOnboardingOnDashboard();
+    onBackDashboard();
+  }, [onBackDashboard]);
+  const handleReplayTour = useCallback(() => {
+    requestReplayTourOnDashboard();
+    onBackDashboard();
+  }, [onBackDashboard]);
   const miniBackendThreads = useMiniBackendThreadSettings();
   const runtimeInstall = useSettingsRuntimeInstall({ t });
   const webhook = useSettingsWebhook({ t });
@@ -135,6 +147,8 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       supportedLocales,
       systemLocales,
       ...appPreferences,
+      onOpenOnboarding: handleOpenOnboarding,
+      onReplayTour: handleReplayTour,
     });
 
   /* ═══════════════════════════════════════════════════════

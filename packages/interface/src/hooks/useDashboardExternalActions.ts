@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { SETTINGS_REQUESTED_TAB_STORAGE_KEY } from '../constants/dashboard.constants';
+import { KOMA_GITHUB_REPO_URL } from '../components/onboarding/onboardingSteps';
+import type { SettingsTab } from '../pages/settings/settings.types';
+
 interface UseDashboardExternalActionsArgs {
   onOpenSettings?: () => void;
 }
@@ -9,26 +13,27 @@ export function useDashboardExternalActions({ onOpenSettings }: UseDashboardExte
   const [shortcutCenterOpen, setShortcutCenterOpen] = useState(false);
   const [bugReportModalOpen, setBugReportModalOpen] = useState(false);
 
+  const openSettingsOnTab = useCallback(
+    (tab: SettingsTab) => {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SETTINGS_REQUESTED_TAB_STORAGE_KEY, tab);
+      }
+      onOpenSettings?.();
+    },
+    [onOpenSettings],
+  );
+
   const openSettingsOnPresetsTab = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('koma-settings-requested-tab', 'presets');
-    }
-    onOpenSettings?.();
-  }, [onOpenSettings]);
+    openSettingsOnTab('presets');
+  }, [openSettingsOnTab]);
 
   const openSettingsOnIntegrationsTab = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('koma-settings-requested-tab', 'integrations');
-    }
-    onOpenSettings?.();
-  }, [onOpenSettings]);
+    openSettingsOnTab('integrations');
+  }, [openSettingsOnTab]);
 
   const openSettingsOnRuntimeTab = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('koma-settings-requested-tab', 'runtime');
-    }
-    onOpenSettings?.();
-  }, [onOpenSettings]);
+    openSettingsOnTab('runtime');
+  }, [openSettingsOnTab]);
 
   const toExternalUrl = useCallback((rawUrl: string): string => {
     const trimmed = rawUrl.trim();
@@ -43,6 +48,11 @@ export function useDashboardExternalActions({ onOpenSettings }: UseDashboardExte
 
   const projectDiscordUrl = useMemo(
     () => toExternalUrl((import.meta.env.VITE_PROJECT_DISCORD_URL as string | undefined)?.trim() || 'https://discord.gg/tzaV2efD4e'),
+    [toExternalUrl],
+  );
+
+  const projectGithubUrl = useMemo(
+    () => toExternalUrl((import.meta.env.VITE_PROJECT_GITHUB_URL as string | undefined)?.trim() || KOMA_GITHUB_REPO_URL),
     [toExternalUrl],
   );
 
@@ -103,11 +113,13 @@ export function useDashboardExternalActions({ onOpenSettings }: UseDashboardExte
     shortcutCenterOpen,
     bugReportModalOpen,
     setBugReportModalOpen,
+    openSettingsOnTab,
     openSettingsOnPresetsTab,
     openSettingsOnIntegrationsTab,
     openSettingsOnRuntimeTab,
     projectWebsiteUrl,
     projectDiscordUrl,
+    projectGithubUrl,
     projectBugReportUrl,
     openProjectExternalLink,
     openBugReportModal,

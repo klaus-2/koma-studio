@@ -1,0 +1,872 @@
+.koma-onb-overlay {
+  --onb-bg: var(--auth-bg, #060810);
+  --onb-surface: #0f1424;
+  --onb-surface-2: #161d32;
+  --onb-text: var(--auth-text, #f1f5f9);
+  --onb-muted: var(--auth-text-muted, rgba(203, 213, 225, 0.72));
+  --onb-border: rgba(168, 85, 247, 0.24);
+  --onb-border-subtle: rgba(148, 163, 184, 0.18);
+  --onb-accent: var(--auth-purple, #a855f7);
+  --onb-accent-soft: rgba(168, 85, 247, 0.14);
+  --onb-info: var(--auth-cyan, #06b6d4);
+  --onb-info-soft: rgba(6, 182, 212, 0.12);
+  --onb-warn: var(--auth-amber, #f59e0b);
+  --onb-warn-soft: rgba(245, 158, 11, 0.14);
+  --onb-success: var(--auth-emerald, #10b981);
+  --onb-success-soft: rgba(16, 185, 129, 0.14);
+  --onb-danger: var(--auth-rose, #f43f5e);
+  --onb-radius: 18px;
+  --onb-card-radius: 12px;
+  --onb-btn-radius: 10px;
+  --onb-font-heading: var(--auth-font-heading, 'Cabin', system-ui, sans-serif);
+  --onb-font-body: var(--auth-font-body, 'Manrope', system-ui, sans-serif);
+  --onb-font-mono: var(--font-jetbrains, 'JetBrains Mono'), ui-monospace, monospace;
+
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 6, 14, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+html[data-theme="light"] .koma-onb-overlay {
+  --onb-surface: #ffffff;
+  --onb-surface-2: #f8fafc;
+  --onb-text: #0f172a;
+  --onb-muted: #475569;
+  --onb-border: rgba(147, 51, 234, 0.22);
+  --onb-border-subtle: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+html[data-theme-family="noir"] .koma-onb-overlay {
+  --onb-bg: var(--noir-ink-0, #07070c);
+  --onb-surface: var(--noir-ink-2, #0d0d16);
+  --onb-surface-2: var(--noir-ink-3, #151522);
+  --onb-text: var(--noir-paper, #f2ede3);
+  --onb-muted: var(--noir-paper-dim, #a8a396);
+  --onb-border: color-mix(in srgb, var(--noir-paper, #f2ede3) 16%, transparent);
+  --onb-border-subtle: color-mix(in srgb, var(--noir-paper, #f2ede3) 10%, transparent);
+  --onb-accent: var(--noir-crimson, #ff2e63);
+  --onb-accent-soft: color-mix(in srgb, var(--noir-crimson, #ff2e63) 12%, transparent);
+  --onb-info: var(--noir-azure, #4dc9ff);
+  --onb-info-soft: color-mix(in srgb, var(--noir-azure, #4dc9ff) 11%, transparent);
+  --onb-warn: var(--noir-gold, #ffc857);
+  --onb-warn-soft: color-mix(in srgb, var(--noir-gold, #ffc857) 14%, transparent);
+  --onb-success: var(--noir-mint, #3ef2b0);
+  --onb-success-soft: color-mix(in srgb, var(--noir-mint, #3ef2b0) 12%, transparent);
+  --onb-danger: var(--noir-crimson, #ff2e63);
+  --onb-radius: 0px;
+  --onb-card-radius: 0px;
+  --onb-btn-radius: 0px;
+  --onb-font-heading: var(--font-archivo, 'Archivo'), ui-sans-serif, sans-serif;
+}
+
+.koma-onb-dialog {
+  width: min(960px, 100%);
+  max-height: min(90vh, 840px);
+  display: flex;
+  flex-direction: column;
+  background: var(--onb-surface);
+  color: var(--onb-text);
+  border: 1px solid var(--onb-border);
+  border-radius: var(--onb-radius);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.48);
+  font-family: var(--onb-font-body);
+  overflow: hidden;
+  position: relative;
+}
+
+html[data-theme-family="noir"] .koma-onb-dialog {
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  box-shadow: 8px 8px 0 var(--onb-warn);
+}
+
+.koma-onb-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  background: var(--onb-surface-2);
+  border-bottom: 1px solid var(--onb-border-subtle);
+}
+
+.koma-onb-header__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.koma-onb-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-onb-brand__kicker {
+  font-family: var(--onb-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--onb-accent);
+}
+
+.koma-onb-title {
+  margin: 0;
+  font-family: var(--onb-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.koma-onb-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--onb-muted);
+}
+
+.koma-onb-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.koma-onb-downloadPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--onb-info);
+  background: var(--onb-info-soft);
+  color: var(--onb-text);
+  border-radius: 999px;
+  font-family: var(--onb-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+html[data-theme-family="noir"] .koma-onb-downloadPill {
+  border-radius: 0;
+}
+
+.koma-onb-closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: transparent;
+  color: var(--onb-muted);
+  cursor: pointer;
+}
+
+.koma-onb-closeBtn:hover,
+.koma-onb-closeBtn:focus-visible {
+  color: var(--onb-text);
+  border-color: var(--onb-accent);
+  outline: none;
+}
+
+.koma-onb-stepper {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.koma-onb-stepBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: transparent;
+  color: var(--onb-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 0;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.koma-onb-stepBtn:hover {
+  border-color: var(--onb-border);
+  color: var(--onb-text);
+}
+
+.koma-onb-stepBtn--active {
+  border-color: var(--onb-accent);
+  background: var(--onb-accent-soft);
+  color: var(--onb-text);
+}
+
+.koma-onb-stepBtn--done {
+  border-color: var(--onb-success);
+  color: var(--onb-text);
+}
+
+.koma-onb-stepBtn__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-family: var(--onb-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--onb-border-subtle);
+}
+
+.koma-onb-stepBtn--active .koma-onb-stepBtn__num {
+  background: var(--onb-accent);
+  color: #ffffff;
+}
+
+.koma-onb-stepBtn--done .koma-onb-stepBtn__num {
+  background: var(--onb-success);
+  color: #04130d;
+}
+
+.koma-onb-stepBtn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-onb-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 22px;
+}
+
+.koma-onb-stepStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.koma-onb-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.koma-onb-grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.koma-onb-card {
+  padding: 14px 16px;
+  border-radius: var(--onb-card-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface-2);
+}
+
+.koma-onb-card--accent {
+  border-color: var(--onb-accent);
+  background: linear-gradient(135deg, var(--onb-accent-soft), var(--onb-surface-2));
+}
+
+.koma-onb-card--info {
+  border-color: var(--onb-info);
+  background: linear-gradient(135deg, var(--onb-info-soft), var(--onb-surface-2));
+}
+
+.koma-onb-card--warn {
+  border-color: var(--onb-warn);
+  background: linear-gradient(135deg, var(--onb-warn-soft), var(--onb-surface-2));
+}
+
+.koma-onb-card--success {
+  border-color: var(--onb-success);
+  background: linear-gradient(135deg, var(--onb-success-soft), var(--onb-surface-2));
+}
+
+.koma-onb-cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.koma-onb-cardTitle {
+  margin: 0;
+  font-family: var(--onb-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.koma-onb-heading {
+  margin: 8px 0 4px;
+  font-family: var(--onb-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.koma-onb-lead,
+.koma-onb-body p,
+.koma-onb-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.koma-onb-muted {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--onb-muted);
+}
+
+.koma-onb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--onb-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--onb-border-subtle);
+}
+
+html[data-theme-family="noir"] .koma-onb-badge {
+  border-radius: 0;
+}
+
+.koma-onb-badge--accent {
+  border-color: var(--onb-accent);
+  background: var(--onb-accent-soft);
+  color: var(--onb-accent);
+}
+
+.koma-onb-badge--info {
+  border-color: var(--onb-info);
+  background: var(--onb-info-soft);
+  color: var(--onb-info);
+}
+
+.koma-onb-badge--warn {
+  border-color: var(--onb-warn);
+  background: var(--onb-warn-soft);
+  color: var(--onb-warn);
+}
+
+.koma-onb-badge--success {
+  border-color: var(--onb-success);
+  background: var(--onb-success-soft);
+  color: var(--onb-success);
+}
+
+.koma-onb-flowStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.koma-onb-flowChip {
+  padding: 4px 9px;
+  border: 1px solid var(--onb-border);
+  border-radius: 999px;
+  font-family: var(--onb-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--onb-surface);
+}
+
+html[data-theme-family="noir"] .koma-onb-flowChip {
+  border-radius: 0;
+}
+
+.koma-onb-select {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  color: var(--onb-text);
+  font-size: 13px;
+}
+
+.koma-onb-pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.koma-onb-pillBtn {
+  padding: 6px 12px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  color: var(--onb-text);
+  font-family: var(--onb-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.koma-onb-pillBtn--active {
+  border-color: var(--onb-accent);
+  background: var(--onb-accent);
+  color: #ffffff;
+}
+
+.koma-onb-choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.koma-onb-choiceCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  color: var(--onb-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.koma-onb-choiceCard--active {
+  border-color: var(--onb-accent);
+  background: var(--onb-accent-soft);
+}
+
+.koma-onb-choiceGlyph {
+  font-family: var(--onb-font-heading);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--onb-accent);
+}
+
+.koma-onb-choiceCopy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.koma-onb-choiceName {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.koma-onb-choiceDesc {
+  font-size: 11px;
+  color: var(--onb-muted);
+}
+
+.koma-onb-mtSm {
+  margin-top: 10px;
+}
+
+.koma-onb-toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.koma-onb-toggleRow__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.koma-onb-toggleRow__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.koma-onb-toggleRow__desc {
+  font-size: 11.5px;
+  color: var(--onb-muted);
+}
+
+.koma-onb-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.koma-onb-switch__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.koma-onb-switch__track {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--onb-border-subtle);
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.15s ease;
+}
+
+.koma-onb-switch--on .koma-onb-switch__track {
+  background: var(--onb-accent);
+}
+
+.koma-onb-switch__thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 0.15s ease;
+}
+
+.koma-onb-switch--on .koma-onb-switch__thumb {
+  transform: translateX(16px);
+}
+
+.koma-onb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  color: var(--onb-text);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+.koma-onb-btn:hover:not(:disabled) {
+  border-color: var(--onb-accent);
+  transform: translateY(-1px);
+}
+
+.koma-onb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.koma-onb-btn--primary {
+  background: var(--onb-accent);
+  border-color: var(--onb-accent);
+  color: #ffffff;
+}
+
+.koma-onb-btn--star {
+  background: var(--onb-warn);
+  border-color: var(--onb-warn);
+  color: #14120c;
+  flex-shrink: 0;
+}
+
+.koma-onb-btn--ghost {
+  background: transparent;
+}
+
+.koma-onb-btn--sm {
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+
+.koma-onb-hardwareRow,
+.koma-onb-settingsTabCard,
+.koma-onb-githubCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.koma-onb-hardwareRow__main,
+.koma-onb-settingsTabCard__copy,
+.koma-onb-githubCard__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.koma-onb-deviceName {
+  margin: 4px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.koma-onb-mono {
+  font-family: var(--onb-font-mono);
+}
+
+.koma-onb-tierCard__title {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.koma-onb-bullets {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-onb-stageTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.koma-onb-stageTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: var(--onb-btn-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  color: var(--onb-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.koma-onb-stageTab--active {
+  border-color: var(--onb-accent);
+  background: var(--onb-accent-soft);
+  color: var(--onb-text);
+}
+
+.koma-onb-stageDetail {
+  margin-top: 14px;
+}
+
+.koma-onb-detailStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.koma-onb-detailTitle {
+  margin: 0;
+  font-family: var(--onb-font-heading);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.koma-onb-paramGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.koma-onb-paramCard {
+  padding: 10px 12px;
+  border-radius: var(--onb-card-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.koma-onb-paramCard--highlight {
+  border-color: var(--onb-success);
+}
+
+.koma-onb-orderedSteps {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+}
+
+.koma-onb-toolGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.koma-onb-toolCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.koma-onb-toolCard__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.koma-onb-toolCard__title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.koma-onb-installBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.koma-onb-modelList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.koma-onb-modelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--onb-card-radius);
+  border: 1px solid var(--onb-border-subtle);
+  background: var(--onb-surface);
+}
+
+.koma-onb-modelRow__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.koma-onb-modelRow__selectLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.koma-onb-modelRow__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.koma-onb-errorText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--onb-danger);
+}
+
+.koma-onb-summaryGrid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.koma-onb-summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--onb-btn-radius);
+  background: var(--onb-surface);
+  border: 1px solid var(--onb-border-subtle);
+  font-size: 12.5px;
+}
+
+.koma-onb-summaryItem__label {
+  font-size: 11px;
+  color: var(--onb-muted);
+}
+
+.koma-onb-finishActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.koma-onb-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  background: var(--onb-surface-2);
+  border-top: 1px solid var(--onb-border-subtle);
+}
+
+.koma-onb-footer__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.koma-onb-stepCounter {
+  font-family: var(--onb-font-mono);
+  font-size: 11.5px;
+  color: var(--onb-muted);
+}
+
+@media (max-width: 720px) {
+  .koma-onb-grid2,
+  .koma-onb-grid3,
+  .koma-onb-paramGrid,
+  .koma-onb-toolGrid,
+  .koma-onb-summaryGrid,
+  .koma-onb-choiceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-onb-stepper {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .koma-onb-hardwareRow,
+  .koma-onb-settingsTabCard,
+  .koma-onb-githubCard,
+  .koma-onb-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koma-onb-btn,
+  .koma-onb-stepBtn,
+  .koma-onb-switch__track,
+  .koma-onb-switch__thumb {
+    transition: none;
+  }
+}

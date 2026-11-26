@@ -125,6 +125,7 @@ interface KomaTopbarProps {
   onOpenSettings?: () => void;
   onOpenModelRankings?: () => void;
   onOpenScanlationFeed?: () => void;
+  onOpenOnboarding?: () => void;
   onReplayTour?: () => void;
   onLogout: () => void;
   onStatusMessage?: (msg: string) => void;
@@ -377,6 +378,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
     onOpenSettings,
     onOpenModelRankings,
     onOpenScanlationFeed,
+    onOpenOnboarding,
     onReplayTour,
     onLogout,
     onStatusMessage,
@@ -385,10 +387,6 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
   const navGroups = useMemo(() => createNavGroups(t), [t]);
   const allNavItems = useMemo(() => navGroups.flatMap((group) => group.items), [navGroups]);
-  const primaryItems = useMemo(
-    () => [...(navGroups[0]?.items ?? []), ...(navGroups[1]?.items ?? [])],
-    [navGroups],
-  );
   const utilsGroup = navGroups[2];
   const infoGroup = navGroups[3];
 
@@ -504,9 +502,15 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
 
         {/* ═══ NAVIGATION ═══ */}
         {!isCompactViewport && (
-          <nav className="relative z-10 hidden min-w-0 flex-1 items-center gap-1.5 @min-[860px]/topbar:flex" role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('dashboard.topbar.tools')}>
+          <nav
+            data-tour="topbar-main-nav"
+            className="relative z-10 hidden min-w-0 flex-1 items-center gap-1.5 @min-[860px]/topbar:flex"
+            role="tablist"
+            onKeyDown={handleTablistArrowKeys}
+            aria-label={t('dashboard.topbar.tools')}
+          >
             <div className="flex items-center gap-1">
-              {primaryItems.map((item) => {
+              {(navGroups[0]?.items ?? []).map((item) => {
                 const Icon = item.icon;
                 const isActive = mode === item.mode;
                 const isDisabled = isModeUnderDevelopment(item.mode);
@@ -541,6 +545,42 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
                   </Tooltip>
                 );
               })}
+              <div className="flex items-center gap-1" data-tour="topbar-production-group">
+                {(navGroups[1]?.items ?? []).map((item) => {
+                  const Icon = item.icon;
+                  const isActive = mode === item.mode;
+                  const isDisabled = isModeUnderDevelopment(item.mode);
+                  return (
+                    <Tooltip key={item.mode}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          aria-disabled={isDisabled}
+                          data-mode={item.mode}
+                          onClick={() => handleModeChange(item.mode)}
+                          className={cn(
+                            'panel-cut-sm group relative flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider transition-all duration-200',
+                            isActive
+                              ? 'bg-crimson text-ink shadow-hard-paper'
+                              : 'bg-ink-3/60 text-paper-dim hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-ink-3 hover:text-paper hover:shadow-hard-crimson',
+                            isDisabled && 'cursor-not-allowed opacity-40',
+                          )}
+                        >
+                          {isActive && <span className="h-1.5 w-1.5 bg-ink blink-noir" aria-hidden="true" />}
+                          <Icon size={13} aria-hidden="true" />
+                          <span className="hidden @min-[1180px]/topbar:inline">{item.label}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="glass panel-cut-sm border-crimson/30">
+                        <strong className="font-display uppercase text-crimson">{item.label}</strong>
+                        <span className="block text-paper-dim">{isDisabled ? underDevelopmentTooltip : item.tooltip}</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
             </div>
 
             <span className="mx-1 h-6 w-px bg-crimson/25" aria-hidden="true" />
@@ -577,6 +617,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
           </nav>
         )}
           <div
+            data-tour="topbar-mode-pill"
             className={cn(
               'panel-cut-sm relative z-10 flex items-stretch bg-crimson text-ink shadow-hard-gold',
               !isCompactViewport && '@min-[860px]/topbar:hidden',
@@ -775,6 +816,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
             onOpenSettings={onOpenSettings}
             onOpenModelRankings={onOpenModelRankings}
             onOpenScanlationFeed={onOpenScanlationFeed}
+            onOpenOnboarding={onOpenOnboarding}
             onReplayTour={onReplayTour}
             onToggle={() => toggleDropdown('user')}
             onClose={() => setActiveDropdown(null)}

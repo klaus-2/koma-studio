@@ -324,6 +324,7 @@ interface KomaTopbarProps {
   onOpenSettings?: () => void;
   onOpenModelRankings?: () => void;
   onOpenScanlationFeed?: () => void;
+  onOpenOnboarding?: () => void;
   onReplayTour?: () => void;
   onLogout: () => void;
   onStatusMessage?: (msg: string) => void;
@@ -940,6 +941,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
             onOpenSettings={onOpenSettings}
             onOpenModelRankings={onOpenModelRankings}
             onOpenScanlationFeed={onOpenScanlationFeed}
+            onOpenOnboarding={props.onOpenOnboarding}
             onReplayTour={onReplayTour}
             onToggle={() => toggleDropdown('user')}
             onClose={() => setActiveDropdown(null)}

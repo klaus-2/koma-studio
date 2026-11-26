@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Compass, RotateCcw, Sparkles } from "lucide-react";
 import { navigateToLegalDocument } from "../../legal/navigation";
 import type { AuthUser } from "../../contexts/AuthContext";
 import type { useI18n } from "../../i18n";
@@ -50,6 +50,8 @@ interface SettingsGeneralTabArgs {
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
+  onOpenOnboarding?: () => void;
+  onReplayTour?: () => void;
 }
 
 // UI scale (90/100/125/150%) + compact density — applies live via applyUiScale (App mount).
@@ -106,6 +108,8 @@ export const renderSettingsGeneralTab = ({
   localResetBusy,
   handleResetLocalAppSettings,
   localResetFeedback,
+  onOpenOnboarding,
+  onReplayTour,
 }: SettingsGeneralTabArgs): JSX.Element => (
 <div className="koma-stg-panel" key="general">
   {/* Profile Section */}
@@ -410,6 +414,36 @@ export const renderSettingsGeneralTab = ({
       </div>
     </label>
   </section>
+
+  {(onOpenOnboarding || onReplayTour) && (
+    <section className="koma-stg-section">
+      <div className="koma-stg-section__head">
+        <Compass size={16} className="koma-stg-section__ico" />
+        <h3 className="koma-stg-section__title">{t("settings.onboarding.title")}</h3>
+      </div>
+      <p className="koma-stg-section__desc">{t("settings.onboarding.description")}</p>
+      <div className="koma-stg-actions koma-stg-actions--row" style={{ marginTop: 14 }}>
+        {onOpenOnboarding && (
+          <button
+            type="button"
+            className="koma-btn koma-btn--primary koma-btn--sm"
+            onClick={onOpenOnboarding}
+          >
+            <Sparkles size={12} /> {t("settings.onboarding.openButton")}
+          </button>
+        )}
+        {onReplayTour && (
+          <button
+            type="button"
+            className="koma-btn koma-btn--ghost koma-btn--sm"
+            onClick={onReplayTour}
+          >
+            <Compass size={12} /> {t("settings.onboarding.replayTourButton")}
+          </button>
+        )}
+      </div>
+    </section>
+  )}
 
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">

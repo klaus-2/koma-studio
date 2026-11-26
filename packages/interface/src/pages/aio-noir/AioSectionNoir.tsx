@@ -8,6 +8,7 @@ interface AioSectionProps {
   title: string;
   badge?: ReactNode;
   defaultOpen?: boolean;
+  'data-tour'?: string;
   children: ReactNode;
 }
 
@@ -16,6 +17,7 @@ export const AioSectionNoir = ({
   title,
   badge,
   defaultOpen = true,
+  'data-tour': dataTour,
   children,
 }: AioSectionProps) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -23,6 +25,7 @@ export const AioSectionNoir = ({
 
   return (
     <section
+      data-tour={dataTour}
       className={cn(
         "glass panel-cut-sm mb-3 overflow-hidden border-l-2 border-l-crimson/70",
       )}

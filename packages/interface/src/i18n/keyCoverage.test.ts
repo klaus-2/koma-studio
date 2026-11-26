@@ -44,12 +44,16 @@ const localeCatalogs: Record<string, TranslationCatalog> = {
 const guardedPrefixes = [
   "freeProviderCard.",
   "modelManager.filters.",
+  "modelManager.progress.",
   "dashboard.translator.",
   "dashboard.aio.glossary.",
   "dashboard.aio.translation.",
+  "dashboard.topbar.openOnboarding",
   "firstRunNotice.",
   "tips.",
   "dashboard.hint.healing.",
+  "settings.onboarding.",
+  "onboarding.",
 ] as const;
 
 const walkTsFiles = (dir: string, acc: string[] = []): string[] => {

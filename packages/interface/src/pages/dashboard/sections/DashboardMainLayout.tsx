@@ -111,6 +111,7 @@ import { useWorkspacePersistence } from '../hooks/workspace-persistence';
 import { useDashboardShellLayout } from '../../../hooks/useDashboardShellLayout';
 import { useDashboardExternalActions } from '../../../hooks/useDashboardExternalActions';
 import { useDashboardTour } from '../../../hooks/useDashboardTour';
+import type { OnboardingState } from '../../../hooks/useOnboardingFlow';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDashboardAccountSync } from '../../../hooks/useDashboardAccountSync';
 import { useDashboardUsageAndPresence } from '../../../hooks/useDashboardUsageAndPresence';
@@ -297,6 +298,7 @@ export interface DashboardMainLayoutProps {
   verifyEmailSending: AccountSyncApi['verifyEmailSending'];
   handleSendVerificationEmail: AccountSyncApi['handleSendVerificationEmail'];
   replayTour: TourApi['replayTour'];
+  onboarding: OnboardingState;
 
   /* ── External actions ── */
   openShortcutCenter: ExternalActionsApi['openShortcutCenter'];
@@ -308,6 +310,8 @@ export interface DashboardMainLayoutProps {
   openProjectExternalLink: ExternalActionsApi['openProjectExternalLink'];
   projectDiscordUrl: ExternalActionsApi['projectDiscordUrl'];
   projectWebsiteUrl: ExternalActionsApi['projectWebsiteUrl'];
+  projectGithubUrl: ExternalActionsApi['projectGithubUrl'];
+  openSettingsOnTab: ExternalActionsApi['openSettingsOnTab'];
   openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab']; openSettingsOnIntegrationsTab: ExternalActionsApi['openSettingsOnIntegrationsTab']; openSettingsOnRuntimeTab: ExternalActionsApi['openSettingsOnRuntimeTab'];
 
   /* ── Footer / dock derivations ── */
@@ -560,6 +564,7 @@ export default memo(function DashboardMainLayout({
   verifyEmailSending,
   handleSendVerificationEmail,
   replayTour,
+  onboarding,
   openShortcutCenter,
   shortcutCenterOpen,
   closeShortcutCenter,
@@ -569,6 +574,8 @@ export default memo(function DashboardMainLayout({
   openProjectExternalLink,
   projectDiscordUrl,
   projectWebsiteUrl,
+  projectGithubUrl,
+  openSettingsOnTab,
   openSettingsOnPresetsTab, openSettingsOnIntegrationsTab, openSettingsOnRuntimeTab,
   manualDockVisible,
   manualDockRightOffset,
@@ -1012,6 +1019,7 @@ export default memo(function DashboardMainLayout({
           onOpenModelRankings={onOpenModelRankings}
           onOpenScanlationFeed={onOpenScanlationFeed}
           onReplayTour={replayTour}
+          onOpenOnboarding={onboarding.open}
           onOpenShortcuts={openShortcutCenter}
           shortcutModalOpen={shortcutCenterOpen}
         />
@@ -1365,6 +1373,18 @@ export default memo(function DashboardMainLayout({
         mode={mode}
         statusMessage={statusMessage}
         userEmail={authUser?.email ?? user.email}
+        onboardingOpen={onboarding.isOpen}
+        userId={authUser?.id ?? null}
+        githubUrl={projectGithubUrl}
+        onCloseOnboarding={onboarding.close}
+        onStartTour={replayTour}
+        onOpenSettingsTab={openSettingsOnTab}
+        onOpenExternalUrl={openProjectExternalLink}
+        onOpenModelManager={() => openModelManagerForStage('detectText')}
+        onInstallModels={installAllTranslationModels}
+        onRetryModel={retryTranslationModel}
+        onCancelModel={cancelTranslationModel}
+        onCancelAllModels={cancelAllTranslationModels}
       />
       <DashboardModelManagers
         activeModelManagerStage={activeModelManagerStage}

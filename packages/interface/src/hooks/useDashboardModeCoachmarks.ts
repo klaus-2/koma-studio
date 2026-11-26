@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useRef } from 'react';
-// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
-import 'driver.js/dist/driver.css';
 import {
   driver,
-  type Alignment,
   type DriveStep,
   type Driver,
-  type Side,
+  type DriverHook,
 } from 'driver.js';
+// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
+import 'driver.js/dist/driver.css';
 
-import { useI18n } from '../i18n';
+import { readOnboardingState } from '../components/onboarding/onboardingStorage';
 import { getModeLabels } from '../constants/dashboard.constants';
+import { useI18n } from '../i18n';
 import type { SubMode, ToolMode } from '../types/dashboard.types';
-import { readDashboardTourState } from './useDashboardTour';
+import {
+  navigateResolvableTourStep,
+  settleTourUi,
+  stepToDriveElement,
+  waitForNextPaint,
+  type ResolvableTourStep,
+  type TourSelectorSpec,
+} from './tourNavigation';
+import {
+  readDashboardTourState,
+  type DashboardTourForcedDropdown,
+} from './useDashboardTour';
 import './DashboardTour.css';
 
 type ModeGuideStatus = 'completed' | 'dismissed';
@@ -23,53 +34,62 @@ interface ModeGuideStateV1 {
   seenAt: string;
 }
 
-interface ModeGuideStep {
-  selector?: string;
+export interface ModeGuideStep extends ResolvableTourStep {
+  selectors?: TourSelectorSpec;
   title: string;
   body: string;
   accent: string;
-  side?: Side;
-  align?: Alignment;
-  optional?: boolean;
-  prepare?: () => Promise<void> | void;
 }
 
-interface UseDashboardModeCoachmarksOptions {
+export interface UseDashboardModeCoachmarksOptions {
   userId?: string | null;
   isReady: boolean;
+  suppressed?: boolean;
   mode: ToolMode;
   subMode: SubMode;
   hasImages: boolean;
   hasDownloadActions: boolean;
   isCompactViewport: boolean;
+  setForcedDropdown: (dropdown: DashboardTourForcedDropdown) => void;
+  setToolsPanelVisible: (visible: boolean) => void;
 }
 
-type TFunc = (key: string, params?: Record<string, string | number | null | undefined>) => string;
+export type BuildModeCoachmarkStepsOptions = Pick<
+  UseDashboardModeCoachmarksOptions,
+  | 'mode'
+  | 'subMode'
+  | 'hasImages'
+  | 'hasDownloadActions'
+  | 'isCompactViewport'
+  | 'setForcedDropdown'
+  | 'setToolsPanelVisible'
+>;
+
+type TFunc = (
+  key: string,
+  params?: Record<string, string | number | null | undefined>,
+) => string;
 
 const MODE_GUIDE_STORAGE_PREFIX = 'koma-studio.dashboard-mode-guide.v1';
 const MODE_GUIDE_VERSION = '2026-03-dashboard-context-guides';
 
-const wait = (ms: number): Promise<void> =>
-  new Promise((resolve) => window.setTimeout(resolve, ms));
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const waitForNextPaint = async (): Promise<void> => {
-  await new Promise<void>((resolve) =>
-    window.requestAnimationFrame(() => resolve()),
-  );
-  await new Promise<void>((resolve) =>
-    window.requestAnimationFrame(() => resolve()),
-  );
-};
-
-const settleUi = async (): Promise<void> => {
-  await waitForNextPaint();
-  await wait(32);
+const escapeHtml = (value: string): string => {
+  if (!value) return '';
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 };
 
 const buildStorageKey = (userId: string, guideKey: string): string =>
   `${MODE_GUIDE_STORAGE_PREFIX}:${encodeURIComponent(userId)}:${guideKey}`;
 
-const readModeGuideState = (
+export const readModeGuideState = (
   userId: string,
   guideKey: string,
 ): ModeGuideStateV1 | null => {
@@ -83,9 +103,12 @@ const readModeGuideState = (
       return null;
     }
 
-    const parsed = JSON.parse(raw) as Partial<ModeGuideStateV1> | null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
     if (
-      !parsed ||
       parsed.version !== MODE_GUIDE_VERSION ||
       (parsed.status !== 'completed' && parsed.status !== 'dismissed') ||
       typeof parsed.seenAt !== 'string'
@@ -93,7 +116,11 @@ const readModeGuideState = (
       return null;
     }
 
-    return parsed as ModeGuideStateV1;
+    return {
+      version: parsed.version,
+      status: parsed.status,
+      seenAt: parsed.seenAt,
+    };
   } catch {
     return null;
   }
@@ -119,44 +146,6 @@ const persistModeGuideState = (
   );
 };
 
-const isElementVisible = (element: Element | null): element is HTMLElement => {
-  if (!(element instanceof HTMLElement)) {
-    return false;
-  }
-
-  return Boolean(
-    element.offsetWidth ||
-      element.offsetHeight ||
-      element.getClientRects().length,
-  );
-};
-
-const queryVisibleElement = (selector: string): HTMLElement | null => {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  const element = document.querySelector(selector);
-  return isElementVisible(element) ? element : null;
-};
-
-const waitForVisibleElement = async (
-  selector: string,
-  timeoutMs = 1400,
-): Promise<HTMLElement | null> => {
-  const startedAt = performance.now();
-
-  while (performance.now() - startedAt < timeoutMs) {
-    const element = queryVisibleElement(selector);
-    if (element) {
-      return element;
-    }
-    await waitForNextPaint();
-  }
-
-  return null;
-};
-
 const buildGuideKey = (mode: ToolMode, subMode: SubMode): string => {
   if (mode === 'aio' || mode === 'typesetter') {
     return `${mode}:${subMode}`;
@@ -165,30 +154,41 @@ const buildGuideKey = (mode: ToolMode, subMode: SubMode): string => {
   return mode;
 };
 
-const buildStageSelector = (hasImages: boolean): string =>
+const buildStageSelectors = (hasImages: boolean): TourSelectorSpec =>
   hasImages
-    ? '[data-tour="dashboard-stage-grid"]'
-    : '[data-tour="dashboard-stage-empty"]';
+    ? ['[data-tour="dashboard-stage-grid"]', '[data-tour="dashboard-stage"]']
+    : ['[data-tour="dashboard-stage-empty"]', '[data-tour="dashboard-stage"]'];
 
 const buildCoachmarkDescription = (step: ModeGuideStep): string => `
   <div class="koma-tour-popover__body koma-tour-popover__body--coachmark">
     <div class="koma-tour-popover__copy">
-      <span class="koma-tour-popover__eyebrow">${step.accent}</span>
-      <p>${step.body}</p>
+      <span class="koma-tour-popover__eyebrow">${escapeHtml(step.accent)}</span>
+      <p>${escapeHtml(step.body)}</p>
     </div>
   </div>
 `;
 
 const createCommonSteps = (
-  mode: ToolMode,
-  hasImages: boolean,
-  hasDownloadActions: boolean,
+  {
+    mode,
+    hasImages,
+    hasDownloadActions,
+    setForcedDropdown,
+    setToolsPanelVisible,
+  }: Pick<
+    BuildModeCoachmarkStepsOptions,
+    'mode' | 'hasImages' | 'hasDownloadActions' | 'setForcedDropdown' | 'setToolsPanelVisible'
+  >,
   t: TFunc,
-): { stageStep: ModeGuideStep; toolsStep: ModeGuideStep; downloadStep?: ModeGuideStep } => {
+): {
+  stageStep: ModeGuideStep;
+  toolsStep: ModeGuideStep;
+  downloadStep?: ModeGuideStep;
+} => {
   const modeLabel = getModeLabels(t)[mode];
   return {
     stageStep: {
-      selector: buildStageSelector(hasImages),
+      selectors: buildStageSelectors(hasImages),
       title: `${modeLabel}: ${t('dashboard.coachmark.stage.titleSuffix')}`,
       body: hasImages
         ? t('dashboard.coachmark.stage.bodyWithImages', { modeLabel })
@@ -196,195 +196,251 @@ const createCommonSteps = (
       accent: t('dashboard.coachmark.stage.accent'),
       side: 'top',
       align: 'center',
+      prepare: async () => {
+        setForcedDropdown(null);
+        await settleTourUi(32);
+      },
     },
     toolsStep: {
-      selector: '[data-tour="dashboard-tools-panel"]',
+      selectors: '[data-tour="dashboard-tools-panel"]',
       title: `${modeLabel}: ${t('dashboard.coachmark.tools.titleSuffix')}`,
       body: t('dashboard.coachmark.tools.body', { modeLabel }),
       accent: t('dashboard.coachmark.tools.accent'),
       side: 'left',
       align: 'center',
+      prepare: async () => {
+        setForcedDropdown(null);
+        setToolsPanelVisible(true);
+        await settleTourUi(32);
+      },
     },
     downloadStep: hasDownloadActions
       ? {
-          selector: '[data-tour="topbar-download-panel"]',
+          selectors: [
+            '[data-tour="topbar-download-panel"]',
+            '[data-tour="topbar-download-trigger"]',
+          ],
           title: `${modeLabel}: ${t('dashboard.coachmark.download.titleSuffix')}`,
           body: t('dashboard.coachmark.download.body'),
           accent: t('dashboard.coachmark.download.accent'),
           side: 'bottom',
           align: 'end',
+          optional: true,
+          prepare: async () => {
+            setForcedDropdown('download');
+            await settleTourUi(32);
+          },
         }
       : undefined,
   };
 };
 
-const buildStepsForCurrentMode = (
-  {
+export const buildModeCoachmarkSteps = (
+  options: BuildModeCoachmarkStepsOptions,
+  t: TFunc,
+): ModeGuideStep[] => {
+  const {
     mode,
     subMode,
     hasImages,
-    hasDownloadActions,
     isCompactViewport,
-  }: Omit<UseDashboardModeCoachmarksOptions, 'userId' | 'isReady'>,
-  t: TFunc,
-): ModeGuideStep[] => {
-  const common = createCommonSteps(mode, hasImages, hasDownloadActions, t);
+    setForcedDropdown,
+    setToolsPanelVisible,
+  } = options;
+  const common = createCommonSteps(options, t);
 
   if (mode === 'aio' && subMode === 'auto') {
-    return [
+    const steps: ModeGuideStep[] = [
       {
-        selector: '[data-tour="dashboard-aio-pipeline"]',
+        selectors: '[data-tour="dashboard-aio-pipeline"]',
         title: t('dashboard.coachmark.aioAuto.stagesTitle'),
         body: t('dashboard.coachmark.aioAuto.stagesBody'),
         accent: t('dashboard.coachmark.aioAuto.stagesAccent'),
         side: 'left',
         align: 'center',
+        prepare: async () => {
+          setForcedDropdown(null);
+          setToolsPanelVisible(true);
+          await settleTourUi(32);
+        },
       },
       {
-        selector: '[data-tour="dashboard-aio-stage-config"]',
+        selectors: [
+          '[data-tour="dashboard-aio-stage-config"]',
+          '[data-tour="dashboard-tools-panel"]',
+        ],
         title: t('dashboard.coachmark.aioAuto.configTitle'),
         body: t('dashboard.coachmark.aioAuto.configBody'),
         accent: t('dashboard.coachmark.aioAuto.configAccent'),
         side: 'left',
         align: 'center',
+        prepare: async () => {
+          setForcedDropdown(null);
+          setToolsPanelVisible(true);
+          await settleTourUi(32);
+        },
       },
-      common.downloadStep ?? common.stageStep,
     ];
+    if (common.downloadStep) {
+      steps.push(common.downloadStep);
+    } else {
+      steps.push(common.stageStep);
+    }
+    return steps;
   }
 
   if (mode === 'aio' && subMode === 'manual') {
-    return [
-      common.stageStep,
-      !isCompactViewport
-        ? {
-            selector: '[data-tour="dashboard-manual-dock"]',
-            title: t('dashboard.coachmark.aioManual.dockTitle'),
-            body: t('dashboard.coachmark.aioManual.dockBody'),
-            accent: t('dashboard.coachmark.aioManual.dockAccent'),
-            side: 'left',
-            align: 'center',
-            optional: true,
-          }
-        : common.toolsStep,
-      common.toolsStep,
-    ];
+    const steps: ModeGuideStep[] = [common.stageStep];
+    if (!isCompactViewport) {
+      steps.push({
+        selectors: '[data-tour="dashboard-manual-dock"]',
+        title: t('dashboard.coachmark.aioManual.dockTitle'),
+        body: t('dashboard.coachmark.aioManual.dockBody'),
+        accent: t('dashboard.coachmark.aioManual.dockAccent'),
+        side: 'left',
+        align: 'center',
+        optional: true,
+        prepare: async () => {
+          setForcedDropdown(null);
+          await settleTourUi(32);
+        },
+      });
+    }
+    steps.push(common.toolsStep);
+    if (common.downloadStep) {
+      steps.push(common.downloadStep);
+    }
+    return steps;
   }
 
   if (mode === 'typesetter') {
-    return [
-      common.stageStep,
-      common.toolsStep,
-      common.downloadStep ?? common.stageStep,
-    ];
+    const steps: ModeGuideStep[] = [common.stageStep, common.toolsStep];
+    if (common.downloadStep) {
+      steps.push(common.downloadStep);
+    }
+    return steps;
   }
 
   if (mode === 'cleaner') {
-    return [
-      common.stageStep,
-      common.toolsStep,
-      !isCompactViewport && hasImages
-        ? {
-            selector: '[data-tour="dashboard-manual-dock"]',
-            title: t('dashboard.coachmark.cleaner.dockTitle'),
-            body: t('dashboard.coachmark.cleaner.dockBody'),
-            accent: t('dashboard.coachmark.cleaner.dockAccent'),
-            side: 'left',
-            align: 'center',
-            optional: true,
-          }
-        : common.downloadStep ?? common.stageStep,
-    ];
+    const steps: ModeGuideStep[] = [common.stageStep, common.toolsStep];
+    if (!isCompactViewport && hasImages) {
+      steps.push({
+        selectors: '[data-tour="dashboard-manual-dock"]',
+        title: t('dashboard.coachmark.cleaner.dockTitle'),
+        body: t('dashboard.coachmark.cleaner.dockBody'),
+        accent: t('dashboard.coachmark.cleaner.dockAccent'),
+        side: 'left',
+        align: 'center',
+        optional: true,
+        prepare: async () => {
+          setForcedDropdown(null);
+          await settleTourUi(32);
+        },
+      });
+    }
+    if (common.downloadStep) {
+      steps.push(common.downloadStep);
+    }
+    return steps;
   }
 
   if (mode === 'translator') {
-    return [
-      common.toolsStep,
-      common.stageStep,
-      common.downloadStep ?? common.stageStep,
-    ];
+    const steps: ModeGuideStep[] = [common.toolsStep, common.stageStep];
+    if (common.downloadStep) {
+      steps.push(common.downloadStep);
+    }
+    return steps;
   }
 
   if (mode === 'guides' || mode === 'resources') {
     return [
       {
-        selector: '[data-tour="dashboard-stage"]',
+        selectors: '[data-tour="dashboard-stage"]',
         title: `${getModeLabels(t)[mode]}: ${t('dashboard.coachmark.content.titleSuffix')}`,
         body: t('dashboard.coachmark.content.body'),
         accent: t('dashboard.coachmark.content.accent'),
         side: 'top',
         align: 'center',
+        prepare: async () => {
+          setForcedDropdown(null);
+          await settleTourUi(32);
+        },
       },
     ];
   }
 
-  return [
-    common.stageStep,
-    common.toolsStep,
-    common.downloadStep ?? common.stageStep,
-  ];
+  const fallbackSteps: ModeGuideStep[] = [common.stageStep, common.toolsStep];
+  if (common.downloadStep) {
+    fallbackSteps.push(common.downloadStep);
+  }
+  return fallbackSteps;
 };
 
 export const useDashboardModeCoachmarks = ({
   userId,
   isReady,
+  suppressed = false,
   mode,
   subMode,
   hasImages,
   hasDownloadActions,
   isCompactViewport,
+  setForcedDropdown,
+  setToolsPanelVisible,
 }: UseDashboardModeCoachmarksOptions): void => {
   const { t } = useI18n();
   const driverRef = useRef<Driver | null>(null);
   const stepsRef = useRef<ModeGuideStep[]>([]);
   const persistStatusRef = useRef<ModeGuideStatus | null>(null);
   const activeGuideKeyRef = useRef<string | null>(null);
+  const navSeqRef = useRef(0);
+
+  const completeGuide = useCallback((currentDriver: Driver) => {
+    navSeqRef.current += 1;
+    persistStatusRef.current = 'completed';
+    currentDriver.destroy();
+    driverRef.current = null;
+  }, []);
 
   const navigateToStep = useCallback(
     async (currentDriver: Driver, nextIndex: number, direction: 1 | -1) => {
-      const steps = stepsRef.current;
-
-      if (nextIndex < 0) {
-        return;
-      }
-
-      if (nextIndex >= steps.length) {
-        persistStatusRef.current = 'completed';
-        currentDriver.destroy();
-        driverRef.current = null;
-        return;
-      }
-
-      const nextStep = steps[nextIndex];
-      if (!nextStep) return;
-      await nextStep.prepare?.();
-
-      if (nextStep.selector) {
-        const element = await waitForVisibleElement(nextStep.selector);
-        if (!element) {
-          if (nextStep.optional) {
-            await navigateToStep(currentDriver, nextIndex + direction, direction);
-          }
-          return;
-        }
-      }
-
-      if (!currentDriver.isActive()) {
-        return;
-      }
-
-      currentDriver.moveTo(nextIndex);
-      await waitForNextPaint();
-      currentDriver.refresh();
+      const sequenceToken = (navSeqRef.current += 1);
+      await navigateResolvableTourStep({
+        driver: currentDriver,
+        steps: stepsRef.current,
+        startIndex: nextIndex,
+        direction,
+        sequenceToken,
+        getCurrentToken: () => navSeqRef.current,
+        onComplete: () => completeGuide(currentDriver),
+      });
     },
-    [],
+    [completeGuide],
   );
 
+  useEffect(() => {
+    if (!suppressed) {
+      return;
+    }
+    navSeqRef.current += 1;
+    if (driverRef.current) {
+      persistStatusRef.current = null;
+      driverRef.current.destroy();
+      driverRef.current = null;
+      activeGuideKeyRef.current = null;
+      setForcedDropdown(null);
+    }
+  }, [setForcedDropdown, suppressed]);
+
   const startGuide = useCallback(async () => {
-    if (!userId || !isReady || typeof window === 'undefined') {
+    if (!userId || !isReady || suppressed || typeof window === 'undefined') {
       return;
     }
 
-    if (!readDashboardTourState(userId)) {
+    const hasSeenMainFlow =
+      readDashboardTourState(userId) !== null ||
+      readOnboardingState(userId) !== null;
+    if (!hasSeenMainFlow) {
       return;
     }
 
@@ -397,55 +453,68 @@ export const useDashboardModeCoachmarks = ({
       return;
     }
 
-    const steps = buildStepsForCurrentMode({
-      mode,
-      subMode,
-      hasImages,
-      hasDownloadActions,
-      isCompactViewport,
-    }, t);
+    const steps = buildModeCoachmarkSteps(
+      {
+        mode,
+        subMode,
+        hasImages,
+        hasDownloadActions,
+        isCompactViewport,
+        setForcedDropdown,
+        setToolsPanelVisible,
+      },
+      t,
+    );
 
     if (steps.length === 0) {
       return;
     }
 
     if (driverRef.current?.isActive()) {
+      navSeqRef.current += 1;
       persistStatusRef.current = 'dismissed';
       driverRef.current.destroy();
       driverRef.current = null;
-      await settleUi();
+      await settleTourUi(32);
     }
 
     stepsRef.current = steps;
     persistStatusRef.current = null;
     activeGuideKeyRef.current = guideKey;
 
+    const handleNextClick: DriverHook = (_element, _step, opts) => {
+      void navigateToStep(
+        opts.driver,
+        (opts.driver.getActiveIndex() ?? 0) + 1,
+        1,
+      );
+    };
+
+    const handlePrevClick: DriverHook = (_element, _step, opts) => {
+      void navigateToStep(
+        opts.driver,
+        (opts.driver.getActiveIndex() ?? 0) - 1,
+        -1,
+      );
+    };
+
+    const handleDoneClick: DriverHook = (_element, _step, opts) => {
+      completeGuide(opts.driver);
+    };
+
     const driverSteps: DriveStep[] = steps.map((step) => ({
-      element: step.selector
-        ? () => document.querySelector(step.selector!) as Element
-        : undefined,
+      element: stepToDriveElement(step.selectors),
       popover: {
-        title: step.title,
+        title: escapeHtml(step.title),
         description: buildCoachmarkDescription(step),
         side: step.side,
         align: step.align,
         showButtons: ['previous', 'next', 'close'],
         showProgress: true,
         popoverClass: 'koma-tour-popover koma-tour-popover--coachmark',
-        onNextClick: (_element, _step, opts) => {
-          void navigateToStep(
-            opts.driver,
-            (opts.driver.getActiveIndex() ?? 0) + 1,
-            1,
-          );
-        },
-        onPrevClick: (_element, _step, opts) => {
-          void navigateToStep(
-            opts.driver,
-            (opts.driver.getActiveIndex() ?? 0) - 1,
-            -1,
-          );
-        },
+        onNextClick: handleNextClick,
+        onPrevClick: handlePrevClick,
+        onDoneClick: handleDoneClick,
       },
     }));
 
@@ -468,7 +537,11 @@ export const useDashboardModeCoachmarks = ({
       stageRadius: 18,
       smoothScroll: true,
       steps: driverSteps,
+      onNextClick: handleNextClick,
+      onPrevClick: handlePrevClick,
+      onDoneClick: handleDoneClick,
       onCloseClick: (_element, _step, opts) => {
+        navSeqRef.current += 1;
         persistStatusRef.current = 'dismissed';
         opts.driver.destroy();
         driverRef.current = null;
@@ -479,12 +552,15 @@ export const useDashboardModeCoachmarks = ({
         }
       },
       onDestroyed: () => {
-        if (persistStatusRef.current) {
-          persistModeGuideState(userId, guideKey, persistStatusRef.current);
+        navSeqRef.current += 1;
+        const intent = persistStatusRef.current;
+        if (intent === 'completed' || intent === 'dismissed') {
+          persistModeGuideState(userId, guideKey, intent);
         }
         persistStatusRef.current = null;
         activeGuideKeyRef.current = null;
         driverRef.current = null;
+        setForcedDropdown(null);
       },
     });
 
@@ -492,15 +568,21 @@ export const useDashboardModeCoachmarks = ({
     await steps[0]?.prepare?.();
     guideDriver.drive(0);
     await waitForNextPaint();
-    guideDriver.refresh();
+    if (driverRef.current === guideDriver && guideDriver.isActive()) {
+      guideDriver.refresh();
+    }
   }, [
+    completeGuide,
     hasDownloadActions,
     hasImages,
     isCompactViewport,
     isReady,
     mode,
     navigateToStep,
+    setForcedDropdown,
+    setToolsPanelVisible,
     subMode,
+    suppressed,
     t,
     userId,
   ]);
@@ -511,8 +593,9 @@ export const useDashboardModeCoachmarks = ({
 
   useEffect(() => {
     return () => {
+      navSeqRef.current += 1;
       if (driverRef.current) {
-        persistStatusRef.current = 'dismissed';
+        persistStatusRef.current = null;
         driverRef.current.destroy();
         driverRef.current = null;
       }

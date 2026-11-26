@@ -9,6 +9,7 @@ interface AioSectionProps {
   title: string;
   badge?: ReactNode;
   defaultOpen?: boolean;
+  'data-tour'?: string;
   children: ReactNode;
 }
 
@@ -17,12 +18,16 @@ const AioSectionClassic = memo(function AioSectionClassic({
   title,
   badge,
   defaultOpen = true,
+  'data-tour': dataTour,
   children,
 }: AioSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className={cn('koma-aio-section', open && 'koma-aio-section--open')}>
+    <div
+      className={cn('koma-aio-section', open && 'koma-aio-section--open')}
+      data-tour={dataTour}
+    >
       <button
         type="button"
         className="koma-aio-section__header"

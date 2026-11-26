@@ -1,4 +1,4 @@
-import { UserRound, ShieldCheck, Scale, Ticket, Globe2, Palette, Moon, Sun, Lightbulb, MousePointer2, Keyboard, RotateCcw, Film } from "lucide-react";
+import { UserRound, ShieldCheck, Scale, Ticket, Globe2, Palette, Moon, Sun, Lightbulb, MousePointer2, Keyboard, RotateCcw, Film, Compass, Sparkles } from "lucide-react";
 import { useBackdropVideoStore } from "@/pages/dashboard/stores/backdrop-video-store";
 import { navigateToLegalDocument } from "../../../legal/navigation";
 import type React from "react";
@@ -52,6 +52,8 @@ interface SettingsGeneralTabArgs {
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
+  onOpenOnboarding?: () => void;
+  onReplayTour?: () => void;
 }
 
 // UI scale + compact density — twin of the Classic section; applies live via applyUiScale (App mount).
@@ -91,6 +93,7 @@ export const renderSettingsGeneralTabNoir = ({
   toolTipsEnabled, setToolTipsEnabled,
   customCursorEnabled, setCustomCursorEnabled,
   localResetBusy, handleResetLocalAppSettings, localResetFeedback,
+  onOpenOnboarding, onReplayTour,
 }: SettingsGeneralTabArgs): React.ReactElement => (
   <div className="space-y-5" key="general">
     <Sec icon={<UserRound size={14} />} title={t("settings.profile.title")}
@@ -264,6 +267,23 @@ export const renderSettingsGeneralTabNoir = ({
     </Sec>
 
     <BackdropVideoSectionNoir t={t} />
+
+    {(onOpenOnboarding || onReplayTour) && (
+      <Sec icon={<Compass size={14} />} title={t("settings.onboarding.title")} desc={t("settings.onboarding.description")}>
+        <div className="flex flex-wrap gap-2">
+          {onOpenOnboarding && (
+            <button type="button" className={btnGhost} onClick={onOpenOnboarding}>
+              <Sparkles size={12} /> {t("settings.onboarding.openButton")}
+            </button>
+          )}
+          {onReplayTour && (
+            <button type="button" className={btnGhost} onClick={onReplayTour}>
+              <Compass size={12} /> {t("settings.onboarding.replayTourButton")}
+            </button>
+          )}
+        </div>
+      </Sec>
+    )}
 
     <Sec icon={<Keyboard size={14} />} title={t("settings.shortcuts.title")} desc={t("settings.shortcuts.description")}>
       <Alert tone="info">
