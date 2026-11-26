@@ -25,13 +25,14 @@ from mini_backend_tools.requirements import (
     read_requirements,
 )
 from mini_backend_tools.torch_wheels import (
-    TORCH_CUDA_INDEX_URL,
     TORCH_INSTALL_STAGE,
     TORCH_QUERY_STAGE,
     NVIDIA_PROFILES,
     drop_torch_entries_from_lock,
+    linux_cpu_torch,
+    should_override_torch_wheel,
     torch_cuda_query_child,
-    windows_cuda_torch,
+    torch_index_url_for_profile,
 )
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,7 @@ class Settings(BaseModel):
     profile: Profile = "auto"
     timeout_seconds: int = Field(default=900, ge=1, le=7200)
     attempts: int = Field(default=3, ge=1, le=5)
+    standalone_python: bool = False
 
     @field_validator("profile", mode="before")
     @classmethod
@@ -209,11 +211,13 @@ class Settings(BaseModel):
 
 
 def load_settings(environment: Mapping[str, str]) -> Settings:
+    raw_standalone = str(environment.get("KOMA_STANDALONE_PYTHON", "")).strip().lower()
     return Settings.model_validate(
         {
             "profile": environment.get("MINI_BACKEND_ACCELERATION_PROFILE", "auto"),
             "timeout_seconds": environment.get("MINI_DEPS_COMMAND_TIMEOUT", "900"),
             "attempts": environment.get("MINI_DEPS_OUTER_ATTEMPTS", "3"),
+            "standalone_python": raw_standalone in {"1", "true", "yes"},
         }
     )
 
@@ -362,6 +366,12 @@ async def _retry_command(
     return result
 
 
+def _standalone_uv_flags(settings: Settings) -> list[str]:
+    if settings.standalone_python:
+        return ["--system", "--break-system-packages"]
+    return []
+
+
 async def _install(
     uv_argv: Sequence[str],
     lock_path: Path,
@@ -374,6 +384,7 @@ async def _install(
         *uv_argv,
         "pip",
         "install",
+        *_standalone_uv_flags(settings),
         "--python",
         str(target_python),
         "--require-hashes",
@@ -497,12 +508,20 @@ async def _ensure_torch_cuda(
     PyTorch CUDA index once; fail the environment when the reinstall does not
     stick.
     """
-    if not windows_cuda_torch(profile):
+    index_url = torch_index_url_for_profile(profile)
+    if index_url is None:
         return EXIT_OK
+
+    expect_cpu_only = linux_cpu_torch(profile)
 
     async def query_torch() -> CommandResult:
         return await _command(
-            torch_cuda_query_child(interpreter_argv, target_python, profile),
+            torch_cuda_query_child(
+                interpreter_argv,
+                target_python,
+                profile,
+                expect_cpu_only=expect_cpu_only,
+            ),
             timeout_seconds=120,
             stage=TORCH_QUERY_STAGE,
         )
@@ -514,7 +533,7 @@ async def _ensure_torch_cuda(
         return _fail_stage(
             TORCH_QUERY_STAGE,
             (
-                f"torch CUDA query exited {query.exit_code}: "
+                f"torch index query exited {query.exit_code}: "
                 f"{_joined_output(query)}"
             ),
             query,
@@ -522,18 +541,19 @@ async def _ensure_torch_cuda(
         )
 
     logger.info(
-        "dependencies.torch_cpu_detected",
-        extra={"profile": profile, "stdout_tail": query.stdout_tail},
+        "dependencies.torch_index_override",
+        extra={"profile": profile, "index_url": index_url, "stdout_tail": query.stdout_tail},
     )
     install = await _retry_command(
         [
             *uv_argv,
             "pip",
             "install",
+            *_standalone_uv_flags(settings),
             "--python",
             str(target_python),
             "--index-url",
-            TORCH_CUDA_INDEX_URL,
+            index_url,
             "--reinstall-package",
             "torch",
             "--reinstall-package",
@@ -548,20 +568,20 @@ async def _ensure_torch_cuda(
     if install.exit_code:
         return _fail_stage(
             TORCH_INSTALL_STAGE,
-            "torch CUDA wheel install failed",
+            "torch wheel index install failed",
             install,
             "transient",
         )
 
     requery = await query_torch()
     if requery.exit_code == 0:
-        logger.info("dependencies.torch_cuda_restored", extra={"profile": profile})
+        logger.info("dependencies.torch_index_restored", extra={"profile": profile})
         return EXIT_OK
     return _fail_unusable(
         TORCH_QUERY_STAGE,
         requery,
         None,
-        "torch remains CPU-only after the CUDA wheel install",
+        "torch wheel failed index verification after reinstall",
     )
 
 
@@ -594,12 +614,16 @@ async def provision(
     environment_bin = resolved_environment_root / Path(
         "Scripts" if platform.system() == "Windows" else "bin"
     )
-    if environment_root is None and sys.prefix == sys.base_prefix:
-        raise DependencyError("Provisioning requires an isolated virtual environment")
-    if not (resolved_environment_root / "pyvenv.cfg").is_file():
-        raise DependencyError("Provisioning requires an isolated virtual environment")
-    if not resolved_target_python.is_relative_to(environment_bin):
-        raise DependencyError("Provisioning requires an isolated virtual environment")
+    if settings.standalone_python:
+        if not resolved_target_python.is_relative_to(resolved_environment_root):
+            raise DependencyError("Provisioning requires target python inside environment root")
+    else:
+        if environment_root is None and sys.prefix == sys.base_prefix:
+            raise DependencyError("Provisioning requires an isolated virtual environment")
+        if not (resolved_environment_root / "pyvenv.cfg").is_file():
+            raise DependencyError("Provisioning requires an isolated virtual environment")
+        if not resolved_target_python.is_relative_to(environment_bin):
+            raise DependencyError("Provisioning requires an isolated virtual environment")
 
     if uv_argv is None:
         located_uv = shutil.which("uv")
@@ -724,7 +748,7 @@ async def provision(
                     resolve_result,
                 )
 
-            if windows_cuda_torch(selected) and resolved.is_file():
+            if should_override_torch_wheel(selected) and resolved.is_file():
                 # easyocr/transformers pull torch transitively, so the compiled
                 # lock pins PyPI's CPU-only Windows wheel even though the direct
                 # torch lines are filtered out — and uv's index precedence
@@ -758,6 +782,7 @@ async def provision(
                         *uv_head,
                         "pip",
                         "uninstall",
+                        *_standalone_uv_flags(settings),
                         "--python",
                         str(resolved_target_python),
                         *sorted(conflicting),
@@ -881,6 +906,7 @@ async def provision(
                     *uv_head,
                     "pip",
                     "check",
+                    *(["--system"] if settings.standalone_python else []),
                     "--python",
                     str(resolved_target_python),
                 ],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,14 +22,33 @@ def _ensure_tool_deps() -> None:
     ]
     if not missing:
         return
+    if importlib.util.find_spec("pip") is not None:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "--disable-pip-version-check",
+                *missing,
+            ],
+            check=True,
+        )
+        return
+    uv_bin = shutil.which("uv")
+    if not uv_bin:
+        raise RuntimeError("Neither pip nor uv is available to bootstrap provisioner deps.")
     subprocess.run(
         [
-            sys.executable,
-            "-m",
+            uv_bin,
             "pip",
             "install",
+            "--system",
+            "--break-system-packages",
+            "--python",
+            sys.executable,
             "--quiet",
-            "--disable-pip-version-check",
             *missing,
         ],
         check=True,

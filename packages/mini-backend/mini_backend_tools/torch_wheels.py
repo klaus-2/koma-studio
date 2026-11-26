@@ -26,6 +26,9 @@ NVIDIA_PROFILES = frozenset(
 
 TORCH_PACKAGES = frozenset({"torch", "torchvision"})
 TORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu124"
+TORCH_CUDA_LEGACY_INDEX_URL = "https://download.pytorch.org/whl/cu118"
+TORCH_CPU_INDEX_URL = "https://download.pytorch.org/whl/cpu"
+LINUX_CPU_TORCH_PROFILES = frozenset({"cpu", "intel-openvino"})
 
 TORCH_QUERY_STAGE = "torch-cuda-query"
 TORCH_INSTALL_STAGE = "torch-cuda"
@@ -40,10 +43,46 @@ except ImportError:
 raise SystemExit(0 if torch.version.cuda is not None else 1)
 """
 
+TORCH_CPU_QUERY = r"""
+try:
+    import torch
+except ImportError:
+    raise SystemExit(1)
+raise SystemExit(0 if torch.version.cuda is None else 1)
+"""
+
 
 def windows_cuda_torch(selected: str) -> bool:
-    """Whether torch must come from the PyTorch index (Windows CUDA profiles)."""
+    """Whether torch must come from a PyTorch CUDA index (Windows CUDA profiles)."""
     return selected in NVIDIA_PROFILES and sys.platform == "win32"
+
+
+def linux_cpu_torch(selected: str) -> bool:
+    """Whether torch must come from the PyTorch CPU index (Linux CPU/OpenVINO profiles)."""
+    return selected in LINUX_CPU_TORCH_PROFILES and sys.platform.startswith("linux")
+
+
+def torch_index_url_for_profile(
+    profile: str, *, platform_name: str | None = None
+) -> str | None:
+    """Return the PyTorch wheel index URL overriding PyPI defaults for *profile*."""
+    plat = sys.platform if platform_name is None else platform_name
+    if plat == "win32":
+        if profile == "nvidia-cuda-legacy":
+            return TORCH_CUDA_LEGACY_INDEX_URL
+        if profile in NVIDIA_PROFILES:
+            return TORCH_CUDA_INDEX_URL
+        return None
+    if plat.startswith("linux") and profile in LINUX_CPU_TORCH_PROFILES:
+        return TORCH_CPU_INDEX_URL
+    return None
+
+
+def should_override_torch_wheel(
+    selected: str, *, platform_name: str | None = None
+) -> bool:
+    """Whether torch/torchvision should be trimmed from the PyPI lock and pulled from a dedicated PyTorch index."""
+    return torch_index_url_for_profile(selected, platform_name=platform_name) is not None
 
 
 def drop_torch_entries_from_lock(lock_text: str) -> str:
@@ -77,9 +116,12 @@ def torch_cuda_query_child(
     interpreter_argv: Sequence[str] | None,
     target_python: Path,
     profile: str,
+    *,
+    expect_cpu_only: bool = False,
 ) -> list[str]:
-    """Argv for the torch CUDA query. Positional shape (stage, profile) matches
+    """Argv for the torch wheel query. Positional shape (stage, profile) matches
     the two-argument contract the test fake interpreter implements."""
     if interpreter_argv is not None:
         return [*interpreter_argv, TORCH_QUERY_STAGE, profile]
-    return [str(target_python), "-I", "-c", TORCH_CUDA_QUERY, profile]
+    script = TORCH_CPU_QUERY if expect_cpu_only else TORCH_CUDA_QUERY
+    return [str(target_python), "-I", "-c", script, profile]

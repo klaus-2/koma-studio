@@ -32,7 +32,10 @@ from mini_backend_tools.requirements import (  # noqa: E402
     effective_requirements,
     read_requirements,
 )
-from mini_backend_tools.torch_wheels import TORCH_CUDA_INDEX_URL  # noqa: E402
+from mini_backend_tools.torch_wheels import (  # noqa: E402
+    TORCH_CUDA_INDEX_URL,
+    TORCH_CUDA_LEGACY_INDEX_URL,
+)
 
 EMPTY_MAPPING: Mapping[tuple[str, str], str] = {}
 CPU_INSTALLED = {"onnxruntime"}
@@ -566,15 +569,24 @@ async def test_torch_cuda_skips_the_install_when_the_query_reports_cuda(
     SYSTEM != "Windows",
     reason="the torch CUDA policy is self-gated to the Windows CUDA profiles",
 )
+@pytest.mark.parametrize(
+    ("profile", "expected_index"),
+    [
+        ("nvidia-cuda", TORCH_CUDA_INDEX_URL),
+        ("nvidia-cuda-legacy", TORCH_CUDA_LEGACY_INDEX_URL),
+    ],
+)
 async def test_torch_cuda_installs_from_the_pytorch_index_when_cpu_only(
     fake_child_scripts: tuple[Path, Path],
     fresh_mini_venv: tuple[Path, Path],
     tmp_path: Path,
+    profile: str,
+    expected_index: str,
 ) -> None:
     uv_script, interpreter_script = fake_child_scripts
     _, target_python = fresh_mini_venv
-    uv_record = tmp_path / "uv-torch-cpu.record"
-    query_state = tmp_path / "torch-query.state"
+    uv_record = tmp_path / f"uv-torch-{profile}.record"
+    query_state = tmp_path / f"torch-query-{profile}.state"
 
     code = await _ensure_torch_cuda(
         uv_argv=[
@@ -595,8 +607,8 @@ async def test_torch_cuda_installs_from_the_pytorch_index_when_cpu_only(
             str(query_state),
         ],
         target_python=target_python,
-        settings=Settings(profile="nvidia-cuda-legacy"),
-        profile="nvidia-cuda-legacy",
+        settings=Settings(profile=profile),
+        profile=profile,
     )
 
     assert code == EXIT_OK
@@ -604,7 +616,7 @@ async def test_torch_cuda_installs_from_the_pytorch_index_when_cpu_only(
     assert len(calls) == 1, calls
     install_call = calls[0]
     assert _uv_subcommand(install_call) == "install"
-    assert TORCH_CUDA_INDEX_URL in install_call, install_call
+    assert expected_index in install_call, install_call
     reinstalled = [
         install_call[position + 1]
         for position, token in enumerate(install_call)

@@ -29,7 +29,12 @@ from mini_backend_tools.requirements import (  # noqa: E402
     read_requirements,
 )
 from mini_backend_tools.torch_wheels import (  # noqa: E402
+    TORCH_CPU_INDEX_URL,
+    TORCH_CUDA_INDEX_URL,
+    TORCH_CUDA_LEGACY_INDEX_URL,
     drop_torch_entries_from_lock,
+    should_override_torch_wheel,
+    torch_index_url_for_profile,
 )
 
 
@@ -93,9 +98,28 @@ def test_requirements_profiles_share_common_without_wget_or_dual_ort() -> None:
 def test_environment_validation() -> None:
     settings = load_settings({"MINI_BACKEND_ACCELERATION_PROFILE": " NVIDIA-CUDA "})
     assert settings.profile == "nvidia-cuda"
+    assert settings.standalone_python is False
+
+    standalone = load_settings({"KOMA_STANDALONE_PYTHON": "1"})
+    assert standalone.standalone_python is True
 
     with pytest.raises(Exception):
         load_settings({"MINI_DEPS_OUTER_ATTEMPTS": "-1"})
+
+
+def test_torch_wheel_index_policy_separates_legacy_and_linux_cpu() -> None:
+    assert torch_index_url_for_profile("nvidia-cuda", platform_name="win32") == TORCH_CUDA_INDEX_URL
+    assert torch_index_url_for_profile("nvidia-tensorrt", platform_name="win32") == TORCH_CUDA_INDEX_URL
+    assert (
+        torch_index_url_for_profile("nvidia-cuda-legacy", platform_name="win32")
+        == TORCH_CUDA_LEGACY_INDEX_URL
+    )
+    assert torch_index_url_for_profile("cpu", platform_name="win32") is None
+    assert torch_index_url_for_profile("cpu", platform_name="linux") == TORCH_CPU_INDEX_URL
+    assert torch_index_url_for_profile("intel-openvino", platform_name="linux") == TORCH_CPU_INDEX_URL
+    assert should_override_torch_wheel("cpu", platform_name="linux") is True
+    assert should_override_torch_wheel("nvidia-cuda-legacy", platform_name="win32") is True
+    assert should_override_torch_wheel("windows-directml", platform_name="win32") is False
 
 
 def test_read_requirements_resolves_includes_and_rejects_urls(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -66,3 +67,45 @@ async def test_injected_interpreter_outside_the_environment_is_rejected(
         )
 
     assert str(rejection.value) == ISOLATION_MESSAGE
+
+
+async def test_standalone_python_mode_allows_prefix_without_pyvenv_cfg(
+    fake_child_scripts: tuple[Path, Path],
+    tmp_path: Path,
+) -> None:
+    uv_script, interpreter_script = fake_child_scripts
+    environment_root = tmp_path / "standalone-python"
+    environment_root.mkdir()
+    target_python = environment_root / ("python.exe" if sys.platform == "win32" else "bin/python3")
+    target_python.parent.mkdir(parents=True, exist_ok=True)
+    target_python.write_text("", encoding="utf-8")
+    uv_record = tmp_path / "uv-standalone.record"
+
+    code = await provision(
+        MINI_BACKEND_DIR,
+        {},
+        Settings(profile="cpu", standalone_python=True),
+        environment_root=environment_root,
+        target_python=target_python,
+        installed_distributions=lambda: {"onnxruntime"},
+        uv_argv=[
+            sys.executable,
+            str(uv_script),
+            "--mode",
+            "succeed",
+            "--record",
+            str(uv_record),
+            "--",
+        ],
+        interpreter_argv=[
+            sys.executable,
+            str(interpreter_script),
+            "--mode",
+            "succeed",
+        ],
+    )
+    assert code == 0
+    calls = [json.loads(line) for line in uv_record.read_text(encoding="utf-8").splitlines()]
+    install_call = next(call for call in calls if "install" in call)
+    assert "--system" in install_call
+    assert "--break-system-packages" in install_call
