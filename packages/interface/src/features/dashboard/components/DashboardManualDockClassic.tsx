@@ -29,6 +29,10 @@ import type {
 import type { AioStageSelection } from '@/types/aioModelPresets';
 import type { KeyboardShortcutConfigV2, ShortcutActionId } from '../../../shortcuts/keyboardShortcuts';
 import { getShortcutDisplayLabel } from '../../../shortcuts/keyboardShortcuts';
+import {
+  DockToolAnimatedPreview,
+  type DockToolPreviewKind,
+} from './DockToolAnimatedPreview';
 
 export interface DashboardManualDockProps {
   manualDockRightOffset: number;
@@ -91,26 +95,13 @@ export interface DashboardManualDockProps {
   shortcutConfig: KeyboardShortcutConfigV2;
 }
 
-type DockTooltipPreviewKind =
-  | 'config'
-  | 'area-select'
-  | 'clear-page'
-  | 'segment-brush'
-  | 'segment-eraser'
-  | 'paint'
-  | 'paint-eraser'
-  | 'magic-wand'
-  | 'healing'
-  | 'clear-paint'
-  | 'reset-edits';
-
 interface DockTooltipButtonProps {
   className?: string;
   ariaLabel: string;
   title: string;
   description: string;
   badge: string;
-  previewKind: DockTooltipPreviewKind;
+  previewKind: DockToolPreviewKind;
   disabled?: boolean;
   disabledReason?: string;
   hotkey?: string;
@@ -118,99 +109,6 @@ interface DockTooltipButtonProps {
   icon: React.ComponentType<{ size?: number }>;
   iconSize?: number;
 }
-
-const renderDockTooltipPreview = (
-  previewKind: DockTooltipPreviewKind,
-): React.ReactNode => {
-  switch (previewKind) {
-    case 'config':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--config">
-          <span className="koma-tool-rich-tooltip__panel" />
-          <span className="koma-tool-rich-tooltip__knob koma-tool-rich-tooltip__knob--a" />
-          <span className="koma-tool-rich-tooltip__knob koma-tool-rich-tooltip__knob--b" />
-          <span className="koma-tool-rich-tooltip__knob koma-tool-rich-tooltip__knob--c" />
-        </div>
-      );
-    case 'area-select':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--area">
-          <span className="koma-tool-rich-tooltip__canvas" />
-          <span className="koma-tool-rich-tooltip__selection" />
-          <span className="koma-tool-rich-tooltip__cursor" />
-        </div>
-      );
-    case 'clear-page':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--clear">
-          <span className="koma-tool-rich-tooltip__bubble koma-tool-rich-tooltip__bubble--one" />
-          <span className="koma-tool-rich-tooltip__bubble koma-tool-rich-tooltip__bubble--two" />
-          <span className="koma-tool-rich-tooltip__wipe" />
-        </div>
-      );
-    case 'segment-brush':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--segment-brush">
-          <span className="koma-tool-rich-tooltip__mask" />
-          <span className="koma-tool-rich-tooltip__stroke" />
-          <span className="koma-tool-rich-tooltip__cursor koma-tool-rich-tooltip__cursor--brush" />
-        </div>
-      );
-    case 'segment-eraser':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--segment-eraser">
-          <span className="koma-tool-rich-tooltip__mask koma-tool-rich-tooltip__mask--filled" />
-          <span className="koma-tool-rich-tooltip__eraser-swipe" />
-        </div>
-      );
-    case 'paint':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--paint">
-          <span className="koma-tool-rich-tooltip__canvas" />
-          <span className="koma-tool-rich-tooltip__paint-stroke" />
-        </div>
-      );
-    case 'paint-eraser':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--paint-eraser">
-          <span className="koma-tool-rich-tooltip__paint-layer" />
-          <span className="koma-tool-rich-tooltip__erase-track" />
-        </div>
-      );
-    case 'magic-wand':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--wand">
-          <span className="koma-tool-rich-tooltip__wand-area" />
-          <span className="koma-tool-rich-tooltip__marching-ants" />
-          <span className="koma-tool-rich-tooltip__spark koma-tool-rich-tooltip__spark--a" />
-          <span className="koma-tool-rich-tooltip__spark koma-tool-rich-tooltip__spark--b" />
-        </div>
-      );
-    case 'healing':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--healing">
-          <span className="koma-tool-rich-tooltip__scar" />
-          <span className="koma-tool-rich-tooltip__heal-pass" />
-          <span className="koma-tool-rich-tooltip__spark koma-tool-rich-tooltip__spark--c" />
-        </div>
-      );
-    case 'clear-paint':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--clear-paint">
-          <span className="koma-tool-rich-tooltip__paint-layer koma-tool-rich-tooltip__paint-layer--dense" />
-          <span className="koma-tool-rich-tooltip__wipe koma-tool-rich-tooltip__wipe--fast" />
-        </div>
-      );
-    case 'reset-edits':
-      return (
-        <div className="koma-tool-rich-tooltip__preview koma-tool-rich-tooltip__preview--reset">
-          <span className="koma-tool-rich-tooltip__history-ring" />
-          <span className="koma-tool-rich-tooltip__history-arrow" />
-          <span className="koma-tool-rich-tooltip__history-dot" />
-        </div>
-      );
-  }
-};
 
 const DockTooltipButton: React.FC<DockTooltipButtonProps> = React.memo(({
   className,
@@ -252,7 +150,7 @@ const DockTooltipButton: React.FC<DockTooltipButtonProps> = React.memo(({
         className="koma-tool-rich-tooltip"
       >
         <div className="koma-tool-rich-tooltip__media">
-          {renderDockTooltipPreview(previewKind)}
+          <DockToolAnimatedPreview kind={previewKind} variant="classic" size="tooltip" />
         </div>
         <div className="koma-tool-rich-tooltip__body">
           <div className="koma-tool-rich-tooltip__topline">

@@ -30,6 +30,10 @@ import type {
 import type { AioStageSelection } from '@/types/aioModelPresets';
 import type { KeyboardShortcutConfigV2, ShortcutActionId } from '../../../../shortcuts/keyboardShortcuts';
 import { getShortcutDisplayLabel } from '../../../../shortcuts/keyboardShortcuts';
+import {
+  DockToolAnimatedPreview,
+  type DockToolPreviewKind,
+} from '../DockToolAnimatedPreview';
 
 export interface DashboardManualDockProps {
   manualDockRightOffset: number;
@@ -92,114 +96,6 @@ export interface DashboardManualDockProps {
   shortcutConfig: KeyboardShortcutConfigV2;
 }
 
-type DockTooltipPreviewKind =
-  | 'config' | 'area-select' | 'clear-page' | 'segment-brush' | 'segment-eraser'
-  | 'paint' | 'paint-eraser' | 'magic-wand' | 'healing' | 'clear-paint' | 'reset-edits';
-
-const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode => {
-  const base = 'relative h-16 w-full overflow-hidden bg-ink panel-cut-sm';
-  switch (kind) {
-    case 'config':
-      return (
-        <div className={cn(base, 'halftone')}>
-          <span className="absolute inset-x-3 top-3 h-2 bg-crimson/60" />
-          <span className="absolute left-3 top-7 h-1.5 w-1.5 bg-gold" />
-          <span className="absolute left-6 top-7 h-1.5 w-1.5 bg-azure" />
-          <span className="absolute left-9 top-7 h-1.5 w-1.5 bg-mint" />
-          <span className="absolute inset-x-3 bottom-3 h-2 bg-paper/20" />
-        </div>
-      );
-    case 'area-select':
-      return (
-        <div className={cn(base, 'halftone-red')}>
-          <m.span className="absolute left-1/2 top-1/2 h-8 w-12 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-azure"
-            animate={{ scale: [0.85, 1, 0.85] }} transition={{ duration: 2, repeat: Infinity }} />
-          <span className="absolute right-3 bottom-3 h-2 w-2 border-r-2 border-b-2 border-crimson" />
-        </div>
-      );
-    case 'clear-page':
-      return (
-        <div className={base}>
-          <span className="absolute left-4 top-4 h-6 w-8 border-2 border-paper/30" />
-          <span className="absolute right-4 bottom-4 h-5 w-7 border-2 border-paper/30" />
-          <m.span className="absolute inset-y-0 left-0 w-1/2 bg-crimson/40"
-            animate={{ x: ['0%', '200%'] }} transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }} />
-        </div>
-      );
-    case 'segment-brush':
-      return (
-        <div className={cn(base, 'halftone')}>
-          <span className="absolute inset-2 bg-azure/10" />
-          <m.span className="absolute left-3 top-1/2 h-2 w-4/5 origin-left -translate-y-1/2 rounded-full bg-azure"
-            animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-        </div>
-      );
-    case 'segment-eraser':
-      return (
-        <div className={base}>
-          <span className="absolute inset-2 bg-azure/25" />
-          <m.span
-            className="absolute left-[10%] top-1/2 h-3 w-3 -translate-y-1/2 bg-ink"
-            animate={{ x: [0, 180] }}
-            transition={{ duration: 1.6, repeat: Infinity }}
-          />
-        </div>
-      );
-    case 'paint':
-      return (
-        <div className={cn(base, 'halftone')}>
-          <m.span className="absolute left-3 top-1/2 h-2.5 w-5/6 origin-left -translate-y-1/2 bg-crimson"
-            animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-        </div>
-      );
-    case 'paint-eraser':
-      return (
-        <div className={base}>
-          <span className="absolute inset-2 bg-crimson/25" />
-          <m.span
-            className="absolute left-[5%] top-1/2 h-3 w-4 -translate-y-1/2 bg-ink"
-            animate={{ x: [0, 180] }}
-            transition={{ duration: 1.6, repeat: Infinity }}
-          />
-        </div>
-      );
-    case 'magic-wand':
-      return (
-        <div className={cn(base, 'halftone-red')}>
-          <m.span className="absolute left-1/2 top-1/2 h-7 w-9 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-gold"
-            animate={{ rotate: [0, 3, -3, 0] }} transition={{ duration: 2, repeat: Infinity }} />
-          <m.span className="absolute left-4 top-4 text-gold" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1.2, repeat: Infinity }}>
-            <Sparkles size={10} />
-          </m.span>
-        </div>
-      );
-    case 'healing':
-      return (
-        <div className={base}>
-          <span className="absolute left-1/2 top-3 h-10 w-0.5 -translate-x-1/2 bg-crimson/50" />
-          <m.span className="absolute left-1/2 top-[12%] h-3 w-3 -translate-x-1/2 rounded-full bg-mint"
-            animate={{ y: [0, 42], opacity: [1, 0.3] }} transition={{ duration: 1.6, repeat: Infinity }} />
-        </div>
-      );
-    case 'clear-paint':
-      return (
-        <div className={base}>
-          <span className="absolute inset-2 bg-crimson/40" />
-          <m.span className="absolute inset-y-0 left-0 w-1/3 bg-ink"
-            animate={{ x: ['0%', '300%'] }} transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }} />
-        </div>
-      );
-    case 'reset-edits':
-      return (
-        <div className={cn(base, 'grid place-items-center')}>
-          <m.span className="text-crimson" animate={{ rotate: -360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}>
-            <RefreshCcw size={22} />
-          </m.span>
-        </div>
-      );
-  }
-};
-
 interface DockTooltipButtonProps {
   active?: boolean;
   danger?: boolean;
@@ -207,7 +103,7 @@ interface DockTooltipButtonProps {
   title: string;
   description: string;
   badge: string;
-  previewKind: DockTooltipPreviewKind;
+  previewKind: DockToolPreviewKind;
   disabled?: boolean;
   disabledReason?: string;
   hotkey?: string;
@@ -251,9 +147,9 @@ const DockTooltipButton: React.FC<DockTooltipButtonProps> = ({
           </button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side="left" align="center" sideOffset={18} className="glass panel-cut border-crimson/30 w-64 p-0 shadow-hard-crimson">
-        <div className="p-2">
-          {renderDockTooltipPreview(previewKind)}
+      <TooltipContent side="left" align="center" sideOffset={18} className="glass panel-cut border-crimson/30 w-[264px] p-0 shadow-hard-crimson">
+        <div className="p-2 pb-1.5">
+          <DockToolAnimatedPreview kind={previewKind} variant="noir" size="tooltip" />
         </div>
         <div className="relative px-3 pb-3">
           <div className="mb-1 flex items-center justify-between gap-2">
