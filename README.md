@@ -102,12 +102,11 @@ where it applies, so you can pick what fits your machine.
 
 | Version | Stack | Status |
 |---|---|---|
-| **v1** | Electron + React ([`apps/electron`](./apps/electron)) | Stable, maintenance mode. The version most users should download today. |
-| **v2** | Tauri 2 + Rust ([`apps/tauri`](./apps/tauri)) | Work in progress. Expect breaking changes and incomplete features. |
+| **v2** | Tauri 2 + Rust ([`apps/tauri`](./apps/tauri)) | Active primary desktop release shell (hybrid OTA UI updates, zstd deltas, and 2-layer Python runtime). |
+| **v1** | Electron + React ([`apps/electron`](./apps/electron)) | Legacy / frozen. Installer builds are retired; kept for source reference. |
 
 Both shells share the same React UI ([`packages/interface`](./packages/interface)) and
-the same Python AI backend ([`packages/mini-backend`](./packages/mini-backend)), so
-improvements land in both.
+the same Python AI backend ([`packages/mini-backend`](./packages/mini-backend)).
 
 ## Repository map
 
@@ -118,11 +117,10 @@ details.
 
 | Path | Package | What it is |
 |---|---|---|
-| [`apps/electron`](./apps/electron) | `@koma/electron` | Desktop shell **v1** |
-| [`apps/tauri`](./apps/tauri) | `@koma/tauri` | Desktop shell **v2** |
+| [`apps/tauri`](./apps/tauri) | `@koma/tauri` | Active desktop shell **v2** |
+| [`apps/electron`](./apps/electron) | `@koma/electron` | Legacy desktop shell **v1** (frozen) |
 | [`apps/landing`](./apps/landing) | `@koma/landing` | Landing page (Next.js + React 19) |
 | [`apps/auth-server`](./apps/auth-server) | `@koma/auth-server` | Auth API (Express + Better Auth + Drizzle + Postgres/Redis) |
-| [`apps/tools/koma-build-tool`](./apps/tools/koma-build-tool) | `@koma/build-tool` | Internal maintainer tool (Tauri + Svelte) that builds, signs and deploys releases |
 | [`apps/discord-support-bot`](./apps/discord-support-bot) | — | Discord support bot (Python, RAG) |
 
 ### Packages

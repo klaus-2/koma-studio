@@ -677,7 +677,7 @@ const createWindow = async (): Promise<void> => {
 
   setupDesktopClientHeaderInjection(mainWindow);
   setupNavigationHardening(mainWindow);
-  registerUpdaterSyncService();
+  if (!app.isPackaged) registerUpdaterSyncService();
   registerInstallerUpdaterService();
 
   if (process.env.VITE_DEV_SERVER_URL) {

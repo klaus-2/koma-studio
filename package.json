@@ -12,7 +12,6 @@
   },
   "workspaces": [
     "apps/*",
-    "apps/tools/*",
     "packages/*"
   ],
   "trustedDependencies": [
@@ -38,7 +37,14 @@
     "dev:auth": "bun run --elide-lines=0 --filter @koma/auth-server dev",
     "prepare": "husky",
     "doctor": "bunx react-doctor",
-    "audit:deps:packages": "node apps/tauri/node_modules/dependency-cruiser/bin/dependency-cruise.mjs packages/ui/src packages/interface/src packages/types/src --config packages/dependency-cruiser.cjs"
+    "audit:deps:packages": "node apps/tauri/node_modules/dependency-cruiser/bin/dependency-cruise.mjs packages/ui/src packages/interface/src packages/types/src --config packages/dependency-cruiser.cjs",
+    "release:bump": "node scripts/release/bump-version.mjs",
+    "release:overlay": "node scripts/release/build-backend-overlay.mjs",
+    "release:ui-bundle": "node scripts/release/build-ui-bundle.mjs",
+    "release:engine": "node scripts/release/build-engine-base.mjs",
+    "release:delta": "node scripts/release/build-delta.mjs",
+    "release:sign-publish": "node scripts/release/sign-and-publish.mjs",
+    "release:verify": "node scripts/release/verify-release.mjs"
   },
   "devDependencies": {
     "@types/react": "^19",
