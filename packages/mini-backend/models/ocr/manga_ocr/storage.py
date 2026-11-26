@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.hf_download import ensure_file_from_hf, progress_bridge_var, report_bridge_file
 from models.errors import ModelConfigurationError
 from models.manifests import (
     manifest_asset_is_valid,
@@ -84,7 +84,9 @@ def ensure_manga_ocr_models_installed() -> dict[str, object]:
     assets_by_path = manifest_assets_by_path("manga_ocr")
 
     model_dir.mkdir(parents=True, exist_ok=True)
-    for item in REQUIRED_FILES:
+    total_files = len(REQUIRED_FILES)
+    for index, item in enumerate(REQUIRED_FILES):
+        report_bridge_file(item.name, index, total_files)
         declared_asset = assets_by_path.get(item.name)
         if declared_asset is not None and not manifest_asset_is_valid(declared_asset):
             raise RuntimeError(
@@ -101,6 +103,8 @@ def ensure_manga_ocr_models_installed() -> dict[str, object]:
             if declared_asset is not None
             else None,
         )
+    if total_files > 0:
+        report_bridge_file(REQUIRED_FILES[-1].name, total_files, total_files)
 
     files = sorted(
         path.relative_to(model_dir).as_posix()

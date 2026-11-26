@@ -120,6 +120,11 @@ export interface ModelProgress {
   /** null while the total is unknown — the UI renders an indeterminate state. */
   percent: number | null;
   attempt: number;
+  currentFile?: string | null;
+  filesCompleted?: number | null;
+  filesTotal?: number | null;
+  etaSeconds?: number | null;
+  phase?: string | null;
 }
 
 export interface ModelInstallState {

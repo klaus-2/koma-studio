@@ -157,6 +157,11 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
         speedBytesPerSecond: event.speedBytesPerSecond,
         percent: event.percent,
         attempt: event.attempt,
+        currentFile: event.currentFile ?? current.progress?.currentFile ?? null,
+        filesCompleted: event.filesCompleted ?? current.progress?.filesCompleted ?? null,
+        filesTotal: event.filesTotal ?? current.progress?.filesTotal ?? null,
+        etaSeconds: event.etaSeconds ?? null,
+        phase: event.phase ?? null,
       },
     }));
     return;
@@ -168,6 +173,13 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
       status: "verifying",
       error: null,
       errorCode: null,
+      progress: current.progress
+        ? {
+            ...current.progress,
+            phase: "verifying",
+            etaSeconds: null,
+          }
+        : null,
     }));
     return;
   }
@@ -191,8 +203,8 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
   if (event.type === "failed") {
     patchEntry(event.modelId, (current) => ({
       ...current,
-      status: "failed",
-      progress: null,
+      status: event.willRetry ? "downloading" : "failed",
+      progress: event.willRetry ? current.progress : null,
       error: event.message,
       errorCode: event.code ?? null,
     }));

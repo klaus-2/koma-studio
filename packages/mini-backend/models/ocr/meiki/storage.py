@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Final
 
-from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.hf_download import ensure_file_from_hf, progress_bridge_var, report_bridge_file
 from core.models_store import resolve_model_dir
 from models.manifests import (
     manifest_asset_is_valid,
@@ -83,7 +83,9 @@ def ensure_meiki_models_installed() -> InstallPayload:
 
     model_dir.mkdir(parents=True, exist_ok=True)
     files: list[InstalledFilePayload] = []
-    for filename in MEIKI_MODEL_FILES:
+    total_files = len(MEIKI_MODEL_FILES)
+    for index, filename in enumerate(MEIKI_MODEL_FILES):
+        report_bridge_file(filename, index, total_files)
         payload = ensure_file_from_hf(
             repo=MEIKI_HF_REPO,
             candidate_paths=[filename],
@@ -100,6 +102,8 @@ def ensure_meiki_models_installed() -> InstallPayload:
                 downloaded=bool(payload["downloaded"]),
             )
         )
+    if total_files > 0:
+        report_bridge_file(MEIKI_MODEL_FILES[-1], total_files, total_files)
 
     return InstallPayload(
         modelId=MEIKI_MODEL_ID,

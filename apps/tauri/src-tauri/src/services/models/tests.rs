@@ -157,6 +157,11 @@ fn events_serialize_with_camel_case_tag_and_fields() {
         speed_bytes_per_second: 5,
         percent: Some(10.0),
         attempt: 2,
+        current_file: Some("model.bin".to_owned()),
+        files_completed: Some(1),
+        files_total: Some(3),
+        eta_seconds: Some(18.0),
+        phase: Some("downloading".to_owned()),
     };
     let json = serde_json::to_value(&event).expect("serialize event");
     assert_eq!(json["type"], "progress");
@@ -165,6 +170,11 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     assert_eq!(json["speedBytesPerSecond"], 5);
     assert_eq!(json["totalBytes"], 100);
     assert_eq!(json["percent"], 10.0);
+    assert_eq!(json["currentFile"], "model.bin");
+    assert_eq!(json["filesCompleted"], 1);
+    assert_eq!(json["filesTotal"], 3);
+    assert_eq!(json["etaSeconds"], 18.0);
+    assert_eq!(json["phase"], "downloading");
 
     // An unknown total must reach the renderer as null, never as a guess.
     let unknown = ModelManagerEvent::Progress {
@@ -174,10 +184,16 @@ fn events_serialize_with_camel_case_tag_and_fields() {
         speed_bytes_per_second: 5,
         percent: None,
         attempt: 2,
+        current_file: None,
+        files_completed: None,
+        files_total: None,
+        eta_seconds: None,
+        phase: None,
     };
     let json = serde_json::to_value(&unknown).expect("serialize event");
     assert!(json["totalBytes"].is_null());
     assert!(json["percent"].is_null());
+    assert!(json.get("currentFile").is_none());
 
     let failed = ModelManagerEvent::Failed {
         model_id: "x".to_owned(),
@@ -327,4 +343,106 @@ fn font_rtdetr_requires_detector_onnx() {
 
     fs::write(directory.join("detector.onnx"), b"weights").unwrap();
     assert!(storage::is_installed_payload_present("font_rtdetr_v2", &directory).unwrap());
+}
+
+#[test]
+fn newly_added_backend_managed_models_are_normalized_and_payload_checked() {
+    for (id, file) in [
+        ("hunyuan_7b_mt_v1_0", "Hunyuan-MT-7B-q4_k_m.gguf"),
+        ("sakura_1_5b_qwen2_5_v1_0", "sakura-1.5b-qwen2.5-v1.0-Q5KS.gguf"),
+        ("sakura_galtransl_7b_v3_7", "Sakura-Galtransl-7B-v3.7-IQ4_XS.gguf"),
+        ("vntl_llama3_8b_v2", "vntl-llama3-8b-v2-hf-q8_0.gguf"),
+        ("lfm2_350m_enjp_mt", "LFM2-350M-ENJP-MT-Q4_0.gguf"),
+        ("pp_doclayout_v3", "model.safetensors"),
+        ("paddleocr_vl_1_5", "model.safetensors"),
+    ] {
+        let payload = DesktopModelDownloadPayload {
+            id: id.to_string(),
+            name: id.to_string(),
+            version: "1.0.0".to_string(),
+            download_url: "https://huggingface.co/example/repo/resolve/main/file.bin".to_string(),
+            checksum_sha256: "a".repeat(64),
+            expected_download_bytes: 1024,
+            required_disk_bytes: 2048,
+            source_language: None,
+            install_strategy: None,
+            runtime_family: None,
+            backend_install_endpoint: None,
+        };
+        let normalized = normalize_download_payload(payload).expect(id);
+        assert_eq!(normalized.install_strategy.as_deref(), Some("backend_managed"), "{id}");
+        assert_eq!(normalized.backend_install_endpoint.as_deref(), Some("/models/install"), "{id}");
+
+        let temporary = tempfile::tempdir().unwrap();
+        let directory = temporary.path().join(id);
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("config.json"), b"{}").unwrap();
+        assert!(!storage::is_installed_payload_present(id, &directory).unwrap(), "{id}");
+        assert!(!file.is_empty());
+    }
+}
+
+#[test]
+fn emit_progress_keeps_percent_none_when_total_is_unknown() {
+    use std::sync::{Arc, Mutex};
+    use crate::services::models::backend::BackendJobSnapshot;
+    use super::{DownloadObserver, ModelServiceEvent, emit_progress};
+
+    let events: Arc<Mutex<Vec<ModelServiceEvent>>> = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::clone(&events);
+    let observer: DownloadObserver = Arc::new(move |event| {
+        captured.lock().unwrap().push(event);
+    });
+
+    let snapshot = BackendJobSnapshot {
+        state: "downloading".to_string(),
+        bytes_downloaded: 4096,
+        total_bytes: None,
+        percent: Some(0.0),
+        speed_bytes_per_second: Some(1024.0),
+        current_file: Some("weights.bin".to_string()),
+        files_completed: Some(0),
+        files_total: Some(1),
+        eta_seconds: None,
+        error_message: None,
+        error_code: None,
+    };
+
+    emit_progress(&snapshot, &observer);
+    let recorded = events.lock().unwrap();
+    assert_eq!(recorded.len(), 1);
+    match &recorded[0] {
+        ModelServiceEvent::Progress { percent, total_bytes, current_file, .. } => {
+            assert_eq!(*percent, None);
+            assert_eq!(*total_bytes, None);
+            assert_eq!(current_file.as_deref(), Some("weights.bin"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn restore_previous_manifest_cleans_up_empty_incomplete_dir() {
+    let temporary = tempfile::tempdir().unwrap();
+    let payload = DesktopModelDownloadPayload {
+        id: "manga_ocr".to_string(),
+        name: "Manga OCR".to_string(),
+        version: "1.0.0".to_string(),
+        download_url: "https://huggingface.co/mayocream/manga-ocr-onnx/resolve/main/encoder_model.onnx".to_string(),
+        checksum_sha256: "a".repeat(64),
+        expected_download_bytes: 1024,
+        required_disk_bytes: 2048,
+        source_language: None,
+        install_strategy: None,
+        runtime_family: None,
+        backend_install_endpoint: None,
+    };
+
+    let previous = storage::prepare_download(temporary.path(), &payload).unwrap();
+    assert!(previous.is_none());
+    let dir = temporary.path().join("manga_ocr");
+    assert!(dir.join("manifest.json").is_file());
+
+    storage::restore_previous_manifest(temporary.path(), "manga_ocr", None).unwrap();
+    assert!(!dir.exists());
 }

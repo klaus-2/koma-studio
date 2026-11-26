@@ -275,4 +275,37 @@ describe("ModelDownloadManager desktop bridge", () => {
   it("retries an unconfirmed bridge subscription on the next enqueue", async () => {
     await runBridgeSubscriptionRetryTests();
   });
+
+  it("awaits bridge subscription and does not emit premature started events when queuing a batch", async () => {
+    const events: string[] = [];
+    const callOrder: string[] = [];
+    createManagerHarness({
+      on: async () => {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 25);
+        });
+        callOrder.push("subscribed");
+        return true;
+      },
+    });
+    const manager = new ModelDownloadManager();
+    const unsub = manager.subscribe((event) => {
+      events.push(`${event.type}:${event.modelId}`);
+    });
+    try {
+      await manager.enqueueMany([createMockModel("a"), createMockModel("b")]);
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 80);
+      });
+      if (!callOrder.includes("subscribed")) {
+        throw new Error("Expected bridge subscription to complete");
+      }
+      if (events.some((item) => item.startsWith("started:"))) {
+        throw new Error(`Did not expect synthetic started events, got: ${events.join(", ")}`);
+      }
+    } finally {
+      unsub();
+      setDesktopBridgeProvider(null);
+    }
+  });
 });

@@ -30,10 +30,10 @@ export class ModelDownloadManager {
 
   private bridgeSubscribed = false;
 
-  private bridgeSubscribing = false;
+  private bridgeSubscriptionPromise: Promise<boolean> | null = null;
 
   constructor() {
-    this.ensureBridgeSubscription();
+    void this.ensureBridgeSubscription();
   }
 
   subscribe(listener: ModelManagerListener): () => void {
@@ -44,7 +44,7 @@ export class ModelDownloadManager {
   }
 
   async enqueue(model: TranslationModel, sourceLanguage?: string): Promise<void> {
-    this.ensureBridgeSubscription();
+    void this.ensureBridgeSubscription();
     if (this.queuedIds.has(model.id)) {
       return;
     }
@@ -56,7 +56,7 @@ export class ModelDownloadManager {
   }
 
   async enqueueMany(models: TranslationModel[], sourceLanguage?: string): Promise<void> {
-    this.ensureBridgeSubscription();
+    void this.ensureBridgeSubscription();
     models.forEach((model) => {
       if (this.queuedIds.has(model.id)) {
         return;
@@ -83,7 +83,12 @@ export class ModelDownloadManager {
       return;
     }
 
-    await desktopApi.cancel(modelId);
+    try {
+      await desktopApi.cancel(modelId);
+    } catch (error) {
+      this.queuedIds.delete(modelId);
+      throw error;
+    }
   }
 
   async cancelAll(): Promise<void> {
@@ -116,38 +121,43 @@ export class ModelDownloadManager {
     });
   }
 
-  private ensureBridgeSubscription(): void {
-    if (this.bridgeSubscribed || this.bridgeSubscribing) {
-      return;
+  private ensureBridgeSubscription(): Promise<boolean> {
+    if (this.bridgeSubscribed) {
+      return Promise.resolve(true);
+    }
+    if (this.bridgeSubscriptionPromise) {
+      return this.bridgeSubscriptionPromise;
     }
 
-    this.bridgeSubscribing = true;
-    void this.subscribeBridgeEvents();
+    this.bridgeSubscriptionPromise = this.subscribeBridgeEvents().finally(() => {
+      this.bridgeSubscriptionPromise = null;
+    });
+    return this.bridgeSubscriptionPromise;
   }
 
-  private async subscribeBridgeEvents(): Promise<void> {
+  private async subscribeBridgeEvents(): Promise<boolean> {
     try {
       const desktopApi = desktopBridge.desktop?.models;
       if (!desktopApi) {
         console.warn("[model-events] bridge absent — events not subscribed");
-        return;
+        return false;
       }
 
-      this.bridgeSubscribed = await desktopApi.on((event) => {
+      const subscribed = await desktopApi.on((event) => {
         if (event.type === "completed" || event.type === "failed" || event.type === "cancelled") {
           this.queuedIds.delete(event.modelId);
         }
         this.emit(event);
       });
+      this.bridgeSubscribed = subscribed;
+      return subscribed;
     } catch {
-      return;
-    } finally {
-      this.bridgeSubscribing = false;
+      return false;
     }
   }
 
   private async drainQueue(): Promise<void> {
-    this.ensureBridgeSubscription();
+    await this.ensureBridgeSubscription();
     if (this.draining) {
       return;
     }
@@ -189,7 +199,7 @@ export class ModelDownloadManager {
         for (let attempt = 1; attempt <= MAX_ENQUEUE_RETRY; attempt += 1) {
           try {
             await desktopApi.download(payload);
-            this.emit({ type: "started", modelId: nextModel.id, attempt });
+            lastError = null;
             break;
           } catch (error) {
             lastError = error;

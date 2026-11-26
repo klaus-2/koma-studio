@@ -73,6 +73,11 @@ export type DesktopModelManagerEvent =
       /** null while the total is unknown — the UI renders an indeterminate state. */
       percent: number | null;
       attempt: number;
+      currentFile?: string | null;
+      filesCompleted?: number | null;
+      filesTotal?: number | null;
+      etaSeconds?: number | null;
+      phase?: string | null;
     }
   | {
       type: "verifying";
@@ -111,6 +116,10 @@ export interface ModelDownloadJobSnapshot {
   totalBytes: number | null;
   speedBytesPerSecond: number;
   percent: number;
+  currentFile?: string | null;
+  filesCompleted?: number | null;
+  filesTotal?: number | null;
+  etaSeconds?: number | null;
   errorCode?: string;
   errorMessage?: string;
   httpStatus?: number;

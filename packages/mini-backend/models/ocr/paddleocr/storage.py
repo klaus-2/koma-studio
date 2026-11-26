@@ -7,7 +7,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final
 
-from core.hf_download import HFDownloadError, download_file, sha256_file
+from core.hf_download import (
+    ChecksumMismatchError as CoreChecksumMismatchError,
+    HFDownloadError,
+    download_file,
+    report_bridge_file,
+    sha256_file,
+)
 from core.models_store import resolve_model_dir
 from models.manifests import load_manifest
 from models.ocr.common import (
@@ -157,48 +163,54 @@ def paddleocr_runtime_ready(model_id: str) -> bool:
 
 
 def _download_atomically(asset: RemoteAsset, target_path: Path) -> tuple[str, str]:
-    """Download to a sibling `.part` file and rename on success; returns (source_url, sha256).
+    """Download atomically via `download_file`'s `.part` suffix and verify SHA-256.
 
-    A crash mid-download can never leave a partial file under the final name,
-    so `paddleocr_runtime_ready` cannot report a corrupt install. The partial
-    survives a failed attempt so the next job resumes instead of restarting.
+    Passing `target_path` directly lets `download_file` manage `target_path.part`
+    for genuine resume support across transient retries and cancellations without
+    creating a `.part.part` file.
     """
-    partial_path = target_path.with_name(f"{target_path.name}.part")
+    part_path = target_path.with_suffix(f"{target_path.suffix}.part")
+    bridge = _active_bridge()
     failures: list[str] = []
-    try:
-        for url in asset.urls:
-            try:
-                download_file(
-                    url,
-                    partial_path,
-                    max_retries=_DOWNLOAD_MAX_RETRIES,
-                    expected_size=asset.size,
-                )
-            except ChecksumMismatchError:
-                # A pinned-hash mismatch is a supply-chain signal, not a
-                # transient error: never silently fall through to another
-                # mirror. Re-raised so the type system enforces the invariant.
-                raise
-            except _DOWNLOAD_FAILURES as exc:
-                failures.append(f"{url}: {exc}")
-                logger.warning(
-                    "paddleocr_download_failed",
-                    extra={"target": asset.target, "url": url, "error": str(exc)},
-                )
-                continue
-            digest = sha256_file(partial_path).lower()
-            if digest != asset.sha256:
-                raise ChecksumMismatchError(
-                    f"Invalid SHA256 checksum for '{asset.target}'. "
-                    f"Expected: {asset.sha256} | Got: {digest}",
-                    expected=asset.sha256,
-                    actual=digest,
-                )
-            partial_path.replace(target_path)
-            return url, digest
-    finally:
-        if partial_path.exists():
-            partial_path.unlink(missing_ok=True)
+    for url in asset.urls:
+        try:
+            download_file(
+                url,
+                target_path,
+                max_retries=_DOWNLOAD_MAX_RETRIES,
+                expected_size=asset.size,
+                expected_sha256=asset.sha256,
+            )
+        except (CoreChecksumMismatchError, ChecksumMismatchError):
+            # A pinned-hash or size mismatch is a supply-chain signal, not a
+            # transient error: never silently fall through to another mirror.
+            raise
+        except _DOWNLOAD_FAILURES as exc:
+            if bridge is not None and part_path.exists():
+                try:
+                    partial_size = part_path.stat().st_size
+                except OSError:
+                    partial_size = 0
+                if partial_size > 0:
+                    bridge.report_download(url, -partial_size)
+            failures.append(f"{url}: {exc}")
+            logger.warning(
+                "paddleocr_download_failed",
+                extra={"target": asset.target, "url": url, "error": str(exc)},
+            )
+            continue
+        if bridge is not None:
+            bridge.report_phase("verifying")
+            bridge.raise_if_cancelled()
+        digest = sha256_file(target_path).lower()
+        if digest != asset.sha256:
+            target_path.unlink(missing_ok=True)
+            raise ChecksumMismatchError(
+                asset.target,
+                expected=asset.sha256,
+                actual=digest,
+            )
+        return url, digest
     raise ModelDownloadError(asset.target, failures)
 
 
@@ -254,7 +266,13 @@ def ensure_paddleocr_models_installed(model_id: str) -> InstallPayload:
         # percentage is monotonic for the whole install.
         bridge.declare_total(sum(asset.size for asset in manifest))
 
-    files = [_ensure_asset(model_dir, asset) for asset in manifest]
+    files: list[InstalledFilePayload] = []
+    total_assets = len(manifest)
+    for index, asset in enumerate(manifest):
+        report_bridge_file(asset.target, index, total_assets)
+        files.append(_ensure_asset(model_dir, asset))
+    if total_assets > 0:
+        report_bridge_file(manifest[-1].target, total_assets, total_assets)
     return InstallPayload(
         modelId=normalized_id,
         directory=str(model_dir),

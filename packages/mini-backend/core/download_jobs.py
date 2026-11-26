@@ -111,6 +111,10 @@ class DownloadJobSnapshot(TypedDict):
     percent: float
     attempt: int
     createdAt: float
+    currentFile: NotRequired[str]
+    filesCompleted: NotRequired[int]
+    filesTotal: NotRequired[int]
+    etaSeconds: NotRequired[float]
     sourceLanguage: NotRequired[str]
     startedAt: NotRequired[float]
     finishedAt: NotRequired[float]
@@ -187,6 +191,9 @@ class DownloadJob:
     state: JobState = JobState.QUEUED
     bytes_downloaded: int = 0
     total_bytes: int | None = None
+    current_file: str | None = None
+    files_completed: int | None = None
+    files_total: int | None = None
     attempt: int = 1
     error_code: DownloadErrorCode | None = None
     error_message: str | None = None
@@ -219,17 +226,32 @@ class DownloadJob:
                 percent = min(100.0, max(0.0, self.bytes_downloaded / self.total_bytes * 100.0))
             else:
                 percent = 0.0
+            speed = _speed_from_samples(self._speed_samples)
             payload: DownloadJobSnapshot = {
                 "jobId": self.job_id,
                 "modelId": self.model_id,
                 "state": self.state.value,
                 "bytesDownloaded": self.bytes_downloaded,
                 "totalBytes": self.total_bytes,
-                "speedBytesPerSecond": _speed_from_samples(self._speed_samples),
+                "speedBytesPerSecond": speed,
                 "percent": round(percent, 2),
                 "attempt": self.attempt,
                 "createdAt": self.created_at,
             }
+            if self.current_file is not None:
+                payload["currentFile"] = self.current_file
+            if self.files_completed is not None:
+                payload["filesCompleted"] = self.files_completed
+            if self.files_total is not None:
+                payload["filesTotal"] = self.files_total
+            if (
+                self.state in (JobState.DOWNLOADING, JobState.VERIFYING)
+                and self.total_bytes is not None
+                and self.total_bytes > 0
+                and speed > 0
+            ):
+                remaining = max(0, self.total_bytes - self.bytes_downloaded)
+                payload["etaSeconds"] = round(remaining / speed, 1)
             if self.source_language is not None:
                 payload["sourceLanguage"] = self.source_language
             if self.started_at is not None:
@@ -285,6 +307,22 @@ class DownloadJob:
             # Multi-file: verifying file N precedes downloading N+1, so the
             # state legitimately moves back and forth.
             self.state = JobState.VERIFYING if phase == "verifying" else JobState.DOWNLOADING
+
+    def record_file(
+        self,
+        filename: str | None,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        with self.lock:
+            if filename is not None:
+                stripped = filename.strip()
+                if stripped:
+                    self.current_file = stripped
+            if completed is not None:
+                self.files_completed = max(0, completed)
+            if total is not None and total > 0:
+                self.files_total = total
 
     # ------------------------------------------------------------- lifecycle
 
@@ -386,6 +424,14 @@ class JobProgressBridge:
 
     def report_phase(self, phase: DownloadPhase) -> None:
         self._job.set_phase(phase)
+
+    def report_file(
+        self,
+        filename: str | None,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        self._job.record_file(filename, completed, total)
 
     def raise_if_cancelled(self) -> None:
         if self._job.cancel_event.is_set():

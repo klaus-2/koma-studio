@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import TypedDict
 
-from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.hf_download import ensure_file_from_hf, progress_bridge_var, report_bridge_file
 from core.models_store import resolve_model_dir
 from models.inpainting.registry import get_spec
 
@@ -81,6 +81,7 @@ def ensure_inpainting_model_installed(model_id: str) -> InstallReport:
         if declared_asset is not None and manifest_asset_is_valid(declared_asset)
         else None
     )
+    report_bridge_file(spec.target_file, 0, 1)
     payload = ensure_file_from_hf(
         repo=spec.repo,
         candidate_paths=list(spec.source_candidates),
@@ -89,6 +90,7 @@ def ensure_inpainting_model_installed(model_id: str) -> InstallReport:
         expected_sha256=spec.sha256,
         expected_size=declared_size,
     )
+    report_bridge_file(spec.target_file, 1, 1)
     return InstallReport(
         modelId=spec.key,
         directory=str(model_dir),

@@ -113,6 +113,22 @@ class DownloadJobUnitTests(unittest.TestCase):
             manager.installer = None
         self.assertEqual(errors, [])
 
+    def test_snapshot_exposes_file_stats_and_eta_when_known(self) -> None:
+        job = DownloadJob(model_id="bundle")
+        bridge = JobProgressBridge(job)
+        clock = iter([0.0, 2.0, 2.0])
+        with unittest.mock.patch("core.download_jobs.time.monotonic", lambda: next(clock)):
+            bridge.declare_total(1000)
+            bridge.report_file("weights.onnx", 1, 3)
+            bridge.report_download("weights.onnx", 200)
+            bridge.report_download("weights.onnx", 200)
+            snap = job.snapshot()
+
+        self.assertEqual(snap["currentFile"], "weights.onnx")
+        self.assertEqual(snap["filesCompleted"], 1)
+        self.assertEqual(snap["filesTotal"], 3)
+        self.assertAlmostEqual(snap["etaSeconds"], 6.0, places=1)
+
 
 class ClassifyErrorTests(unittest.TestCase):
     def test_by_exception_type(self) -> None:

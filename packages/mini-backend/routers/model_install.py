@@ -10,7 +10,13 @@ from pydantic import BaseModel
 
 from core.device import get_device_info
 from core.download_jobs import ERROR_CANCELLED, ERROR_UNKNOWN, STATE_READY, get_job_manager
-from core.hf_download import ChecksumMismatchError, download_file, progress_bridge_var, sha256_file
+from core.hf_download import (
+    ChecksumMismatchError,
+    download_file,
+    progress_bridge_var,
+    report_bridge_file,
+    sha256_file,
+)
 from core.models_store import resolve_model_dir
 from core.languages import normalize_language_code
 from models.detection.storage import ensure_detection_model_installed
@@ -115,10 +121,24 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
         logger.warning("registry.checksum_placeholder", extra={"model_id": model_id})
         expected_sha = None
     target_path = target_dir / "model.bin"
+    bridge = progress_bridge_var.get()
+    if bridge is not None and declared_bytes > 0:
+        bridge.declare_total(declared_bytes)
+    report_bridge_file(target_path.name, 0, 1)
 
     if target_path.exists() and expected_sha:
+        if bridge is not None:
+            bridge.report_phase("verifying")
         current = sha256_file(target_path)
         if current.lower() == expected_sha.lower():
+            if bridge is not None:
+                try:
+                    cached_size = target_path.stat().st_size
+                except OSError:
+                    cached_size = 0
+                if cached_size > 0:
+                    bridge.report_download(str(target_path), cached_size)
+            report_bridge_file(target_path.name, 1, 1)
             return {
                 "target": str(target_path),
                 "sha256": current,
@@ -142,6 +162,7 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
             got=actual,
         )
 
+    report_bridge_file(target_path.name, 1, 1)
     return {"target": str(target_path), "sha256": actual, "downloaded": True}
 
 

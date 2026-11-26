@@ -123,6 +123,33 @@ class SizeMismatchTests(unittest.TestCase):
             self.assertFalse(part.exists())
             self.assertFalse(target.exists())
 
+    def test_download_declares_content_length_when_no_total_was_set(self) -> None:
+        import tempfile
+        from core.download_jobs import DownloadJob, JobProgressBridge
+        from core.hf_download import progress_bridge_var
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "weights.bin"
+            job = DownloadJob(model_id="direct")
+            bridge = JobProgressBridge(job)
+            token = progress_bridge_var.set(bridge)
+
+            def fake_open(request: hf.Request) -> _FakeResponse:
+                return _FakeResponse(b"12345678", 200, headers={"Content-Length": "8"})
+
+            original_open = hf._open
+            hf._open = fake_open  # type: ignore[assignment]
+            try:
+                download_file("https://huggingface.co/x/resolve/main/weights.bin", target)
+            finally:
+                hf._open = original_open  # type: ignore[assignment]
+                progress_bridge_var.reset(token)
+
+            snap = job.snapshot()
+            self.assertEqual(snap["totalBytes"], 8)
+            self.assertEqual(snap["bytesDownloaded"], 8)
+            self.assertEqual(snap["percent"], 100.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -313,6 +313,11 @@ async fn process_download_task(app: &AppHandle, model: &DesktopModelDownloadPayl
                 total_bytes,
                 speed_bytes_per_second,
                 percent,
+                current_file,
+                files_completed,
+                files_total,
+                eta_seconds,
+                phase,
             } => emit_model_event(
                 &progress_app,
                 ModelManagerEvent::Progress {
@@ -322,6 +327,11 @@ async fn process_download_task(app: &AppHandle, model: &DesktopModelDownloadPayl
                     speed_bytes_per_second,
                     percent,
                     attempt,
+                    current_file,
+                    files_completed,
+                    files_total,
+                    eta_seconds,
+                    phase,
                 },
             ),
             ModelServiceEvent::Verifying => emit_model_event(

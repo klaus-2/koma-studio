@@ -1,6 +1,6 @@
-//! Managed model store: directory layout, manifests (atomic writes), payload
-//! presence per model, transactional ONNX import, uninstall with rollback and
-//! stale work-directory cleanup. Model ids are the mini-backend's real ids
+//! Managed model store: directory layout, manifests (atomic writes),
+//! transactional ONNX import, uninstall with rollback and stale work-directory
+//! cleanup. Model ids are the mini-backend's real ids
 //! (`manga_ocr`, `sugoi_v4_ja_en_ct2`, ...) — they name the on-disk
 //! directories under `KOMA_MODELS_ROOT` and must never be renamed in lockstep
 //! with the registry.
@@ -24,40 +24,18 @@ use crate::{
     },
 };
 
-use super::{TransferObserver, checksum};
+use super::{checksum, TransferObserver};
 
-const MANIFEST_FILE_NAME: &str = "manifest.json";
-const ENHANCE_MODEL_FILE_NAME: &str = "model.onnx";
-const LEGACY_PARTIAL_FILE_NAME: &str = "download.partial";
+pub(super) const MANIFEST_FILE_NAME: &str = "manifest.json";
+pub(super) const ENHANCE_MODEL_FILE_NAME: &str = "model.onnx";
+pub(super) const LEGACY_PARTIAL_FILE_NAME: &str = "download.partial";
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 const MAX_MODEL_DIRECTORIES: usize = 4096;
-const MAX_DIRECTORY_FILES: usize = 100_000;
-const MAX_DIRECTORY_DEPTH: usize = 64;
+pub(super) const MAX_DIRECTORY_FILES: usize = 100_000;
+pub(super) const MAX_DIRECTORY_DEPTH: usize = 64;
 const STALE_WORK_DIRECTORY_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 const EASYOCR_MODEL_ID: &str = "easyocr";
-const PORORO_MODEL_ID: &str = "pororo";
-const MANGA_OCR_MODEL_ID: &str = "manga_ocr";
-const PADDLE_OCR_MODEL_ID: &str = "paddleocr";
-const PADDLE_OCR_EN_MODEL_ID: &str = "paddleocr_en_v5";
-const PADDLE_OCR_LATIN_MODEL_ID: &str = "paddleocr_latin_v5";
-const PADDLE_OCR_CH_MODEL_ID: &str = "paddleocr_ch_v5";
-const MEIKI_OCR_MODEL_ID: &str = "meiki_ocr";
-const PADDLE_OCR_VL_MANGA_MODEL_ID: &str = "paddleocr_vl_manga";
-const GOT_OCR2_MODEL_ID: &str = "got_ocr2";
-const QWEN2_5_VL_3B_MODEL_ID: &str = "qwen2_5_vl_3b";
-const MANGALMM_MODEL_ID: &str = "mangalmm";
-const ROLMOCR_MODEL_ID: &str = "rolmocr";
-const GLM_OCR_ONNX_MODEL_ID: &str = "glm_ocr_onnx";
-const SUGOI_MODEL_ID: &str = "sugoi_v4_ja_en_ct2";
-const M2M100_MODEL_ID: &str = "m2m100_1_2b_ct2";
-const INPAINT_AOT_MODEL_ID: &str = "aot";
-const INPAINT_LAMA_MODEL_ID: &str = "lama_manga";
-const INPAINT_OPENCV_LAMA_MODEL_ID: &str = "opencv_lama";
-const INPAINT_LAMA_FP32_MODEL_ID: &str = "lama_fp32";
-const SEGMENT_BAKA_MODEL_ID: &str = "baka_content_cc";
-const FONT_RTDETR_MODEL_ID: &str = "font_rtdetr_v2";
-const FONT_RTDETR_FILE_NAME: &str = "detector.onnx";
 
 pub fn ensure_root(root: &Path) -> AppResult<()> {
     fs::create_dir_all(root)?;
@@ -165,11 +143,22 @@ pub fn restore_previous_manifest(
     model_id: &str,
     previous: Option<&DesktopModelManifest>,
 ) -> AppResult<()> {
+    let directory = model_dir(root, model_id);
     let Some(previous) = previous else {
+        if directory.exists()
+            && !super::payload::has_any_payload_file(&directory)?
+            && !super::payload::contains_partial_file(&directory)?
+        {
+            let manifest_path = directory.join(MANIFEST_FILE_NAME);
+            if manifest_path.is_file() {
+                let _ = fs::remove_file(&manifest_path);
+            }
+            let _ = fs::remove_dir(&directory);
+        }
         return Ok(());
     };
 
-    write_manifest_to_directory(&model_dir(root, model_id), previous)
+    write_manifest_to_directory(&directory, previous)
 }
 
 pub fn complete_download(
@@ -210,7 +199,10 @@ pub fn complete_download(
             .then(|| detect_easyocr_installed_languages(&directory)),
         origin: manifest.origin,
         model_dir: directory.to_string_lossy().to_string(),
-        manifest_path: directory.join(MANIFEST_FILE_NAME).to_string_lossy().to_string(),
+        manifest_path: directory
+            .join(MANIFEST_FILE_NAME)
+            .to_string_lossy()
+            .to_string(),
         size_bytes,
     })
 }
@@ -242,10 +234,8 @@ pub fn import_onnx_model(
     let progress_observer = observer.clone();
 
     let operation = (|| -> AppResult<DesktopInstalledModelRecord> {
-        let checksum = checksum::copy_and_checksum(
-            source_path,
-            &target_file,
-            move |transferred, total| {
+        let checksum =
+            checksum::copy_and_checksum(source_path, &target_file, move |transferred, total| {
                 if let Some(observer) = &progress_observer {
                     observer(crate::models::model_manager::ModelTransferProgress {
                         phase: crate::models::model_manager::ModelTransferPhase::Copying,
@@ -258,8 +248,7 @@ pub fn import_onnx_model(
                         },
                     });
                 }
-            },
-        )?;
+            })?;
 
         let installed_at = chrono::Utc::now().to_rfc3339();
         let manifest = DesktopModelManifest {
@@ -309,7 +298,10 @@ pub fn import_onnx_model(
             installed_languages: None,
             origin: Some("local_import".to_string()),
             model_dir: target.to_string_lossy().to_string(),
-            manifest_path: target.join(MANIFEST_FILE_NAME).to_string_lossy().to_string(),
+            manifest_path: target
+                .join(MANIFEST_FILE_NAME)
+                .to_string_lossy()
+                .to_string(),
             size_bytes: metadata.len(),
         })
     })();
@@ -356,120 +348,10 @@ pub fn uninstall_model(root: &Path, model_id: &str) -> AppResult<bool> {
     Ok(true)
 }
 
+pub use super::payload::is_installed_payload_present;
+
 pub fn model_dir(root: &Path, model_id: &str) -> PathBuf {
     root.join(model_id)
-}
-
-pub fn is_installed_payload_present(model_id: &str, directory: &Path) -> AppResult<bool> {
-    let has_files = |files: &[&str]| files.iter().all(|file| directory.join(file).is_file());
-    let has_one = |file: &str| directory.join(file).is_file();
-
-    Ok(match model_id {
-        EASYOCR_MODEL_ID | PORORO_MODEL_ID => has_any_payload_file(directory)?,
-        MANGA_OCR_MODEL_ID => {
-            has_files(&["encoder_model.onnx", "decoder_model.onnx", "vocab.txt"])
-        }
-        PADDLE_OCR_MODEL_ID => has_files(&[
-            "ch_PP-OCRv5_mobile_det.onnx",
-            "eslav_PP-OCRv5_rec_mobile_infer.onnx",
-            "ppocrv5_eslav_dict.txt",
-        ]),
-        PADDLE_OCR_EN_MODEL_ID => has_files(&[
-            "ch_PP-OCRv5_mobile_det.onnx",
-            "en_PP-OCRv5_mobile_rec.onnx",
-            "ppocrv5_en_dict.txt",
-        ]),
-        PADDLE_OCR_LATIN_MODEL_ID => has_files(&[
-            "ch_PP-OCRv5_mobile_det.onnx",
-            "latin_PP-OCRv5_rec_mobile_infer.onnx",
-            "ppocrv5_latin_dict.txt",
-        ]),
-        PADDLE_OCR_CH_MODEL_ID => has_files(&[
-            "ch_PP-OCRv5_mobile_det.onnx",
-            "ch_PP-OCRv5_rec_mobile_infer.onnx",
-            "ppocrv5_dict.txt",
-        ]),
-        MEIKI_OCR_MODEL_ID => has_files(&[
-            "meiki.text.rec.v0.960x32.onnx",
-            "meiki.text.rec.v0.vertical.32x480.onnx",
-        ]),
-        PADDLE_OCR_VL_MANGA_MODEL_ID => has_files(&[
-            "config.json",
-            "configuration_paddleocr_vl.py",
-            "generation_config.json",
-            "image_processing.py",
-            "model.safetensors",
-            "modeling_paddleocr_vl.py",
-            "preprocessor_config.json",
-            "processing_paddleocr_vl.py",
-            "processor_config.json",
-            "tokenizer.json",
-            "tokenizer.model",
-            "tokenizer_config.json",
-        ]),
-        GOT_OCR2_MODEL_ID => has_files(&[
-            "config.json",
-            "generation_config.json",
-            "model.safetensors",
-            "preprocessor_config.json",
-            "tokenizer.json",
-            "tokenizer_config.json",
-        ]),
-        QWEN2_5_VL_3B_MODEL_ID => has_files(&[
-            "config.json",
-            "generation_config.json",
-            "model-00001-of-00002.safetensors",
-            "model-00002-of-00002.safetensors",
-            "model.safetensors.index.json",
-            "preprocessor_config.json",
-            "tokenizer.json",
-            "tokenizer_config.json",
-            "vocab.json",
-        ]),
-        MANGALMM_MODEL_ID | ROLMOCR_MODEL_ID => has_files(&[
-            "config.json",
-            "generation_config.json",
-            "model-00001-of-00004.safetensors",
-            "model-00002-of-00004.safetensors",
-            "model-00003-of-00004.safetensors",
-            "model-00004-of-00004.safetensors",
-            "model.safetensors.index.json",
-            "preprocessor_config.json",
-            "tokenizer.json",
-            "tokenizer_config.json",
-            "vocab.json",
-        ]),
-        GLM_OCR_ONNX_MODEL_ID => has_files(&[
-            "config.json",
-            "generation_config.json",
-            "model.safetensors",
-            "preprocessor_config.json",
-            "tokenizer.json",
-            "tokenizer_config.json",
-        ]),
-        SUGOI_MODEL_ID => has_files(&[
-            "config.json",
-            "model.bin",
-            "source_vocabulary.json",
-            "target_vocabulary.json",
-            "spm/spm.ja.nopretok.model",
-            "spm/spm.en.nopretok.model",
-        ]),
-        M2M100_MODEL_ID => has_files(&[
-            "config.json",
-            "model.bin",
-            "sentencepiece.bpe.model",
-            "shared_vocabulary.json",
-            "vocab.json",
-        ]),
-        INPAINT_AOT_MODEL_ID => has_one("aot.onnx"),
-        INPAINT_LAMA_MODEL_ID => has_one("lama-manga-dynamic.onnx"),
-        INPAINT_OPENCV_LAMA_MODEL_ID => has_one("inpainting_lama_2025jan.onnx"),
-        INPAINT_LAMA_FP32_MODEL_ID => has_one("lama_fp32.onnx"),
-        SEGMENT_BAKA_MODEL_ID => has_one("segmenter.meta"),
-        FONT_RTDETR_MODEL_ID => has_one(FONT_RTDETR_FILE_NAME),
-        _ => has_any_payload_file(directory)?,
-    })
 }
 
 fn collect_model_ids(root: &Path) -> AppResult<Vec<String>> {
@@ -513,14 +395,11 @@ fn collect_model_ids(root: &Path) -> AppResult<Vec<String>> {
     Ok(model_ids)
 }
 
-fn installed_record(
-    root: &Path,
-    model_id: &str,
-) -> AppResult<Option<DesktopInstalledModelRecord>> {
+fn installed_record(root: &Path, model_id: &str) -> AppResult<Option<DesktopInstalledModelRecord>> {
     let directory = model_dir(root, model_id);
     let manifest_path = directory.join(MANIFEST_FILE_NAME);
     let manifest = read_manifest(&manifest_path)?;
-    let has_partial = contains_partial_file(&directory)?;
+    let has_partial = super::payload::contains_partial_file(&directory)?;
     let size_bytes = manifest
         .as_ref()
         .map(|manifest| manifest.size_bytes)
@@ -682,111 +561,14 @@ fn compute_directory_size(root: &Path) -> AppResult<u64> {
                     ));
                 }
 
-                total = total
-                    .checked_add(entry.metadata()?.len())
-                    .ok_or_else(|| {
-                        AppError::Integrity("Model directory size overflow.".to_string())
-                    })?;
+                total = total.checked_add(entry.metadata()?.len()).ok_or_else(|| {
+                    AppError::Integrity("Model directory size overflow.".to_string())
+                })?;
             }
         }
     }
 
     Ok(total)
-}
-
-fn has_any_payload_file(directory: &Path) -> AppResult<bool> {
-    let mut pending = vec![(directory.to_path_buf(), 0_usize)];
-    let mut visited = 0_usize;
-
-    while let Some((current, depth)) = pending.pop() {
-        if depth > MAX_DIRECTORY_DEPTH {
-            return Err(AppError::Integrity(
-                "Model directory exceeds the supported depth.".to_string(),
-            ));
-        }
-
-        for entry in fs::read_dir(current)? {
-            let entry = entry?;
-            let file_type = entry.file_type()?;
-
-            if file_type.is_symlink() {
-                return Err(AppError::security(
-                    "Symbolic links are not allowed inside model directories.",
-                ));
-            }
-
-            if file_type.is_dir() {
-                pending.push((entry.path(), depth + 1));
-                continue;
-            }
-
-            if !file_type.is_file() {
-                continue;
-            }
-
-            visited += 1;
-            if visited > MAX_DIRECTORY_FILES {
-                return Err(AppError::Integrity(
-                    "Model directory contains too many files.".to_string(),
-                ));
-            }
-
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if name != MANIFEST_FILE_NAME && !name.ends_with(".part") {
-                return Ok(true);
-            }
-        }
-    }
-
-    Ok(false)
-}
-
-/// A directory counts as "partial" when a chunked download is in flight:
-/// either the shell's legacy `download.partial` marker or any `*.part` file
-/// written by the mini-backend downloader.
-fn contains_partial_file(directory: &Path) -> AppResult<bool> {
-    if !directory.exists() {
-        return Ok(false);
-    }
-
-    if directory.join(LEGACY_PARTIAL_FILE_NAME).is_file() {
-        return Ok(true);
-    }
-
-    let mut pending = vec![(directory.to_path_buf(), 0_usize)];
-
-    while let Some((current, depth)) = pending.pop() {
-        if depth > MAX_DIRECTORY_DEPTH {
-            return Err(AppError::Integrity(
-                "Model directory exceeds the supported depth.".to_string(),
-            ));
-        }
-
-        for entry in fs::read_dir(current)? {
-            let entry = entry?;
-            let file_type = entry.file_type()?;
-
-            if file_type.is_symlink() {
-                return Err(AppError::security(
-                    "Symbolic links are not allowed inside model directories.",
-                ));
-            }
-
-            if file_type.is_dir() {
-                pending.push((entry.path(), depth + 1));
-            } else if file_type.is_file()
-                && entry
-                    .file_name()
-                    .to_string_lossy()
-                    .to_ascii_lowercase()
-                    .ends_with(".part")
-            {
-                return Ok(true);
-            }
-        }
-    }
-
-    Ok(false)
 }
 
 fn detect_easyocr_installed_languages(directory: &Path) -> Vec<String> {
@@ -841,8 +623,9 @@ fn cleanup_stale_work_directories(root: &Path) -> AppResult<()> {
         }
 
         let name = entry.file_name().to_string_lossy().into_owned();
-        let managed_temporary =
-            name.starts_with(".staging-") || name.starts_with(".backup-") || name.starts_with(".trash-");
+        let managed_temporary = name.starts_with(".staging-")
+            || name.starts_with(".backup-")
+            || name.starts_with(".trash-");
 
         if !managed_temporary {
             continue;
@@ -913,7 +696,7 @@ fn replace_file(source: &Path, destination: &Path) -> AppResult<()> {
 fn replace_file(source: &Path, destination: &Path) -> AppResult<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
-        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
     };
 
     let source = source

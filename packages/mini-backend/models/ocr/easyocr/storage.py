@@ -6,7 +6,7 @@ import shutil
 import zipfile
 from typing import Sequence
 
-from core.hf_download import download_file, progress_bridge_var
+from core.hf_download import download_file, progress_bridge_var, report_bridge_file
 from core.languages import normalize_language_code
 from models.manifests import model_entry
 
@@ -203,13 +203,22 @@ def _install_easyocr_asset(asset: dict[str, object], storage_dir: Path) -> None:
 
     EasyOCR's own downloader has no progress hooks and cannot be cancelled, so
     the archive is fetched here — with resume, a size check and a digest check
-    — and the model file is extracted from it.
+    — and the model file is extracted from it atomically.
     """
+    bridge = progress_bridge_var.get()
     target = storage_dir / str(asset["target"])
     if target.is_file():
+        if bridge is not None:
+            try:
+                cached_bytes = target.stat().st_size
+            except OSError:
+                cached_bytes = 0
+            if cached_bytes > 0:
+                bridge.report_download(str(target), cached_bytes)
         return
 
     archive = storage_dir / f"{target.name}.zip"
+    tmp_extracted = storage_dir / f"{target.name}.extracting"
     download_file(
         str(asset["url"]),
         archive,
@@ -218,13 +227,22 @@ def _install_easyocr_asset(asset: dict[str, object], storage_dir: Path) -> None:
         expected_sha256=str(asset["sha256"]) or None,
     )
     try:
+        if bridge is not None:
+            bridge.report_phase("verifying")
+            bridge.raise_if_cancelled()
         with zipfile.ZipFile(archive) as bundle:
             member = next(
                 name for name in bundle.namelist()
                 if name.rsplit("/", 1)[-1] == target.name
             )
-            with bundle.open(member) as source, target.open("wb") as sink:
+            with bundle.open(member) as source, tmp_extracted.open("wb") as sink:
                 shutil.copyfileobj(source, sink)
+        if not tmp_extracted.is_file() or tmp_extracted.stat().st_size <= 0:
+            raise RuntimeError(f"Extracted EasyOCR asset '{target.name}' is empty.")
+        tmp_extracted.replace(target)
+    except Exception:
+        tmp_extracted.unlink(missing_ok=True)
+        raise
     finally:
         archive.unlink(missing_ok=True)
 
@@ -279,8 +297,12 @@ def ensure_easyocr_models_installed(
 
         if not _storage_dir_ready(storage_dir, language):
             assets = _easyocr_manifest_assets(language)
-            for asset in assets:
+            total_assets = len(assets)
+            for index, asset in enumerate(assets):
+                report_bridge_file(str(asset["target"]), index, total_assets)
                 _install_easyocr_asset(asset, storage_dir)
+            if total_assets > 0:
+                report_bridge_file(str(assets[-1]["target"]), total_assets, total_assets)
 
         if not easyocr_imported:
             try:

@@ -4,7 +4,16 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from core.hf_download import download_file, ensure_file_from_hf, progress_bridge_var, sha256_file
+from core.hf_download import (
+    ChecksumMismatchError,
+    DownloadCancelled,
+    HFDownloadError,
+    download_file,
+    ensure_file_from_hf,
+    progress_bridge_var,
+    report_bridge_file,
+    sha256_file,
+)
 from core.models_store import resolve_model_dir
 from models.manifests import (
     manifest_asset_is_valid,
@@ -136,7 +145,9 @@ def _install_hf_bundle(
 
     model_dir.mkdir(parents=True, exist_ok=True)
     files_payload: list[dict[str, Any]] = []
-    for relative_path in managed_files:
+    total_files = len(managed_files)
+    for index, relative_path in enumerate(managed_files):
+        report_bridge_file(relative_path, index, total_files)
         target_path = model_dir / relative_path
         payload = ensure_file_from_hf(
             repo=str(source["repo"]),
@@ -152,6 +163,8 @@ def _install_hf_bundle(
             "sha256": payload["sha256"],
             "downloaded": payload["downloaded"],
         })
+    if total_files > 0:
+        report_bridge_file(managed_files[-1], total_files, total_files)
     return {
         "modelId": model_id,
         "directory": str(model_dir),
@@ -173,31 +186,43 @@ def ensure_detection_model_installed(model_id: str) -> dict[str, Any]:
     if source.get("kind") == "hf_bundle":
         return _install_hf_bundle(normalized, source, model_dir)
 
+    bridge = progress_bridge_var.get()
     total_bytes = manifest_declared_total(normalized)
-    if total_bytes is not None:
-        bridge = progress_bridge_var.get()
-        if bridge is not None:
-            bridge.declare_total(total_bytes)
+    if total_bytes is not None and bridge is not None:
+        bridge.declare_total(total_bytes)
 
     model_dir.mkdir(parents=True, exist_ok=True)
-    target_path = model_dir / str(source["target"])
+    target_name = str(source["target"])
+    target_path = model_dir / target_name
     expected_sha = str(source["sha256"]).strip().lower()
-    declared_asset = manifest_assets_by_path(normalized).get(str(source["target"]))
+    declared_asset = manifest_assets_by_path(normalized).get(target_name)
     declared_size = (
         int(declared_asset["size"])
         if declared_asset is not None and manifest_asset_is_valid(declared_asset)
         else None
     )
 
+    report_bridge_file(target_name, 0, 1)
+
     if target_path.exists():
+        if bridge is not None:
+            bridge.report_phase("verifying")
         current_sha = sha256_file(target_path).lower()
         if current_sha == expected_sha:
+            if bridge is not None:
+                try:
+                    cached_bytes = target_path.stat().st_size
+                except OSError:
+                    cached_bytes = 0
+                if cached_bytes > 0:
+                    bridge.report_download(str(target_path), cached_bytes)
+            report_bridge_file(target_name, 1, 1)
             return {
                 "modelId": normalized,
                 "directory": str(model_dir),
                 "fileCount": 1,
                 "file": {
-                    "target": str(source["target"]),
+                    "target": target_name,
                     "source": "local-cache",
                     "sha256": current_sha,
                     "downloaded": False,
@@ -206,29 +231,51 @@ def ensure_detection_model_installed(model_id: str) -> dict[str, Any]:
         target_path.unlink(missing_ok=True)
 
     last_error: Exception | None = None
-    for url in [str(item).strip() for item in source.get("urls", []) if str(item).strip()]:
+    urls = [str(item).strip() for item in source.get("urls", []) if str(item).strip()]
+    part_path = target_path.with_suffix(f"{target_path.suffix}.part")
+    for url in urls:
         try:
             download_file(url, target_path, max_retries=3, expected_size=declared_size)
+            if bridge is not None:
+                bridge.report_phase("verifying")
+                bridge.raise_if_cancelled()
             current_sha = sha256_file(target_path).lower()
             if expected_sha and current_sha != expected_sha:
                 target_path.unlink(missing_ok=True)
-                raise RuntimeError(
-                    f"Invalid SHA256 checksum for '{source['target']}'. Expected: {expected_sha} | Got: {current_sha}",
+                raise ChecksumMismatchError(
+                    f"Invalid SHA256 checksum for '{target_name}'. Expected: {expected_sha} | Got: {current_sha}",
+                    expected=expected_sha,
+                    got=current_sha,
                 )
+            report_bridge_file(target_name, 1, 1)
             return {
                 "modelId": normalized,
                 "directory": str(model_dir),
                 "fileCount": 1,
                 "file": {
-                    "target": str(source["target"]),
+                    "target": target_name,
                     "source": url,
                     "sha256": current_sha,
                     "downloaded": True,
                 },
             }
+        except (DownloadCancelled, ChecksumMismatchError):
+            raise
         except Exception as exc:
+            if bridge is not None and part_path.exists():
+                try:
+                    stale_partial = part_path.stat().st_size
+                except OSError:
+                    stale_partial = 0
+                if stale_partial > 0:
+                    bridge.report_download(url, -stale_partial)
             last_error = exc
 
-    raise RuntimeError(
-        f"Failed to download detection model '{normalized}': {last_error}",
-    ) from last_error
+    if last_error is not None:
+        if isinstance(last_error, HFDownloadError | OSError):
+            raise last_error
+        raise RuntimeError(
+            f"Failed to download detection model '{normalized}': {last_error}",
+        ) from last_error
+
+    raise RuntimeError(f"Failed to download detection model '{normalized}': no URLs configured.")

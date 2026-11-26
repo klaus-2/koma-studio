@@ -125,6 +125,19 @@ def _active_bridge() -> DownloadProgressBridge | None:
     return progress_bridge_var.get()
 
 
+def report_bridge_file(
+    filename: str | None,
+    completed: int | None = None,
+    total: int | None = None,
+) -> None:
+    bridge = _active_bridge()
+    if bridge is None:
+        return
+    report_fn = getattr(bridge, "report_file", None)
+    if callable(report_fn):
+        report_fn(filename, completed, total)
+
+
 # ------------------------------------------------------------------- helpers
 
 
@@ -394,6 +407,8 @@ def _download_once(
 
     with response:
         total_size = _response_total(response, requested_offset=existing_bytes)
+        if bridge is not None and total_size is not None and total_size > 0:
+            bridge.declare_total(total_size)
         start = _response_start(response, requested_offset=existing_bytes)
         if existing_bytes > 0 and start != existing_bytes:
             logger.info("Server ignored Range header; restarting from scratch: %s", url)
@@ -480,6 +495,8 @@ def download_file(
             if total_size is not None and total_size == existing_bytes:
                 break  # the partial is already the complete file
             temp_path.unlink(missing_ok=True)
+            if bridge is not None and existing_bytes > 0:
+                bridge.report_download(url, -existing_bytes)
             continue  # the remote shrank — download it again from scratch
         break
 
@@ -493,6 +510,9 @@ def download_file(
         )
 
     if expected_sha256:
+        if bridge is not None:
+            bridge.report_phase("verifying")
+            bridge.raise_if_cancelled()
         digest = sha256_file(temp_path).lower()
         if digest != expected_sha256.lower():
             temp_path.unlink(missing_ok=True)
@@ -504,6 +524,18 @@ def download_file(
             )
 
     temp_path.replace(target_path)
+
+
+def _credit_cached_file_bytes(target_path: Path) -> None:
+    bridge = _active_bridge()
+    if bridge is None:
+        return
+    try:
+        cached_size = target_path.stat().st_size
+    except OSError:
+        return
+    if cached_size > 0:
+        bridge.report_download(str(target_path), cached_size)
 
 
 def ensure_file_from_hf(
@@ -527,11 +559,16 @@ def ensure_file_from_hf(
         revision=revision,
     )
     expected_sha = configured_sha or (resolved_sha or None)
+    report_bridge_file(selected_path)
 
     if target_path.exists():
         if expected_sha:
+            bridge = _active_bridge()
+            if bridge is not None:
+                bridge.report_phase("verifying")
             current_sha = sha256_file(target_path)
             if current_sha.lower() == expected_sha.lower():
+                _credit_cached_file_bytes(target_path)
                 return {
                     "path": selected_path,
                     "sha256": current_sha,
@@ -541,6 +578,7 @@ def ensure_file_from_hf(
             target_path.unlink(missing_ok=True)
         else:
             # No remote/configured SHA: assume the local file is already valid.
+            _credit_cached_file_bytes(target_path)
             return {
                 "path": selected_path,
                 "sha256": sha256_file(target_path),
@@ -548,7 +586,12 @@ def ensure_file_from_hf(
                 "downloaded": False,
             }
 
-    download_file(download_url, target_path, expected_size=expected_size)
+    download_file(
+        download_url,
+        target_path,
+        expected_size=expected_size,
+        expected_sha256=expected_sha,
+    )
     bridge = _active_bridge()
     if bridge is not None:
         bridge.report_phase("verifying")
@@ -581,8 +624,11 @@ def ensure_files_from_hf(
     size_by_file: Mapping[str, int] | None = None,
 ) -> list[dict[str, object]]:
     target_dir.mkdir(parents=True, exist_ok=True)
+    normalized_files = [str(item).strip() for item in files if str(item).strip()]
+    total_files = len(normalized_files)
     payloads: list[dict[str, object]] = []
-    for relative_path in [str(item).strip() for item in files if str(item).strip()]:
+    for index, relative_path in enumerate(normalized_files):
+        report_bridge_file(relative_path, index, total_files)
         target_path = target_dir / relative_path
         payload = ensure_file_from_hf(
             repo=repo,
@@ -600,4 +646,6 @@ def ensure_files_from_hf(
                 "downloaded": payload["downloaded"],
             }
         )
+    if total_files > 0:
+        report_bridge_file(normalized_files[-1], total_files, total_files)
     return payloads

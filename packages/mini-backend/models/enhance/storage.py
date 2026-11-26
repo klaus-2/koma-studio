@@ -5,7 +5,7 @@ from typing import Any
 
 import logging
 
-from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.hf_download import ensure_file_from_hf, progress_bridge_var, report_bridge_file
 from core.models_store import model_is_installed, resolve_model_dir
 from models.manifests import manifest_asset_is_valid, manifest_assets_by_path, manifest_declared_total
 
@@ -194,6 +194,7 @@ def ensure_enhance_model_installed(model_id: str) -> dict[str, Any]:
 
     model_dir.mkdir(parents=True, exist_ok=True)
     target_path = model_dir / str(spec["target"])
+    report_bridge_file(str(spec["target"]), 0, 1)
     payload = ensure_file_from_hf(
         repo=str(spec["repo"]),
         candidate_paths=[str(spec["source_path"])],
@@ -202,6 +203,7 @@ def ensure_enhance_model_installed(model_id: str) -> dict[str, Any]:
         expected_sha256=str(declared_asset["sha256"]),
         expected_size=int(declared_asset["size"]),
     )
+    report_bridge_file(str(spec["target"]), 1, 1)
 
     return {
         "modelId": normalized,

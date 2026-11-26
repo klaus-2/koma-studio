@@ -122,24 +122,36 @@ const emitProgressFromJobSnapshot = (
   // stays null and the UI renders an indeterminate state — substituting the
   // registry's estimate here would show a percentage of a fiction.
   const totalBytes =
-    snapshot.totalBytes === null || snapshot.totalBytes === undefined
+    snapshot.totalBytes === null || snapshot.totalBytes === undefined || snapshot.totalBytes <= 0
       ? null
       : Math.max(0, Math.round(snapshot.totalBytes));
+  const speedBytesPerSecond = Math.max(0, Math.round(snapshot.speedBytesPerSecond || 0));
   const percent =
-    snapshot.percent === null || snapshot.percent === undefined
-      ? totalBytes !== null && totalBytes > 0
+    totalBytes === null
+      ? null
+      : snapshot.percent === null || snapshot.percent === undefined
         ? (bytesDownloaded / totalBytes) * 100
-        : null
-      : snapshot.percent;
+        : snapshot.percent;
+  const etaSeconds =
+    typeof snapshot.etaSeconds === "number" && Number.isFinite(snapshot.etaSeconds) && snapshot.etaSeconds >= 0
+      ? snapshot.etaSeconds
+      : totalBytes !== null && speedBytesPerSecond > 0
+        ? Math.max(0, totalBytes - bytesDownloaded) / speedBytesPerSecond
+        : null;
 
   emit({
     type: "progress",
     modelId: model.id,
     bytesDownloaded,
     totalBytes,
-    speedBytesPerSecond: Math.max(0, Math.round(snapshot.speedBytesPerSecond || 0)),
+    speedBytesPerSecond,
     percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
     attempt,
+    ...(snapshot.currentFile ? { currentFile: snapshot.currentFile } : {}),
+    ...(typeof snapshot.filesCompleted === "number" ? { filesCompleted: snapshot.filesCompleted } : {}),
+    ...(typeof snapshot.filesTotal === "number" ? { filesTotal: snapshot.filesTotal } : {}),
+    ...(etaSeconds !== null ? { etaSeconds } : {}),
+    phase: snapshot.state,
   });
 };
 

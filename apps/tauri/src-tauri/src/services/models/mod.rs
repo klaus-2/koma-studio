@@ -4,6 +4,7 @@
 
 pub mod backend;
 pub mod checksum;
+pub mod payload;
 pub mod storage;
 #[cfg(test)]
 mod tests;
@@ -55,6 +56,7 @@ const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     "paddleocr_ch_v5",
     "meiki_ocr",
     "paddleocr_vl_manga",
+    "paddleocr_vl_1_5",
     "got_ocr2",
     "qwen2_5_vl_3b",
     "mangalmm",
@@ -65,6 +67,11 @@ const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     "waifu2x_swin_unet_art_2x",
     "sugoi_v4_ja_en_ct2",
     "m2m100_1_2b_ct2",
+    "vntl_llama3_8b_v2",
+    "lfm2_350m_enjp_mt",
+    "sakura_galtransl_7b_v3_7",
+    "sakura_1_5b_qwen2_5_v1_0",
+    "hunyuan_7b_mt_v1_0",
     "opus-mt-ja-en",
     "opus-mt-zh-en",
     "nllb-200-3.3b",
@@ -78,6 +85,7 @@ const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     "baka_content_cc",
     "comic_text_detector",
     "font_rtdetr_v2",
+    "pp_doclayout_v3",
 ];
 
 pub type TransferObserver = Arc<dyn Fn(crate::models::model_manager::ModelTransferProgress) + Send + Sync + 'static>;
@@ -92,6 +100,11 @@ pub enum ModelServiceEvent {
         total_bytes: Option<u64>,
         speed_bytes_per_second: u64,
         percent: Option<f64>,
+        current_file: Option<String>,
+        files_completed: Option<u32>,
+        files_total: Option<u32>,
+        eta_seconds: Option<f64>,
+        phase: Option<String>,
     },
     Verifying,
 }
@@ -451,25 +464,38 @@ fn emit_progress(
     observer: &DownloadObserver,
 ) {
     let bytes_downloaded = snapshot.bytes_downloaded;
-    // The backend owns the total. When it does not know one yet the value
-    // stays `None` and the UI renders an indeterminate state — substituting the
-    // registry's estimate here would show a percentage of a fiction.
-    let total_bytes = snapshot.total_bytes;
-    let percent = match snapshot.percent {
-        Some(value) => Some(value.clamp(0.0, 100.0)),
-        None => total_bytes
-            .filter(|total| *total > 0)
-            .map(|total| (bytes_downloaded as f64 / total as f64 * 100.0).clamp(0.0, 100.0)),
+    let total_bytes = snapshot.total_bytes.filter(|total| *total > 0);
+    let percent = match total_bytes {
+        Some(total) => Some(match snapshot.percent {
+            Some(value) if value.is_finite() => value.clamp(0.0, 100.0),
+            _ => (bytes_downloaded as f64 / total as f64 * 100.0).clamp(0.0, 100.0),
+        }),
+        None => None,
     };
+    let speed_bytes_per_second = snapshot
+        .speed_bytes_per_second
+        .unwrap_or(0.0)
+        .max(0.0) as u64;
+    let eta_seconds = snapshot
+        .eta_seconds
+        .filter(|eta| eta.is_finite() && *eta >= 0.0)
+        .or_else(|| match (total_bytes, speed_bytes_per_second) {
+            (Some(total), speed) if speed > 0 => {
+                Some((total.saturating_sub(bytes_downloaded)) as f64 / speed as f64)
+            }
+            _ => None,
+        });
 
     observer(ModelServiceEvent::Progress {
         bytes_downloaded,
         total_bytes,
-        speed_bytes_per_second: snapshot
-            .speed_bytes_per_second
-            .unwrap_or(0.0)
-            .max(0.0) as u64,
+        speed_bytes_per_second,
         percent,
+        current_file: snapshot.current_file.clone(),
+        files_completed: snapshot.files_completed,
+        files_total: snapshot.files_total,
+        eta_seconds,
+        phase: Some(snapshot.state.clone()),
     });
 }
 

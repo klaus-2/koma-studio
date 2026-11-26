@@ -129,6 +129,16 @@ pub enum ModelManagerEvent {
         #[serde(default)]
         percent: Option<f64>,
         attempt: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        current_file: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        files_completed: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        files_total: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        eta_seconds: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        phase: Option<String>,
     },
     Verifying {
         model_id: String,

@@ -55,6 +55,35 @@ class DetectionStorageInstallTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "KOMA_MODELS_ROOT is not configured"):
                 detection_storage.ensure_detection_model_installed("font_rtdetr_v2")
 
+    def test_detection_preserves_checksum_and_cancellation_exceptions(self) -> None:
+        from core.hf_download import ChecksumMismatchError, DownloadCancelled
+
+        stub_entry = {
+            "totalBytes": 16,
+            "assets": [{"path": "detector.onnx", "sha256": FONT_RTDETR_SHA256, "size": 16}],
+        }
+        with (
+            TemporaryDirectory() as temp_dir,
+            patch.dict(os.environ, {"KOMA_MODELS_ROOT": temp_dir}, clear=False),
+            patch.object(detection_storage, "download_file", _write_detector),
+            patch.object(detection_storage, "sha256_file", return_value="0" * 64),
+            patch.object(manifests_module, "model_entry", return_value=stub_entry),
+        ):
+            with self.assertRaises(ChecksumMismatchError):
+                detection_storage.ensure_detection_model_installed("font_rtdetr_v2")
+
+        def cancel_download(*args: object, **kwargs: object) -> None:
+            raise DownloadCancelled()
+
+        with (
+            TemporaryDirectory() as temp_dir,
+            patch.dict(os.environ, {"KOMA_MODELS_ROOT": temp_dir}, clear=False),
+            patch.object(detection_storage, "download_file", cancel_download),
+            patch.object(manifests_module, "model_entry", return_value=stub_entry),
+        ):
+            with self.assertRaises(DownloadCancelled):
+                detection_storage.ensure_detection_model_installed("font_rtdetr_v2")
+
 
 if __name__ == "__main__":
     unittest.main()

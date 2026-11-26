@@ -52,4 +52,23 @@ describe("ModelProgressBarNoir", () => {
 
     expect(screen.getByText(/100\.0%/)).toBeInTheDocument();
   });
+
+  it("renders eta, current file, file counter, and retry attempt when provided", () => {
+    render(
+      <ModelProgressBarNoir
+        progress={progress({
+          attempt: 2,
+          currentFile: "weights/encoder_model.onnx",
+          filesCompleted: 1,
+          filesTotal: 3,
+          etaSeconds: 75,
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/encoder_model\.onnx/)).toBeInTheDocument();
+    expect(screen.getByText(/~2m|1m 15s/)).toBeInTheDocument();
+    expect(screen.getByText(/modelManager\.progress\.attempt:2/)).toBeInTheDocument();
+    expect(screen.getByText(/modelManager\.progress\.files/)).toBeInTheDocument();
+  });
 });

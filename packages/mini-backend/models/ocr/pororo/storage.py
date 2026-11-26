@@ -6,7 +6,13 @@ import os
 from pathlib import Path
 from typing import Any, Iterable
 
-from core.hf_download import download_file, progress_bridge_var, sha256_file
+from core.hf_download import (
+    ChecksumMismatchError,
+    download_file,
+    progress_bridge_var,
+    report_bridge_file,
+    sha256_file,
+)
 from models.manifests import (
     manifest_asset_is_valid,
     manifest_assets_by_path,
@@ -98,19 +104,34 @@ def _ensure_required_file(
     declared_size: int | None,
 ) -> None:
     target_path = storage_dir / filename
+    bridge = progress_bridge_var.get()
 
     if target_path.exists():
+        if bridge is not None:
+            bridge.report_phase("verifying")
         existing_sha = sha256_file(target_path)
         if existing_sha.lower() == expected_sha256.lower():
+            if bridge is not None:
+                try:
+                    cached_bytes = target_path.stat().st_size
+                except OSError:
+                    cached_bytes = 0
+                if cached_bytes > 0:
+                    bridge.report_download(str(target_path), cached_bytes)
             return
         target_path.unlink(missing_ok=True)
 
     download_file(url, target_path, max_retries=3, expected_size=declared_size)
+    if bridge is not None:
+        bridge.report_phase("verifying")
+        bridge.raise_if_cancelled()
     downloaded_sha = sha256_file(target_path)
     if downloaded_sha.lower() != expected_sha256.lower():
         target_path.unlink(missing_ok=True)
-        raise RuntimeError(
+        raise ChecksumMismatchError(
             f"Invalid SHA256 checksum for '{filename}'. Expected: {expected_sha256} | Got: {downloaded_sha}",
+            expected=expected_sha256,
+            got=downloaded_sha,
         )
 
 
@@ -128,7 +149,10 @@ def ensure_pororo_models_installed(languages: Iterable[str] | None = None) -> di
         if bridge is not None:
             bridge.declare_total(total_bytes)
     assets_by_path = manifest_assets_by_path("pororo")
-    for filename, meta in _REQUIRED_FILES.items():
+    required_items = list(_REQUIRED_FILES.items())
+    total_files = len(required_items)
+    for index, (filename, meta) in enumerate(required_items):
+        report_bridge_file(filename, index, total_files)
         declared_asset = assets_by_path.get(filename)
         declared_size = (
             int(declared_asset["size"])
@@ -142,6 +166,8 @@ def ensure_pororo_models_installed(languages: Iterable[str] | None = None) -> di
             url=meta["url"],
             declared_size=declared_size,
         )
+    if total_files > 0:
+        report_bridge_file(required_items[-1][0], total_files, total_files)
 
     files = [path for path in storage_dir.rglob("*") if path.is_file()]
     return {

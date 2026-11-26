@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.hf_download import ensure_file_from_hf, progress_bridge_var, report_bridge_file
 from core.models_store import resolve_model_dir
 from models.manifests import (
     manifest_asset_is_valid,
@@ -240,7 +240,9 @@ def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
 
     model_dir.mkdir(parents=True, exist_ok=True)
     files_payload: list[dict[str, Any]] = []
-    for relative_path in managed_files:
+    total_files = len(managed_files)
+    for index, relative_path in enumerate(managed_files):
+        report_bridge_file(relative_path, index, total_files)
         target_path = model_dir / relative_path
         asset = assets_by_path[relative_path]
         payload = ensure_file_from_hf(
@@ -259,6 +261,8 @@ def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
                 "downloaded": payload["downloaded"],
             }
         )
+    if total_files > 0:
+        report_bridge_file(managed_files[-1], total_files, total_files)
 
     return {
         "modelId": normalized,

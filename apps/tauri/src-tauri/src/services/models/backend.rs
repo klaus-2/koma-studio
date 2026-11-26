@@ -54,6 +54,14 @@ pub struct BackendJobSnapshot {
     // typing this as u64 failed every snapshot with "invalid type: floating
     // point" and the download died at 0 B after exhausting poll failures.
     pub speed_bytes_per_second: Option<f64>,
+    #[serde(default)]
+    pub current_file: Option<String>,
+    #[serde(default)]
+    pub files_completed: Option<u32>,
+    #[serde(default)]
+    pub files_total: Option<u32>,
+    #[serde(default)]
+    pub eta_seconds: Option<f64>,
     pub error_message: Option<String>,
     pub error_code: Option<String>,
 }

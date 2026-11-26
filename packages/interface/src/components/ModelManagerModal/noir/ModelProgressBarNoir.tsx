@@ -1,20 +1,17 @@
 import { m } from "framer-motion";
 import type { ModelProgress } from "../../../models/types";
 import { useI18n } from "../../../i18n";
+import {
+  formatDownloadBytes,
+  formatDownloadEta,
+  truncateDownloadFilename,
+} from "../progressFormat";
 
 interface ModelProgressBarProps {
   progress: ModelProgress;
   onCancel?: () => void;
   compact?: boolean;
 }
-
-const formatBytes = (value: number): string => {
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let v = value, i = 0;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
-  return `${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)} ${units[i]}`;
-};
 
 export const ModelProgressBarNoir = ({ progress, onCancel, compact = false }: ModelProgressBarProps) => {
   const { t } = useI18n();
@@ -23,14 +20,39 @@ export const ModelProgressBarNoir = ({ progress, onCancel, compact = false }: Mo
   const percent = progress.percent === null ? null : Math.max(0, Math.min(100, progress.percent));
   const determinate = percent !== null;
   const scale = determinate ? percent / 100 : 1;
+  const etaLabel = determinate ? formatDownloadEta(progress.etaSeconds) : null;
+  const hasFileCount =
+    typeof progress.filesTotal === "number" && progress.filesTotal > 0;
+  const completedCount =
+    typeof progress.filesCompleted === "number" && hasFileCount
+      ? Math.min(progress.filesCompleted, progress.filesTotal ?? 0)
+      : 0;
+  const fileLabel = progress.currentFile
+    ? truncateDownloadFilename(progress.currentFile, compact ? 18 : 26)
+    : null;
 
   return (
     <div className={`font-mono ${compact ? "space-y-0.5 text-[9px]" : "space-y-1 text-[10px]"}`}>
-      <div className="flex items-baseline justify-between">
-        <span className="blink font-bold tracking-wider text-crimson">
-          ▼ {determinate ? `${percent.toFixed(1)}%` : t("modelManager.progress.unknownTotal")}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="blink font-bold tracking-wider text-crimson">
+            ▼ {determinate ? `${percent.toFixed(1)}%` : t("modelManager.progress.unknownTotal")}
+          </span>
+          {progress.phase === "verifying" && (
+            <span className="truncate text-azure">
+              · {t("modelManager.status.verifying")}
+            </span>
+          )}
+          {progress.attempt > 1 && (
+            <span className="border border-gold/40 bg-gold/10 px-1 py-0.2 text-[9px] text-gold">
+              {t("modelManager.progress.attempt", { count: progress.attempt })}
+            </span>
+          )}
         </span>
-        <span className="text-paper/50">{formatBytes(progress.speedBytesPerSecond)}/s</span>
+        <span className="shrink-0 text-paper/55">
+          {formatDownloadBytes(progress.speedBytesPerSecond)}/s
+          {etaLabel ? <span className="text-paper/35"> · ~{etaLabel}</span> : null}
+        </span>
       </div>
 
       <div
@@ -49,13 +71,29 @@ export const ModelProgressBarNoir = ({ progress, onCancel, compact = false }: Mo
         />
       </div>
 
+      {(fileLabel || hasFileCount) && (
+        <div className="flex items-center justify-between gap-2 text-[9px] text-paper/45">
+          <span className="truncate" title={progress.currentFile ?? undefined}>
+            {fileLabel ?? ""}
+          </span>
+          {hasFileCount && (
+            <span className="shrink-0 tabular-nums text-paper/40">
+              {t("modelManager.progress.files", {
+                completed: completedCount,
+                total: progress.filesTotal ?? 0,
+              })}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between text-paper/50">
         <span>
-          {formatBytes(progress.bytesDownloaded)}
+          {formatDownloadBytes(progress.bytesDownloaded)}
           {progress.totalBytes === null ? (
             <span className="text-paper/25"> · {t("modelManager.progress.unknownTotal")}</span>
           ) : (
-            <><span className="text-paper/25">/</span> {formatBytes(progress.totalBytes)}</>
+            <><span className="text-paper/25">/</span> {formatDownloadBytes(progress.totalBytes)}</>
           )}
         </span>
         {onCancel && (

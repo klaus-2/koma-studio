@@ -200,7 +200,9 @@ export const ModelCardNoir = ({
 
       {entry.error && (
         <p className="border-l-2 border-crimson bg-crimson/5 px-2 py-1 font-mono text-[10px] text-crimson">
-          {entry.error ? t(entry.error as Parameters<typeof t>[0]) : null}
+          {entry.errorCode
+            ? t(`modelManager.downloadError.${entry.errorCode}` as Parameters<typeof t>[0])
+            : t(entry.error as Parameters<typeof t>[0])}
         </p>
       )}
     </m.article>
