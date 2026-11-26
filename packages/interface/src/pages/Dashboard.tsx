@@ -170,14 +170,11 @@ import { useDashboardKeyboard } from './dashboard/hooks/use-dashboard-keyboard';
 import { useDashboardIdlePreload } from './dashboard/hooks/use-dashboard-idle-preload';
 import DashboardMainLayout from './dashboard/sections/DashboardMainLayout';
 
-// ── UI Sub-components ──
-// ── Main Component ──
 export const DashboardPage = ({
   onOpenSettings,
   onOpenModelRankings,
   onOpenScanlationFeed,
 }: DashboardPageProps) => {
-  // Warm up lazy mode modules at browser idle (first switch never waits).
   useDashboardIdlePreload();
   const { t } = useI18n();
   const {
@@ -196,7 +193,6 @@ export const DashboardPage = ({
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
   const modeLabels = useMemo(() => getModeLabels(t), [t]);
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
-  // ── Core State ──
   const mode = useUiShellStore((s) => s.mode);
   const setMode = useUiShellStore((s) => s.setMode);
   const subMode = useUiShellStore((s) => s.subMode);
@@ -208,7 +204,6 @@ export const DashboardPage = ({
   const processing = useUiShellStore((s) => s.processing);
   const setZoom = useUiShellStore((s) => s.setZoom);
 
-  // ── Mobile State ──
   const setForcedTourDropdown = useUiShellStore((s) => s.setForcedTourDropdown);
   const desktopSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const topbarSidebarRevealRef = useRef<HTMLButtonElement | null>(null);
@@ -242,8 +237,6 @@ export const DashboardPage = ({
       ghost.style.height = `${fromRect.height}px`;
       ghost.style.left = `${fromRect.left}px`;
       ghost.style.top = `${fromRect.top}px`;
-      // Ghost is pinned at the FROM rect; translate+scale with top-left origin
-      // maps it exactly onto the TO rect without animating layout properties.
       ghost.style.transformOrigin = 'top left';
 
       document.body.appendChild(ghost);
@@ -324,15 +317,11 @@ export const DashboardPage = ({
     rightSidebarRef,
   });
 
-  // ── Tool Settings ──
   const outFormat = useExportStore((s) => s.outFormat);
   const outQuality = useExportStore((s) => s.outQuality);
   const batchThreadsEnabled = useAioPipelineStore((s) => s.batchThreadsEnabled);
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
 
-  // Enhance
-
-  // AIO Pipeline
   const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore((s) => s.setAioStageSelection);
@@ -343,8 +332,6 @@ export const DashboardPage = ({
   const aioHdCropTriggerSize = useAioPipelineStore((s) => s.aioHdCropTriggerSize);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  // POST /warmup payload for the next chapter import: the active preset's
-  // OCR model for the current source language; null skips the warmup call.
   const aioWarmupPayload = useMemo(() => {
     const preset = getActivePresetForLanguage(aioSrcLang);
     const recognizeText = preset?.stageModels.recognizeText;
@@ -405,7 +392,6 @@ export const DashboardPage = ({
   const renderDefaultStyle = useRegionEditorStore(
     (s) => s.renderDefaultStyle,
   );
-  // Translator
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
   const translatorWorkspaceMode = useTranslatorStore(
@@ -458,8 +444,6 @@ export const DashboardPage = ({
     (s) => s.setTranslatorSfxCleanModelKey,
   );
 
-  // Typesetter
-  // Downloads & Status
   const setDownloadItems = useExportStore((s) => s.setDownloadItems);
   const setLastActionScope = useExportStore((s) => s.setLastActionScope);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -488,12 +472,8 @@ export const DashboardPage = ({
     },
     [setKeyboardShortcutConfig],
   );
-  // Download settings
   const user = useAuthAccountStore((s) => s.user);
   const setUser = useAuthAccountStore((s) => s.setUser);
-  // Leaf-isolated stats clock: the page only calls the imperative
-  // action so 30s countdown ticks do not re-render this tree. The sidebar
-  // leaf mounts `useAuthAccountProcessingStats`.
   const recordProcessedPages = recordProcessedPagesAction;
 
   const {
@@ -530,7 +510,6 @@ export const DashboardPage = ({
   const { filteredEnhanceModels, selectedEnhanceModel, selectedEnhanceInstallState } =
     useEnhanceModelSelection({ modelManagerState });
 
-  // Refs
   const { setUtilsMenuOpen, setDownloadMenuOpen } = useDashboardMenus();
   const fontCatalogInputRef = useRef<HTMLInputElement | null>(null);
   const translatorTextImportRef = useRef<HTMLInputElement>(null);
@@ -551,10 +530,6 @@ export const DashboardPage = ({
     images: typographerWorkspaceImages,
   });
 
-  // The execution state operations live on the aio-pipeline store. The page
-  // keeps same-name bindings: the two pure state ops are the store actions and
-  // the label-producing helpers pass the `t`-computed strings through (the
-  // `t`/label closures below reproduce the baseline callbacks' deps exactly).
   const clearAioExecutionState = useAioPipelineStore(
     (s) => s.clearAioExecutionState,
   );
@@ -870,10 +845,6 @@ export const DashboardPage = ({
     openModelManagerForStage,
     setStatusMessage,
   });
-  // FPS-1: stable narrowed adapter — inline arrows in hook-arg objects below
-  // re-created this dep per render and churned handleClean /
-  // processTranslatorVisual / the execution resolvers through the memoized
-  // layout.
   const openModelManagerForStageStable = useCallback(
     (stageKey: string, options?: Record<string, unknown>) =>
       openModelManagerForStage(stageKey as AioStageKey, options),
@@ -1054,7 +1025,6 @@ export const DashboardPage = ({
     void syncDiscordForTab();
   }, [syncDiscordForTab]);
 
-  // AIO stage catalog / runtime / device / selection fallbacks (domain hooks)
   useAioStageCatalogBuild({
     customOcrStageOptions,
     customTranslationStageOptions,
@@ -1081,7 +1051,8 @@ export const DashboardPage = ({
     ) {
       return;
     }
-    const fallback = cleanerAiOptionsForSelect[0]?.key ?? '';
+    const fallback =
+      cleanerAiOptionsForSelect.find((option) => option.available)?.key ?? '';
     if (!fallback || fallback === cleanerAiModelKey) {
       return;
     }
@@ -1096,14 +1067,14 @@ export const DashboardPage = ({
     ) {
       return;
     }
-    const fallback = cleanerAiOptionsForSelect[0]?.key ?? '';
+    const fallback =
+      cleanerAiOptionsForSelect.find((option) => option.available)?.key ?? '';
     if (!fallback || fallback === translatorSfxCleanModelKey) {
       return;
     }
     setTranslatorSfxCleanModelKey(fallback);
   }, [cleanerAiOptionsForSelect, setTranslatorSfxCleanModelKey, translatorSfxCleanModelKey]);
 
-  // ── Image Handlers ──
   const { getRootProps, getInputProps, isDragActive, onDrop } =
     useDashboardUploads({
       localApiUrl: apiConfig.localUrl,
@@ -1144,13 +1115,10 @@ export const DashboardPage = ({
     setTranslatorProcessedBaseByImage,
   });
 
-
   useEffect(() => {
     setMobileNavOpen(false);
     setUtilsMenuOpen(false);
   }, [mode]);
-
-  // ── Processing helpers ──
 
   const registerCleanerDownloads = useCallback(
     (items: Parameters<typeof registerDownloads>[0]) =>
@@ -1331,8 +1299,6 @@ export const DashboardPage = ({
     setTypographerSessionSourceType: typographerWorkspace.setSessionSourceType,
   });
 
-  // ── Processing Functions ──
-
   const handleClean = useCleanerActions({
     images,
     activeImage,
@@ -1413,7 +1379,7 @@ export const DashboardPage = ({
     resolvedActiveId,
   });
 
-  const { processAIO } = useAioPipelineExecution({
+  const { processAIO, processAioAi } = useAioPipelineExecution({
     renderDefaultStyle,
     isDesktopRuntime,
     localApiUrl: apiConfig.localUrl,
@@ -1574,7 +1540,6 @@ export const DashboardPage = ({
     isDesktopRuntime,
   });
 
-  // ── Render Helpers ──
   const {
     hasDownloadActions,
     hasDownloads,
@@ -1636,7 +1601,6 @@ export const DashboardPage = ({
     activeHasManualBaseOverride ||
     activeHasManualWandSelection;
 
-  // ══════════════ RENDER ══════════════
   return (
     <SplitterControllerScope
       isDesktopRuntime={isDesktopRuntime}
@@ -1647,7 +1611,6 @@ export const DashboardPage = ({
     >
     <StatusToneResetEffect />
     <DashboardMainLayout
-      // ── Stage section (page-derived values forwarded to StageGrid) ──
       resolvedActiveId={resolvedActiveId}
       translationNotesEnabled={translationNotesEnabled}
       handleStageWheelZoom={handleStageWheelZoom}
@@ -1694,7 +1657,6 @@ export const DashboardPage = ({
       handleModeChange={handleModeChange}
       handleKeyboardShortcutConfigChange={handleKeyboardShortcutConfigChange}
       isDesktopRuntime={isDesktopRuntime}
-      // ── Shell layout (hook-local state) ──
       mobileNavOpen={mobileNavOpen}
       setMobileNavOpen={setMobileNavOpen}
       mobileSidebarOpen={mobileSidebarOpen}
@@ -1718,21 +1680,18 @@ export const DashboardPage = ({
       resetLeftSidebarWidth={resetLeftSidebarWidth}
       resetRightSidebarWidth={resetRightSidebarWidth}
       handleToolsToggle={handleToolsToggle}
-      // ── Sidebar / uploads / collection hooks ──
       getRootProps={getRootProps}
       getInputProps={getInputProps}
       isDragActive={isDragActive}
       removeImage={removeImage}
       activeImage={activeImage}
       modeLabel={modeLabel}
-      // ── Workspace persistence ──
       workspaceHistory={workspaceHistory}
       handleWorkspaceUndo={handleWorkspaceUndo}
       handleWorkspaceRedo={handleWorkspaceRedo}
       exportCurrentWorkspace={exportCurrentWorkspace}
       importWorkspaceFile={importWorkspaceFile}
       closeWorkspace={closeWorkspace}
-      // ── Export / download ──
       hasDownloadActions={hasDownloadActions}
       hasDownloads={hasDownloads}
       activeDownloadScope={activeDownloadScope}
@@ -1742,7 +1701,6 @@ export const DashboardPage = ({
       hasAioRenderRegionsForPsd={hasAioRenderRegionsForPsd}
       handleDownload={handleDownload}
       handleDownloadPsd={handleDownloadPsd}
-      // ── Auth / account ──
       authUser={authUser}
       logout={logout}
       userDisplayName={userDisplayName}
@@ -1752,7 +1710,6 @@ export const DashboardPage = ({
       handleSendVerificationEmail={handleSendVerificationEmail}
       replayTour={replayTour}
       onboarding={onboarding}
-      // ── External actions ──
       openShortcutCenter={openShortcutCenter}
       shortcutCenterOpen={shortcutCenterOpen}
       closeShortcutCenter={closeShortcutCenter}
@@ -1766,7 +1723,6 @@ export const DashboardPage = ({
       openSettingsOnTab={openSettingsOnTab}
       openSettingsOnPresetsTab={openSettingsOnPresetsTab}
       openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} openSettingsOnRuntimeTab={openSettingsOnRuntimeTab}
-      // ── Footer / dock derivations ──
       manualDockVisible={manualDockVisible}
       manualDockRightOffset={manualDockRightOffset}
       isAioManualMode={isAioManualMode}
@@ -1788,7 +1744,6 @@ export const DashboardPage = ({
       activeManualHealingBusy={activeManualHealingBusy}
       activeHasManualPaintLayer={activeHasManualPaintLayer}
       activeHasManualEdits={activeHasManualEdits}
-      // ── AIO right panel ──
       handleAioSubModeChange={handleAioSubModeChange}
       rewindAioPipeline={rewindAioPipeline}
       forwardAioPipeline={forwardAioPipeline}
@@ -1799,6 +1754,7 @@ export const DashboardPage = ({
       activeManualStageStatus={activeManualStageStatus}
       stopAioExecution={stopAioExecution}
       processAIO={processAIO}
+      processAioAi={processAioAi}
       activeAioStageKey={activeAioStageKey}
       aioPipelineStageProgressLabels={aioPipelineStageProgressLabels}
       normalizedAioSourceLanguage={normalizedAioSourceLanguage}
@@ -1851,7 +1807,6 @@ export const DashboardPage = ({
       handleRenderFontImport={handleRenderFontImport}
       renderFontRefreshToken={renderFontRefreshToken}
       availableRenderFonts={availableRenderFonts}
-      // ── Cleaner / translator / typographer panels ──
       cleanerAiOptionsForSelect={cleanerAiOptionsForSelect}
       cleanerAvailableOcrStageOptions={cleanerAvailableOcrStageOptions}
       cleanerAvailableSegmentStageOptions={cleanerAvailableSegmentStageOptions}
@@ -1880,7 +1835,6 @@ export const DashboardPage = ({
       handleTypographerToggleMultiBubble={handleTypographerToggleMultiBubble}
       handleTypographerImportQueueText={handleTypographerImportQueueText}
       handleUpdateTypographyPreset={handleUpdateTypographyPreset}
-      // ── Utility / enhance panels ──
       stitchBatchPlans={stitchBatchPlans}
       stitchAutoBatchIndexes={stitchAutoBatchIndexes}
       selectedEnhanceModel={selectedEnhanceModel}
@@ -1890,7 +1844,6 @@ export const DashboardPage = ({
       importSelectedEnhanceModel={importSelectedEnhanceModel}
       installSelectedEnhanceModel={installSelectedEnhanceModel}
       processEnhance={processEnhance}
-      // ── Model managers modal ──
       activeModelManagerStage={activeModelManagerStage}
       ocrStageOptionsForSelect={ocrStageOptionsForSelect}
       translationFreeProviderManagerSection={translationFreeProviderManagerSection}

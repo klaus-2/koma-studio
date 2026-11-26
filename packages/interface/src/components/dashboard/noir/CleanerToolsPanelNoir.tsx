@@ -4,11 +4,20 @@ import {
 
 import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
+import ImageEditCompatibilityBanner from '../ImageEditCompatibilityBanner';
+import ImageEditModelConfigFields from '../ImageEditModelConfigFields';
+import ImageEditModelGuideCard from '../ImageEditModelGuideCard';
 import { useI18n } from '../../../i18n';
 import { CleanerProcessingLabel } from '../CleanerProcessingLabel';
 import type { TranslationKey } from '../../../i18n/messages';
 import type { CleanerMode } from '@/types/dashboard.types';
 import type { AioStageOption } from '@/models/aioStageCatalog';
+import type { CustomLlmProfile } from '../../../utils/customLlm';
+import {
+  getLocalImageEditSpec,
+  isLocalImageEditModelKey,
+} from '../../../utils/imageEditLocalModels';
+import type { ImageEditModelConfig } from '../../../utils/imageEditModelConfig';
 import {
   ModeTag, Field, Hint, ModelSlot, MetaDot, SegToggle, InspectRow, StatCard,
   BackendChip, ExecuteButton,
@@ -57,6 +66,9 @@ interface CleanerToolsPanelProps {
   setAioHdCropTriggerSize: (value: number) => void;
   cleanerAiAdditionalInstructions: string;
   setCleanerAiAdditionalInstructions: (value: string) => void;
+  cleanerAiModelConfig?: ImageEditModelConfig;
+  setCleanerAiModelConfig?: (value: ImageEditModelConfig) => void;
+  selectedCleanerProfile?: CustomLlmProfile | null;
   activeCleanerRunMeta: {
     ocrCount: number; segmentedCount: number;
     candidateCount?: number; approvedCount?: number; reviewCount?: number;
@@ -83,7 +95,8 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
     localApiUrl, aioMaskDilation, setAioMaskDilation, aioHdStrategy, setAioHdStrategy,
     aioHdResizeLimit, setAioHdResizeLimit, aioHdCropMargin, setAioHdCropMargin,
     aioHdCropTriggerSize, setAioHdCropTriggerSize, cleanerAiAdditionalInstructions,
-    setCleanerAiAdditionalInstructions, activeCleanerRunMeta, activeCleanerSelectedRegion,
+    setCleanerAiAdditionalInstructions, cleanerAiModelConfig, setCleanerAiModelConfig,
+    selectedCleanerProfile = null, activeCleanerRunMeta, activeCleanerSelectedRegion,
     processing, imagesCount, hasQuotaForCurrentBatch = true, quotaLimitButtonTitle = '', handleClean,
   } = props;
 
@@ -97,7 +110,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
     <div className="font-display text-paper">
       <ModeTag>{t('dashboard.cleaner.modeTag')}</ModeTag>
 
-      {/* ── MODE ── */}
       <AioSection icon={Eraser} title={t('dashboard.cleaner.mode.title')} defaultOpen>
         <Hint>
           <span dangerouslySetInnerHTML={{ __html: t('dashboard.cleaner.mode.hint') }} />
@@ -116,7 +128,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
 
       {!isAutomaticAi && !isAiSfx ? (
         <>
-          {/* ── PIPELINE ── */}
           <AioSection icon={Eraser} title={t('dashboard.cleaner.pipeline.title')}>
             <Hint>{t('dashboard.cleaner.pipeline.hint')}</Hint>
 
@@ -126,7 +137,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
               </select>
             </Field>
 
-            {/* OCR */}
             <ModelSlot icon={Eye} title={t('dashboard.cleaner.ocr.label')} onManage={openRecognizeTextManager} manageLabel={t('dashboard.cleaner.models.button')}
               meta={selectedOcrCloudOption && (<>{selectedOcrCloudOption.tier?.join(', ') ?? '—'}<MetaDot />{selectedOcrCloudOption.device ?? '—'}</>)}
               hint={selectedOcrStatusText}>
@@ -135,7 +145,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
               </select>
             </ModelSlot>
 
-            {/* Segment */}
             <ModelSlot icon={Replace} title={t('dashboard.cleaner.segment.title')} onManage={openSegmentTextManager} manageLabel={t('dashboard.cleaner.models.button')}
               meta={selectedSegmentModel && (<>{selectedSegmentModel.tier?.join(', ') ?? '—'}<MetaDot />{selectedSegmentModel.device ?? '—'}</>)}
               hint={selectedSegmentStatusText}>
@@ -144,7 +153,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
               </select>
             </ModelSlot>
 
-            {/* Clean */}
             <ModelSlot icon={Eraser} title={t('dashboard.cleaner.clean.title')} onManage={openCleanImageManager} manageLabel={t('dashboard.cleaner.models.button')}
               meta={selectedCleanModel && (<>{selectedCleanModel.tier?.join(', ') ?? '—'}<MetaDot />{selectedCleanModel.device ?? '—'}</>)}
               hint={selectedCleanStatusText}>
@@ -156,7 +164,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
             <BackendChip>{localApiUrl}</BackendChip>
           </AioSection>
 
-          {/* ── SETTINGS ── */}
           <AioSection icon={Wrench} title={t('dashboard.cleaner.settings.title')} defaultOpen>
             <KlSlider label={t('dashboard.cleaner.settings.maskDilation')} value={aioMaskDilation} min={0} max={50} step={1} onChange={setAioMaskDilation} resetVal={5} />
             <Field label={t('dashboard.cleaner.settings.hdStrategy')}>
@@ -175,7 +182,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
             )}
           </AioSection>
 
-          {/* ── INSPECT ── */}
           <AioSection icon={Box} title={t('dashboard.cleaner.inspect.title')} defaultOpen={false}>
             <div className="flex gap-2">
               <StatCard value={activeCleanerRunMeta ? activeCleanerRunMeta.ocrCount : 0} label={t('dashboard.cleaner.inspect.ocrBlocks')} />
@@ -193,7 +199,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
           </AioSection>
         </>
       ) : (
-        /* ── AI MODES ── */
         <AioSection icon={Wand2} title={isAiSfx ? t('dashboard.cleaner.ai.sfxCleaner') : t('dashboard.cleaner.ai.automaticClean')} defaultOpen>
           <Hint>{isAiSfx ? t('dashboard.cleaner.ai.sfxDesc') : t('dashboard.cleaner.ai.automaticDesc')}</Hint>
 
@@ -203,14 +208,81 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
             hint={selectedCleanerAiOption?.use_case ?? undefined}>
             <select value={selectVal(cleanerAiModelOptions, cleanerAiModelKey)} onChange={(e) => selectCleanerAiModel(e.target.value)} className="noir-select panel-cut-sm" disabled={cleanerAiModelOptions.length === 0}
               aria-label={t('dashboard.cleaner.ai.modelAria', { value: isAiSfx ? t('dashboard.cleaner.ai.sfxCleaner') : t('dashboard.cleaner.ai.automaticClean') })}>
-              {cleanerAiModelOptions.length === 0 ? <option value="" disabled>{t('dashboard.cleaner.ai.noneAvailable')}</option> : cleanerAiModelOptions.map((o) => (<option key={o.key} value={o.key}>{formatAioStageOptionLabel(o)}</option>))}
+              {cleanerAiModelOptions.length === 0 ? (
+                <option value="" disabled>{t('dashboard.cleaner.ai.noneAvailable')}</option>
+              ) : (
+                <>
+                  {cleanerAiModelOptions.some((o) => isLocalImageEditModelKey(o.key)) && (
+                    <optgroup label={t('dashboard.imageEdit.optgroup.localHf')}>
+                      {cleanerAiModelOptions
+                        .filter((o) => isLocalImageEditModelKey(o.key))
+                        .map((o) => (
+                          <option key={o.key} value={o.key}>
+                            {`${formatAioStageOptionLabel(o)}${
+                              o.available ? '' : ` · ${t('dashboard.imageEdit.notInstalledTag')}`
+                            }`}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  {cleanerAiModelOptions.some((o) => !isLocalImageEditModelKey(o.key)) && (
+                    <optgroup label={t('dashboard.imageEdit.optgroup.cloudApi')}>
+                      {cleanerAiModelOptions
+                        .filter((o) => !isLocalImageEditModelKey(o.key))
+                        .map((o) => (
+                          <option key={o.key} value={o.key}>{formatAioStageOptionLabel(o)}</option>
+                        ))}
+                    </optgroup>
+                  )}
+                </>
+              )}
             </select>
           </ModelSlot>
+
+          {isLocalImageEditModelKey(cleanerAiModelKey) ? (
+            <>
+              <ImageEditCompatibilityBanner
+                model={getLocalImageEditSpec(cleanerAiModelKey)?.id ?? cleanerAiModelKey}
+                targetMode="clean"
+                noir
+              />
+              {!selectedCleanerAiOption?.available && (
+                <Hint>
+                  {t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+                    model:
+                      getLocalImageEditSpec(cleanerAiModelKey)?.name ??
+                      cleanerAiModelKey,
+                  })}
+                </Hint>
+              )}
+            </>
+          ) : selectedCleanerProfile ? (
+            <ImageEditCompatibilityBanner
+              model={selectedCleanerProfile.model}
+              apiBase={selectedCleanerProfile.apiBase}
+              protocol={selectedCleanerProfile.protocol}
+              targetMode="clean"
+              noir
+            />
+          ) : null}
+
+          <ImageEditModelGuideCard mode="clean" noir compact />
 
           <Field label={t('dashboard.cleaner.instructions.title')}>
             <textarea value={cleanerAiAdditionalInstructions} onChange={(e) => setCleanerAiAdditionalInstructions(e.target.value)} className="noir-textarea panel-cut-sm" rows={5} placeholder={t('dashboard.cleaner.instructions.placeholder')} />
             <Hint>{isAiSfx ? t('dashboard.cleaner.instructions.hintSfx') : t('dashboard.cleaner.instructions.hintAi')}</Hint>
           </Field>
+
+          {cleanerAiModelConfig && setCleanerAiModelConfig && (
+            <ImageEditModelConfigFields
+              config={cleanerAiModelConfig}
+              onChange={setCleanerAiModelConfig}
+              protocol={selectedCleanerProfile?.protocol}
+              apiBase={selectedCleanerProfile?.apiBase}
+              isLocalDiffusers={isLocalImageEditModelKey(cleanerAiModelKey)}
+              noir
+            />
+          )}
 
           {isAiSfx && activeCleanerRunMeta && (
             <div className="flex gap-2">
@@ -222,7 +294,6 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
         </AioSection>
       )}
 
-      {/* ── EXECUTE ── */}
       <div className="sticky bottom-0 z-10 border-t border-paper/8 bg-ink/90 py-3 backdrop-blur-md">
         <ExecuteButton processing={processing} disabled={processing || imagesCount === 0 || !hasQuotaForCurrentBatch} title={quotaLimitButtonTitle} onClick={handleClean} ariaBusy={processing}>
           {processing ? (

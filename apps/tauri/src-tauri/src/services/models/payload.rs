@@ -225,6 +225,55 @@ pub fn is_installed_payload_present(model_id: &str, directory: &Path) -> AppResu
             "preprocessor_config.json",
             "model.safetensors",
         ]),
+        "instruct_pix2pix" => has_files(&[
+            "model_index.json",
+            "unet/diffusion_pytorch_model.fp16.safetensors",
+            "vae/diffusion_pytorch_model.fp16.safetensors",
+            "text_encoder/model.fp16.safetensors",
+        ]),
+        "sdxl_instruct_pix2pix" => has_files(&[
+            "model_index.json",
+            "unet/diffusion_pytorch_model.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model.safetensors",
+            "text_encoder_2/model.safetensors",
+        ]),
+        "flux2_klein_4b_gguf_q4" => has_files(&[
+            "model_index.json",
+            "gguf/flux-2-klein-4b-Q4_K_M.gguf",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model-00001-of-00002.safetensors",
+            "text_encoder/model-00002-of-00002.safetensors",
+        ]),
+        "flux2_klein_4b" => has_files(&[
+            "model_index.json",
+            "transformer/diffusion_pytorch_model.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model-00001-of-00002.safetensors",
+            "text_encoder/model-00002-of-00002.safetensors",
+        ]),
+        "longcat_image_edit_turbo" => has_files(&[
+            "model_index.json",
+            "transformer/diffusion_pytorch_model.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model-00001-of-00005.safetensors",
+            "text_encoder/model-00005-of-00005.safetensors",
+        ]),
+        "qwen_image_edit_2511_gguf_q4" => has_files(&[
+            "model_index.json",
+            "gguf/qwen-image-edit-2511-Q4_K_M.gguf",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model-00001-of-00004.safetensors",
+            "text_encoder/model-00004-of-00004.safetensors",
+        ]),
+        "qwen_image_edit_2511" | "firered_image_edit_1_1" => has_files(&[
+            "model_index.json",
+            "transformer/diffusion_pytorch_model-00001-of-00005.safetensors",
+            "transformer/diffusion_pytorch_model-00005-of-00005.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+            "text_encoder/model-00001-of-00004.safetensors",
+            "text_encoder/model-00004-of-00004.safetensors",
+        ]),
         _ => has_any_payload_file(directory)?,
     })
 }
@@ -276,9 +325,6 @@ pub(super) fn has_any_payload_file(directory: &Path) -> AppResult<bool> {
     Ok(false)
 }
 
-/// A directory counts as "partial" when a chunked download is in flight:
-/// either the shell's legacy `download.partial` marker or any `*.part` file
-/// written by the mini-backend downloader.
 pub(super) fn contains_partial_file(directory: &Path) -> AppResult<bool> {
     if !directory.exists() {
         return Ok(false);

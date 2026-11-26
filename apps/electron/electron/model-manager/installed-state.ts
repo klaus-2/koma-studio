@@ -231,6 +231,79 @@ const isInstalledPayloadPresent = (modelId: string, modelDir: string): boolean =
     return fs.existsSync(path.join(modelDir, FONT_RTDETR_FILE_NAME));
   }
 
+  if (normalizedModelId === "instruct_pix2pix") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "unet/diffusion_pytorch_model.fp16.safetensors",
+      "vae/diffusion_pytorch_model.fp16.safetensors",
+      "text_encoder/model.fp16.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "sdxl_instruct_pix2pix") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "unet/diffusion_pytorch_model.safetensors",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model.safetensors",
+      "text_encoder_2/model.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "flux2_klein_4b_gguf_q4") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "gguf/flux-2-klein-4b-Q4_K_M.gguf",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model-00001-of-00002.safetensors",
+      "text_encoder/model-00002-of-00002.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "flux2_klein_4b") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "transformer/diffusion_pytorch_model.safetensors",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model-00001-of-00002.safetensors",
+      "text_encoder/model-00002-of-00002.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "longcat_image_edit_turbo") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "transformer/diffusion_pytorch_model.safetensors",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model-00001-of-00005.safetensors",
+      "text_encoder/model-00005-of-00005.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "qwen_image_edit_2511_gguf_q4") {
+    return hasRequiredFiles([
+      "model_index.json",
+      "gguf/qwen-image-edit-2511-Q4_K_M.gguf",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model-00001-of-00004.safetensors",
+      "text_encoder/model-00004-of-00004.safetensors",
+    ]);
+  }
+
+  if (
+    normalizedModelId === "qwen_image_edit_2511" ||
+    normalizedModelId === "firered_image_edit_1_1"
+  ) {
+    return hasRequiredFiles([
+      "model_index.json",
+      "transformer/diffusion_pytorch_model-00001-of-00005.safetensors",
+      "transformer/diffusion_pytorch_model-00005-of-00005.safetensors",
+      "vae/diffusion_pytorch_model.safetensors",
+      "text_encoder/model-00001-of-00004.safetensors",
+      "text_encoder/model-00004-of-00004.safetensors",
+    ]);
+  }
+
   return hasAnyPayloadFile(modelDir);
 };
 

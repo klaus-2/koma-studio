@@ -72,6 +72,7 @@ describe("free AI provider catalog", () => {
       falClean?.models.map((model) => model.apiModel),
     ).toEqual([
       "fal-ai/nano-banana/edit",
+      "fal-ai/nano-banana-pro/edit",
       "fal-ai/flux-pro/kontext",
       "fal-ai/qwen-image-edit",
     ]);
@@ -111,5 +112,24 @@ describe("free AI provider catalog", () => {
       "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
     );
     expect(cloudflareClean?.requiresUserApiKey).toBe(true);
+  });
+
+  test("clean catalog excludes text-only LLMs and tags image edit capabilities", () => {
+    const blockedTextOnly = new Set([
+      "gemini-2.5-flash",
+      "google/gemini-2.5-flash",
+      "gpt-4o",
+      "gpt-4o-mini",
+      "openai/gpt-4o",
+      "openai/gpt-4o-mini",
+    ]);
+    for (const provider of FREE_AI_PROVIDER_CATALOG_ENTRIES) {
+      const cleanStage = provider.stages.clean;
+      if (!cleanStage) continue;
+      for (const model of cleanStage.models) {
+        expect(blockedTextOnly.has(model.apiModel)).toBe(false);
+        expect(["clean_and_aio_ai", "clean_only"]).toContain(model.imageEditCapability);
+      }
+    }
   });
 });

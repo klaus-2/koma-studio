@@ -293,9 +293,9 @@ export const PROVIDER_METADATA: Record<string, FreeProviderMetadata> = {
 export const PROVIDER_STAGE_MODEL_METADATA: Record<string, FreeProviderStageModelMetadata> = {
   openrouter: {
     clean: {
-      "google/gemini-2.5-flash": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
-      "openai/gpt-4o-mini": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
-      "openai/gpt-4o": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
+      "google/gemini-3.1-flash-image-preview": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
+      "google/gemini-3-pro-image-preview": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
+      "google/gemini-2.5-flash-image": { accessType: "paid", accessBadgeLabel: ACCESS_BADGE_LABELS.paid },
     },
   },
   google_ai_studio: {
@@ -314,8 +314,9 @@ export const PROVIDER_STAGE_MODEL_METADATA: Record<string, FreeProviderStageMode
       "gemini-2.5-pro": { accessType: "paid", rateLimitSummary: "It does not appear in the free tier of the referenced catalog." },
     },
     clean: {
+      "gemini-3.1-flash-image-preview": { accessType: "paid", rateLimitSummary: "Native image editing (Nano Banana 2) — requires billed tier on Google AI Studio." },
+      "gemini-3-pro-image-preview": { accessType: "paid", rateLimitSummary: "Native image editing (Nano Banana Pro) — requires billed tier on Google AI Studio." },
       "gemini-2.5-flash-image": { accessType: "paid", rateLimitSummary: "Image edit/generation models do not appear in the free tier of the referenced catalog." },
-      "gemini-2.5-flash": { accessType: "paid", rateLimitSummary: "Gemini 2.5 Flash is free for text/vision, not as a native image-editing flow." },
     },
   },
   cerebras: {

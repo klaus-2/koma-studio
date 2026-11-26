@@ -30,6 +30,7 @@ import {
   type CustomLlmRequestProfile,
   type LlmRequestSettings,
 } from '../utils/customLlm';
+import type { ImageEditModelConfig } from '../utils/imageEditModelConfig';
 import type { RenderTextStyle } from '../utils/renderText';
 import type {
   AioBatchImageResult,
@@ -85,6 +86,7 @@ interface SingleImageRunConfig {
   cleanAiModelKey: string;
   cleanAiInstructions: string;
   cleanAiCustomProfile: CustomLlmRequestProfile | null;
+  cleanAiModelConfig?: ImageEditModelConfig | null;
   maskDilation: number;
   hdStrategy: string;
   hdResizeLimit: number;
@@ -135,6 +137,7 @@ export function useAioSingleImageProcessor({
       cleanAiModelKey,
       cleanAiInstructions,
       cleanAiCustomProfile,
+      cleanAiModelConfig,
       maskDilation,
       hdStrategy,
       hdResizeLimit,
@@ -145,8 +148,6 @@ export function useAioSingleImageProcessor({
     }: SingleImageRunConfig,
   ): Promise<AioBatchImageResult> => {
     const signal = getAbortSignal();
-    // Shared per-image stage mechanics: abort checks, notice plumbing,
-    // blob validation, download filename template.
     const session = createAioStageRunSession({
       localApiUrl,
       signal,
@@ -158,8 +159,6 @@ export function useAioSingleImageProcessor({
     session.assertNotAborted();
     onStageStart('detectText', imgData, index);
     try {
-      // The page's bytes live only for this run: materialized on demand and
-      // released in `finally`, so a chapter never holds every page at once.
       const stageImage = await materializePageForProcessing(imgData);
       const detectDone = await runDetectTextStage(
         {
@@ -189,7 +188,6 @@ export function useAioSingleImageProcessor({
       const detectDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
       let enrichedDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
 
-      // Provenance verdict gates the stage instead of an inline length check.
       if (aioSteps.recognizeText && getAioStageReadiness('recognizeText', stageRegions).runnable) {
         session.assertNotAborted();
         onStageStart('recognizeText', imgData, index);
@@ -228,9 +226,6 @@ export function useAioSingleImageProcessor({
           'getTranslations',
           stageRegions,
         );
-        // Per-image request-local merge: the page's chapter selects the work
-        // whose glossary rides on THIS image's translation request (the
-        // batch-level llmSettings option stays untouched for the other pages).
         const imageLlmSettings = resolveWorkGlossarySettings(imgData, llmSettings);
         const translateDone = await runGetTranslationsStage(
           {
@@ -309,6 +304,7 @@ export function useAioSingleImageProcessor({
               regions: cleanSourceRegions,
               additionalInstructions: cleanAiInstructions.trim(),
               customProfile: cleanAiCustomProfile,
+              modelConfig: cleanAiModelConfig,
             },
             stageRuntime,
             {

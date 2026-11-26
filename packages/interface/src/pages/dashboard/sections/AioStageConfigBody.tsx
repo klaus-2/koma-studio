@@ -9,6 +9,9 @@ import type {
 
 import AioLlmSettingsPanel from './AioLlmSettingsPanel';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
+import ImageEditCompatibilityBanner from '../../../components/dashboard/ImageEditCompatibilityBanner';
+import ImageEditModelConfigFields from '../../../components/dashboard/ImageEditModelConfigFields';
+import ImageEditModelGuideCard from '../../../components/dashboard/ImageEditModelGuideCard';
 import KlSlider from '../../../components/dashboard/KlSlider';
 import StageModelSelect, {
   STAGE_HINTS_CLEAN,
@@ -25,7 +28,15 @@ import { getCustomLlmProviderNotice, type CustomLlmProfile } from '../../../util
 import type { SubMode } from '../../../types/dashboard.types';
 import { DEFAULT_AIO_STAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
-import { TRANSLATION_MODELS_REGISTRY } from '../../../models/translation-models-registry';
+import {
+  IMAGE_EDIT_MODELS_REGISTRY,
+  TRANSLATION_MODELS_REGISTRY,
+} from '../../../models/translation-models-registry';
+import {
+  formatLocalImageEditModelKey,
+  getLocalImageEditSpec,
+  type LocalImageEditModelId,
+} from '../../../utils/imageEditLocalModels';
 import {
   resolveTranslationAutoModel,
   toAutoResolvedBadge,
@@ -101,12 +112,6 @@ interface AioStageConfigBodyProps {
   isDesktopRuntime: boolean;
 }
 
-/**
- * Island for the AIO stage-config tab content. Owns the subscriptions that
- * only the tab body needs (stage selection, mask dilation, HD strategy,
- * region editor, model-manager snapshot) so slider drags and model status
- * changes re-render this subtree instead of the whole AIO panel.
- */
 export default memo(function AioStageConfigBody({
   activeStageTab,
   subMode,
@@ -228,9 +233,15 @@ export default memo(function AioStageConfigBody({
   const setCleanAiInstructions = useAioPipelineStore(
     (s) => s.setAioCleanAiInstructions,
   );
+  const cleanAiModelConfig = useAioPipelineStore(
+    (s) => s.aioCleanAiModelConfig,
+  );
+  const setCleanAiModelConfig = useAioPipelineStore(
+    (s) => s.setAioCleanAiModelConfig,
+  );
   const renderStepEnabled = useAioPipelineStore((s) => s.aioSteps.render);
-  const setCleanerAiModelManagerOpen = useCleanerStore(
-    (s) => s.setCleanerAiModelManagerOpen,
+  const openImageEditModelManager = useCleanerStore(
+    (s) => s.openImageEditModelManager,
   );
   const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
   const cleanCustomProfiles = useMemo(
@@ -253,6 +264,13 @@ export default memo(function AioStageConfigBody({
     cleanCustomProfiles.find(
       (profile) => `custom_clean:${profile.id}` === cleanAiModelKey,
     ) ?? null;
+  const cleanAiSelectedLocalSpec = useMemo(
+    () => getLocalImageEditSpec(cleanAiModelKey),
+    [cleanAiModelKey],
+  );
+  const cleanAiLocalInstalled = cleanAiSelectedLocalSpec
+    ? modelManagerState.entries[cleanAiSelectedLocalSpec.id]?.status === 'installed'
+    : true;
   const deviceVramGb = useAioPipelineStore(
     (s) => s.aioDeviceInfo?.vram_gb ?? null,
   );
@@ -278,7 +296,6 @@ export default memo(function AioStageConfigBody({
 
   return (
     <>
-      {/* ── Detect ──────────────────────────────────────────── */}
       {activeStageTab === 'detectText' && (
         <StageModelSelect
           label={t('aio.stage.detectText')}
@@ -300,7 +317,6 @@ export default memo(function AioStageConfigBody({
         />
       )}
 
-      {/* ── OCR ─────────────────────────────────────────────── */}
       {activeStageTab === 'recognizeText' && (
         <StageModelSelect
           label={t('aio.stage.recognizeText')}
@@ -323,7 +339,6 @@ export default memo(function AioStageConfigBody({
         />
       )}
 
-      {/* ── Translation ─────────────────────────────────────── */}
       {activeStageTab === 'getTranslations' && (
         <>
           <TranslationModelControl
@@ -362,7 +377,6 @@ export default memo(function AioStageConfigBody({
         </>
       )}
 
-      {/* ── Segment ─────────────────────────────────────────── */}
       {activeStageTab === 'segmentText' && (
         <StageModelSelect
           label={t('aio.stage.segmentText')}
@@ -385,7 +399,6 @@ export default memo(function AioStageConfigBody({
         />
       )}
 
-      {/* ── Clean ───────────────────────────────────────────── */}
       {activeStageTab === 'cleanImage' && (
         <>
           <div className="flex items-center justify-between gap-2">
@@ -420,7 +433,7 @@ export default memo(function AioStageConfigBody({
               </span>
               <button
                 type="button"
-                onClick={() => setCleanerAiModelManagerOpen(true)}
+                onClick={() => openImageEditModelManager('aio_clean')}
                 className={
                   noir
                     ? 'flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-paper-dim transition-colors hover:text-crimson'
@@ -433,6 +446,7 @@ export default memo(function AioStageConfigBody({
             </div>
             <select
               value={
+                cleanAiSelectedLocalSpec ||
                 cleanAiProfileOptions.some(
                   (option) => option.key === cleanAiModelKey,
                 )
@@ -441,27 +455,74 @@ export default memo(function AioStageConfigBody({
               }
               onChange={(event) => setCleanAiModelKey(event.target.value)}
               className={skin.select}
-              disabled={cleanAiProfileOptions.length === 0}
               aria-label={t('dashboard.aio.clean.aiClean.modelPickerLabel')}
             >
               <option value="" disabled>
                 {t('dashboard.aio.clean.aiClean.modelPickerPlaceholder')}
               </option>
-              {cleanAiProfileOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
+              <optgroup label={t('dashboard.imageEdit.optgroup.localHf')}>
+                {IMAGE_EDIT_MODELS_REGISTRY.map((model) => {
+                  const key = formatLocalImageEditModelKey(
+                    model.id as LocalImageEditModelId,
+                  );
+                  const installed =
+                    modelManagerState.entries[model.id]?.status === 'installed';
+                  return (
+                    <option key={key} value={key}>
+                      {`${model.name} · ${model.requirements.vramMin}${
+                        installed
+                          ? ''
+                          : ` · ${t('dashboard.imageEdit.notInstalledTag')}`
+                      }`}
+                    </option>
+                  );
+                })}
+              </optgroup>
+              {cleanAiProfileOptions.length > 0 && (
+                <optgroup label={t('dashboard.imageEdit.optgroup.cloudApi')}>
+                  {cleanAiProfileOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
+            {cleanAiSelectedLocalSpec && (
+              <>
+                <ImageEditCompatibilityBanner
+                  model={cleanAiSelectedLocalSpec.id}
+                  targetMode="clean"
+                  noir={noir}
+                />
+                {!cleanAiLocalInstalled && (
+                  <p className={skin.hint}>
+                    {t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+                      model: cleanAiSelectedLocalSpec.name,
+                    })}
+                  </p>
+                )}
+              </>
+            )}
             {selectedCleanAiProfile && (
               <p className={skin.hint}>{`${selectedCleanAiProfile.label} (Custom)`}</p>
             )}
             {cleanAiSelectedProfileBase && (
-              <p className={skin.hint}>
-                {getCustomLlmProviderNotice(cleanAiSelectedProfileBase.apiBase)}
-              </p>
+              <>
+                <ImageEditCompatibilityBanner
+                  model={cleanAiSelectedProfileBase.model}
+                  apiBase={cleanAiSelectedProfileBase.apiBase}
+                  protocol={cleanAiSelectedProfileBase.protocol}
+                  targetMode="clean"
+                  noir={noir}
+                />
+                <p className={skin.hint}>
+                  {getCustomLlmProviderNotice(cleanAiSelectedProfileBase.apiBase)}
+                </p>
+              </>
             )}
           </div>
+          <ImageEditModelGuideCard mode="clean" noir={noir} compact />
           <div className="koma-field">
             <span className={skin.label}>
               {t('dashboard.aio.clean.aiClean.instructionsLabel')}
@@ -480,6 +541,14 @@ export default memo(function AioStageConfigBody({
               {t('dashboard.aio.clean.aiClean.segmentSkippedNotice')}
             </p>
           </div>
+          <ImageEditModelConfigFields
+            config={cleanAiModelConfig}
+            onChange={setCleanAiModelConfig}
+            protocol={cleanAiSelectedProfileBase?.protocol}
+            apiBase={cleanAiSelectedProfileBase?.apiBase}
+            isLocalDiffusers={Boolean(cleanAiSelectedLocalSpec)}
+            noir={noir}
+          />
         </>
       )}
       {activeStageTab === 'cleanImage' && !cleanViaAi && (
@@ -631,10 +700,8 @@ export default memo(function AioStageConfigBody({
         </StageModelSelect>
       )}
 
-      {/* ── Render ──────────────────────────────────────────── */}
       {activeStageTab === 'render' && renderStepEnabled && (
         <div className="koma-aio-text-mode">
-          {/* Text Mode */}
           <div className="koma-field">
             <span className="koma-field__label">
               {t('dashboard.status.selectionMode')}
@@ -669,7 +736,6 @@ export default memo(function AioStageConfigBody({
             </p>
           </div>
 
-          {/* Fonts */}
           <hr className="koma-aio-divider" />
           <div className="koma-aio-font-row">
             <button
@@ -713,7 +779,6 @@ export default memo(function AioStageConfigBody({
             </p>
           )}
 
-          {/* Apply style */}
           <Popover open={applyStyleOpen} onOpenChange={setApplyStyleOpen}>
             <PopoverTrigger asChild>
               <button

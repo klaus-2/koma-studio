@@ -1,9 +1,3 @@
-/* ================================================================
-   Free Provider Cards — Glass Vault Design System
-   Matches the ModelManagerModal aesthetic
-   ================================================================ */
-
-/* ── Collapsible Card Shell ──────────────────────────────────── */
 .card {
   display: flex;
   flex-direction: column;
@@ -36,7 +30,6 @@
   min-height: 0;
 }
 
-/* ── Card Header (always visible, clickable) ─────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -202,6 +195,29 @@
   border-color: rgba(148, 163, 184, 0.18);
 }
 
+.badgeCapabilityBoth {
+  background: rgba(139, 92, 246, 0.16);
+  color: #ddd6fe;
+  border-color: rgba(139, 92, 246, 0.28);
+}
+
+.badgeCapabilityCleanOnly {
+  background: rgba(14, 165, 233, 0.14);
+  color: #bae6fd;
+  border-color: rgba(14, 165, 233, 0.26);
+}
+
+.capabilityWarning {
+  margin: 6px 0 0;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fde68a;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
 .activeChip {
   display: inline-flex;
   align-items: center;
@@ -225,7 +241,6 @@
   transform: rotate(180deg);
 }
 
-/* ── Card Body (collapsible) ─────────────────────────────────── */
 .body {
   display: flex;
   flex-direction: column;
@@ -271,7 +286,6 @@
   }
 }
 
-/* ── Form Fields ─────────────────────────────────────────────── */
 .fieldGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -512,7 +526,6 @@
   cursor: not-allowed;
 }
 
-/* ── Status Messages ─────────────────────────────────────────── */
 .statusOk {
   margin: 0;
   display: flex;
@@ -533,7 +546,6 @@
   color: #fde68a;
 }
 
-/* ── Action Buttons ──────────────────────────────────────────── */
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -602,7 +614,6 @@
   box-shadow: none;
 }
 
-/* ── Info Tooltip ─────────────────────────────────────────────── */
 .infoButton {
   display: inline-flex;
   align-items: center;
@@ -683,7 +694,6 @@
   color: #c084fc;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .fieldGrid {
     grid-template-columns: 1fr;
@@ -698,9 +708,6 @@
   }
 }
 
-/* ================================================================
-   Light Mode Overrides
-   ================================================================ */
 :global([data-theme="light"]) .card {
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.7);
@@ -746,6 +753,24 @@
 :global([data-theme="light"]) .badgeCatalog {
   background: rgba(245, 158, 11, 0.08);
   color: #b45309;
+}
+
+:global([data-theme="light"]) .badgeCapabilityBoth {
+  background: rgba(124, 58, 237, 0.1);
+  color: #6d28d9;
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+:global([data-theme="light"]) .badgeCapabilityCleanOnly {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.22);
+}
+
+:global([data-theme="light"]) .capabilityWarning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.35);
 }
 
 :global([data-theme="light"]) .activeChip {

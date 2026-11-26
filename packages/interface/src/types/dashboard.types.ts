@@ -39,7 +39,15 @@ export type WebhookMetricValue = string | number | boolean | null | undefined;
 
 export type WebhookMetrics = Record<string, WebhookMetricValue>;
 
-export type SubMode = "auto" | "manual";
+export type SubMode = "auto" | "manual" | "ai";
+
+export type {
+  AioAiExecutionMode,
+  AioAiSfxMode,
+  AioAiStyleMode,
+  AioAiOptions,
+  ImageEditModelConfig,
+} from "../utils/imageEditModelConfig";
 
 export type CleanerMode = "assisted" | "automatic_ai" | "ai_sfx";
 
@@ -49,10 +57,8 @@ export type TranslatorVisualProcessingMode = "standard" | "ai_sfx";
 
 export type ViewMode = "paginated" | "long_strip";
 
-/** View shown by the render-stage compare-review overlay's main pane. */
 export type CompareReviewView = "original" | "mask" | "rendered";
 
-/** Shared pan offset applied identically to both compare-review panes. */
 export interface ComparePanOffset {
   x: number;
   y: number;
@@ -101,29 +107,15 @@ export interface DashboardProcessingStatsSummary {
 
 export interface LoadedImage {
   id: string;
-  /**
-   * The page's file.
-   *
-   * It is a `PageFile`, not a `File`: the bytes are materialized on demand and
-   * released as soon as the consumer is done with them. Every byte consumer
-   * must call `toBlob()`; the metadata fields (`name`, `type`, `size`,
-   * `lastModified`) stay available without touching the bytes.
-   */
   file: PageFile;
   url: string;
   thumbnailUrl?: string;
   previewUrl?: string;
-  /**
-   * Pixel size. `0` means **not yet known** — the page has not been decoded.
-   * A page's dimensions must be resolved before they are used.
-   */
   width: number;
   height: number;
   rotation: number;
   filters: ImageFilters;
-  /** Source archive that contained this image; absent for direct uploads. */
   chapterId?: string;
-  /** Human label for the source archive. */
   chapterLabel?: string;
 }
 
@@ -448,7 +440,6 @@ export interface AioManualImageEditState {
   paintLayerDataUrl: string | null;
   baseImageDataUrl: string | null;
   wandMaskDataUrl: string | null;
-  /** Image-scale PNG dataURL of manual segment brush strokes; used by clean image step */
   segmentBrushDataUrl: string | null;
 }
 

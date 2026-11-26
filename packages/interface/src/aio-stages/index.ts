@@ -1,3 +1,4 @@
+export * from './aioAi';
 export * from './cleanImage';
 export * from './cleanImageAi';
 export * from './cleanerAiProfile';

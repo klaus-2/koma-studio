@@ -161,6 +161,7 @@ export function useAioExecutionPreparation({
         const cleanAiReadiness = resolveAioCleanAiReadiness({
           modelKey: cleanAiModelKey,
           profiles: cleanCustomProfiles,
+          modelEntries,
           t,
         });
         if (!cleanAiReadiness.ok) {
@@ -213,8 +214,6 @@ export function useAioExecutionPreparation({
       }
     }
 
-    // One capacity preflight per run (never per chunk). The local batch and the
-    // status message below reuse this single result.
     const capacityOutcome = useLocalBatchPipeline
       ? await resolveBatchCapacity({
           localApiUrl,

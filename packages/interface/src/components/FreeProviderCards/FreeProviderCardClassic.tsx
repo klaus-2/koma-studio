@@ -2,12 +2,16 @@ import { useMemo, useState } from "react";
 import { AlertCircle, Check, CheckCircle2, ChevronDown, ChevronsUpDown, ExternalLink, Info, Zap } from "lucide-react";
 import { useI18n } from "../../i18n";
 
+import {
+  assessImageEditModelCompatibility,
+} from "../../utils/imageEditModelCompatibility";
 import type {
   FreeAiProviderCatalogEntry,
   FreeProviderAccessType,
   FreeProviderDraftValue,
   FreeProviderStage,
   FreeProviderStageDefinition,
+  ImageEditCapability,
 } from "../../models/freeAiProviderCatalog";
 import {
   Tooltip,
@@ -59,6 +63,31 @@ export const FreeProviderCardClassic = ({
   const selectedModelLabel = selectedModelDefinition?.label ?? draft.model;
   const selectedModelAccessBadge = selectedModelDefinition?.accessBadgeLabel ?? null;
   const selectedModelAccessType = selectedModelDefinition?.accessType ?? null;
+  const selectedModelCapability: ImageEditCapability | null =
+    stage === "clean"
+      ? selectedModelDefinition?.imageEditCapability
+        ?? (() => {
+          const assessed = assessImageEditModelCompatibility({
+            model: draft.model,
+            apiBase: draft.apiBase,
+            targetMode: "clean",
+          });
+          if (assessed.status === "compatible_both") return "clean_and_aio_ai";
+          if (assessed.status === "clean_only") return "clean_only";
+          return null;
+        })()
+      : null;
+  const selectedCleanCompatibility = useMemo(
+    () =>
+      stage === "clean"
+        ? assessImageEditModelCompatibility({
+            model: draft.model,
+            apiBase: draft.apiBase,
+            targetMode: "clean",
+          })
+        : null,
+    [draft.apiBase, draft.model, stage],
+  );
   const selectedModelRateLimit = selectedModelDefinition?.rateLimitSummary ?? provider.rateLimitSummary;
   const shouldShowProviderAccessBadge = Boolean(
     provider.accessBadgeLabel
@@ -118,7 +147,6 @@ export const FreeProviderCardClassic = ({
 
   return (
     <article className={`${styles.card} ${compact ? styles.compact : ""} ${expanded ? styles.cardExpanded : ""}`}>
-      {/* ── Always-visible header row ── */}
       <header className={styles.header} onClick={() => setExpanded((p) => !p)}>
         <div className={styles.headerIcon}>
           <Zap size={14} />
@@ -236,7 +264,6 @@ export const FreeProviderCardClassic = ({
         </div>
       </header>
 
-      {/* ── Collapsible config body ── */}
       {expanded && (
         <div className={styles.body}>
           {(provider.accessSummary || selectedModelAccessBadge || selectedModelRateLimit) ? (
@@ -259,7 +286,6 @@ export const FreeProviderCardClassic = ({
           ) : null}
 
           <div className={styles.fieldGrid}>
-            {/* Model selector */}
             <div className={`${styles.field} ${styles.fieldFull}`}>
               <label>{t("freeProviderCard.field.model")}</label>
               <Popover open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
@@ -279,6 +305,19 @@ export const FreeProviderCardClassic = ({
                       </span>
                     </div>
                     <div className={styles.modelPickerTriggerBadges}>
+                      {selectedModelCapability ? (
+                        <span
+                          className={`${styles.badgeModelAccess} ${
+                            selectedModelCapability === "clean_and_aio_ai"
+                              ? styles.badgeCapabilityBoth
+                              : styles.badgeCapabilityCleanOnly
+                          }`}
+                        >
+                          {selectedModelCapability === "clean_and_aio_ai"
+                            ? t("freeProviderCard.capability.cleanAndAioAi")
+                            : t("freeProviderCard.capability.cleanOnly")}
+                        </span>
+                      ) : null}
                       {selectedModelAccessBadge ? (
                         <span className={`${styles.badgeModelAccess} ${getAccessBadgeClassName(selectedModelAccessType)}`}>
                           {selectedModelAccessBadge}
@@ -307,6 +346,19 @@ export const FreeProviderCardClassic = ({
                           <div className={styles.modelPickerItemMain}>
                             <div className={styles.modelPickerItemHeader}>
                               <span className={styles.modelPickerItemLabel}>{model.label}</span>
+                              {stage === "clean" && model.imageEditCapability ? (
+                                <span
+                                  className={`${styles.badgeModelAccess} ${
+                                    model.imageEditCapability === "clean_and_aio_ai"
+                                      ? styles.badgeCapabilityBoth
+                                      : styles.badgeCapabilityCleanOnly
+                                  }`}
+                                >
+                                  {model.imageEditCapability === "clean_and_aio_ai"
+                                    ? t("freeProviderCard.capability.cleanAndAioAi")
+                                    : t("freeProviderCard.capability.cleanOnly")}
+                                </span>
+                              ) : null}
                               {model.accessBadgeLabel ? (
                                 <span className={`${styles.badgeModelAccess} ${getAccessBadgeClassName(model.accessType)}`}>
                                   {model.accessBadgeLabel}
@@ -336,9 +388,21 @@ export const FreeProviderCardClassic = ({
                   placeholder={definition.modelInputPlaceholder ?? draft.model}
                 />
               ) : null}
+              {stage === "clean" && selectedCleanCompatibility?.status === "incompatible_text_only" ? (
+                <p role="alert" className={styles.capabilityWarning}>
+                  {t(
+                    selectedCleanCompatibility.reasonKey === "localOllama"
+                      ? "freeProviderCard.capabilityWarning.localOllama"
+                      : "freeProviderCard.capabilityWarning.textOnlyModel",
+                    {
+                      model: draft.model || definition.defaultModel,
+                      examples: selectedCleanCompatibility.recommendedReplacements.join(", "),
+                    },
+                  )}
+                </p>
+              ) : null}
             </div>
 
-            {/* API Base */}
             <div className={styles.field}>
               <label>{t("freeProviderCard.field.apiBase")}</label>
               <input
@@ -351,7 +415,6 @@ export const FreeProviderCardClassic = ({
               />
             </div>
 
-            {/* API Key */}
             <div className={styles.field}>
               <label>{t("freeProviderCard.label.apiKey")} {requiresKey ? t("freeProviderCard.label.required") : t("freeProviderCard.label.optional")}</label>
               <input
@@ -363,7 +426,6 @@ export const FreeProviderCardClassic = ({
               />
             </div>
 
-            {/* Extra config fields */}
             {(definition.configFields ?? []).map((field) => (
               <div className={styles.field} key={`${provider.id}-${stage}-${field.id}`}>
                 <label>

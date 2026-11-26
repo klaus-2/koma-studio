@@ -5,6 +5,7 @@ import type { useCleanerActions } from '../hooks/cleaner';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
+import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useActiveCleanerRegionState } from '../hooks/cleaner';
 import CleanerToolsPanel from '../../../components/dashboard/CleanerToolsPanel';
@@ -12,7 +13,6 @@ import CleanerToolsPanel from '../../../components/dashboard/CleanerToolsPanel';
 type AioModelSelectionApi = ReturnType<typeof useAioModelSelection>;
 
 interface CleanerToolsPanelSectionProps {
-  /* ── Cleaner options memos (multi-store derived; selector candidates in T12) ── */
   cleanerAiModelOptions: AioStageOption[];
   availableOcrStageOptions: AioStageOption[];
   availableSegmentStageOptions: AioStageOption[];
@@ -25,7 +25,6 @@ interface CleanerToolsPanelSectionProps {
   selectedSegmentStatusText: string | null;
   selectedCleanStatusText: string | null;
 
-  /* ── AIO model selection / model manager hooks (not yet migrated) ── */
   formatAioStageOptionLabel: AioModelSelectionApi['formatAioStageOptionLabel'];
   selectAioLocalStageModel: AioModelSelectionApi['selectAioLocalStageModel'];
   openModelManagerForStage: ReturnType<
@@ -33,19 +32,12 @@ interface CleanerToolsPanelSectionProps {
   >['openModelManagerForStage'];
   resolveLocalModelFocusForStage: AioModelSelectionApi['resolveLocalModelFocusForStage'];
 
-  /* ── Cleaner hook (not yet migrated) ── */
   selectCleanerAiModel: (modelKey: string) => void;
   handleClean: ReturnType<typeof useCleanerActions>;
 
-  /* ── Page memos / config (not yet migrated) ── */
   localApiUrl: string;
 }
 
-/**
- * Cleaner tools panel view (the `{mode === 'cleaner'}` block).
- * Reads the cleaner/aio/shell/image stores and forwards the same-name props
- * the page previously passed (multi-store memos stay page props).
- */
 export default function CleanerToolsPanelSection({
   cleanerAiModelOptions,
   availableOcrStageOptions,
@@ -77,9 +69,21 @@ export default function CleanerToolsPanelSection({
   const setCleanerAiAdditionalInstructions = useCleanerStore(
     (s) => s.setCleanerAiAdditionalInstructions,
   );
-  const setCleanerAiModelManagerOpen = useCleanerStore(
-    (s) => s.setCleanerAiModelManagerOpen,
+  const cleanerAiModelConfig = useCleanerStore((s) => s.cleanerAiModelConfig);
+  const setCleanerAiModelConfig = useCleanerStore(
+    (s) => s.setCleanerAiModelConfig,
   );
+  const openImageEditModelManager = useCleanerStore(
+    (s) => s.openImageEditModelManager,
+  );
+  const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
+  const selectedCleanerProfile = cleanerAiModelKey.startsWith('custom_clean:')
+    ? (customLlmProfiles.find(
+        (profile) =>
+          profile.stage === 'clean' &&
+          `custom_clean:${profile.id}` === cleanerAiModelKey,
+      ) ?? null)
+    : null;
   const aioLanguageOptions = useAioPipelineStore((s) => s.aioLanguageOptions);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
@@ -158,7 +162,7 @@ export default function CleanerToolsPanelSection({
         });
       }}
       openCleanerAiModelManager={() =>
-        setCleanerAiModelManagerOpen(true)
+        openImageEditModelManager('cleaner')
       }
       localApiUrl={localApiUrl}
       aioMaskDilation={aioMaskDilation}
@@ -175,6 +179,9 @@ export default function CleanerToolsPanelSection({
       setCleanerAiAdditionalInstructions={
         setCleanerAiAdditionalInstructions
       }
+      cleanerAiModelConfig={cleanerAiModelConfig}
+      setCleanerAiModelConfig={setCleanerAiModelConfig}
+      selectedCleanerProfile={selectedCleanerProfile}
       activeCleanerRunMeta={activeCleanerRunMeta}
       activeCleanerSelectedRegion={activeCleanerSelectedRegion}
       processing={processing}

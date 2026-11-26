@@ -20,6 +20,7 @@ export type {
   FreeProviderStageDefinition,
   FreeProviderStatus,
   FreeProviderTransport,
+  ImageEditCapability,
 } from "./freeAiProviderCatalog.types";
 
 const withAccessBadge = <T extends { accessType?: FreeProviderAccessType; accessBadgeLabel?: string }>(

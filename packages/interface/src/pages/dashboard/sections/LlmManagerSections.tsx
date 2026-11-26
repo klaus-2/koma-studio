@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 
+import { useI18n } from '../../../i18n';
 import { getFreeProvidersForStage } from '../../../models/freeAiProviderCatalog';
 import { toCustomModelSelectionKey } from '../../../utils/customLlm';
-import type {
-  useCleanerAiDraftProfileActions,
-  useCleanerAiStageOptions,
-  useCleanerModelSelection,
+import {
+  applyImageEditModelKeyForTarget,
+  type useCleanerAiDraftProfileActions,
+  type useCleanerAiStageOptions,
+  type useCleanerModelSelection,
 } from '../hooks/cleaner';
 import type {
   useCustomLlmDrafts,
@@ -19,6 +21,7 @@ import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useStatusStore } from '../stores/status-store';
 import CustomLlmProfilesManagerSection from '../../../components/dashboard/CustomLlmProfilesManagerSection';
 import FreeProviderManagerSection from '../../../components/dashboard/FreeProviderManagerSection';
+import ImageEditModelGuideCard from '../../../components/dashboard/ImageEditModelGuideCard';
 
 type CustomLlmDraftsApi = ReturnType<typeof useCustomLlmDrafts>;
 type FreeProviderProfilesApi = ReturnType<typeof useFreeProviderProfiles>;
@@ -107,13 +110,6 @@ interface CleanerAiFreeProviderManagerSectionProps {
   removeCustomLlmProfileById: CustomLlmDraftsApi['removeCustomLlmProfileById'];
 }
 
-/**
- * Manager section views (FreeProviderManagerSection / CustomLlmProfilesManagerSection
- * mounts previously memoized inline in the page). Each component keeps the exact
- * memo body the page had (deps included); store-backed values are read through
- * granular selectors and hook-derived callbacks/notice memos arrive as same-name
- * props. No React.memo — the internal useMemo preserves the element identity.
- */
 export function TranslationFreeProviderManagerSection({
   translationStandaloneCustomProfiles,
   getFreeProviderDraft,
@@ -367,6 +363,7 @@ export function CleanerAiCustomProfilesManagerSection({
   removeCleanerCustomDraftProfile,
   saveCleanerCustomDraftProfile,
 }: CleanerAiCustomProfilesManagerSectionProps) {
+  const { t } = useI18n();
   const customLlmProfilesLoading = useLlmProvidersStore(
     (s) => s.customLlmProfilesLoading,
   );
@@ -374,6 +371,19 @@ export function CleanerAiCustomProfilesManagerSection({
     (s) => s.customLlmProfilesError,
   );
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
+  const target = useCleanerStore((s) => s.imageEditModelManagerTarget);
+  const titleOverride =
+    target === 'aio_ai'
+      ? t('dashboard.aio.customAi.titleAioAi')
+      : target === 'aio_clean'
+        ? t('dashboard.aio.customAi.titleAioClean')
+        : t('dashboard.aio.customAi.titleCleaner');
+  const useLabelOverride =
+    target === 'aio_ai'
+      ? t('dashboard.aio.customAi.useAioAi')
+      : target === 'aio_clean'
+        ? t('dashboard.aio.customAi.useAioClean')
+        : t('dashboard.aio.customAi.useCleaner');
   const cleanerAiCustomProfilesManagerSection = useMemo(
     () => (
       <CustomLlmProfilesManagerSection
@@ -384,11 +394,11 @@ export function CleanerAiCustomProfilesManagerSection({
         error={customLlmProfilesError}
         persistenceHint={llmProfilesPersistenceHint}
         providerNotice={cleanerAiCustomProviderNotice}
-        titleOverride="AI Custom (Automatic AI Clean)"
-        emptyLabelOverride="Novo perfil visual"
-        namePlaceholderOverride="Ex.: Gemini Image Clean"
-        modelPlaceholderOverride="gemini-2.5-flash-image"
-        useLabelOverride="Usar no Cleaner"
+        titleOverride={titleOverride}
+        emptyLabelOverride={t('dashboard.aio.customAi.newClean')}
+        namePlaceholderOverride="Ex.: Gemini Image Edit"
+        modelPlaceholderOverride="gemini-3.1-flash-image-preview"
+        useLabelOverride={useLabelOverride}
         onLoadProfile={(profileId) =>
           loadCustomLlmDraftFromProfile('clean', profileId)
         }
@@ -410,7 +420,10 @@ export function CleanerAiCustomProfilesManagerSection({
       removeCleanerCustomDraftProfile,
       resetCustomLlmDraft,
       saveCleanerCustomDraftProfile,
+      t,
+      titleOverride,
       updateCustomLlmDraft,
+      useLabelOverride,
       applyExistingCleanerCustomProfile,
     ],
   );
@@ -429,53 +442,71 @@ export function CleanerAiFreeProviderManagerSection({
   saveCustomProfileInline,
   removeCustomLlmProfileById,
 }: CleanerAiFreeProviderManagerSectionProps) {
+  const { t } = useI18n();
+  const target = useCleanerStore((s) => s.imageEditModelManagerTarget);
   const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
-  const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
+  const aioCleanAiModelKey = useAioPipelineStore((s) => s.aioCleanAiModelKey);
+  const aioAiModelKey = useAioPipelineStore((s) => s.aioAiModelKey);
+  const selectedModelKey =
+    target === 'aio_ai'
+      ? aioAiModelKey
+      : target === 'aio_clean'
+        ? aioCleanAiModelKey
+        : cleanerAiModelKey;
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
   const cleanFreeProviders = useMemo(() => getFreeProvidersForStage('clean'), []);
   const cleanerAiFreeProviderManagerSection = useMemo(
     () => (
-      <FreeProviderManagerSection
-        stage="clean"
-        providers={cleanFreeProviders}
-        standaloneProfiles={cleanStandaloneCustomProfiles}
-        selectedModelKey={cleanerAiModelKey}
-        getDraft={getFreeProviderDraft}
-        getSelectedProfileLabel={getSelectedFreeProviderProfileLabel}
-        onDraftChange={updateFreeProviderDraft}
-        onSaveProvider={saveFreeProviderProfile}
-        onTestProvider={testFreeProviderConfig}
-        onUseProvider={async (_stage, provider) => {
-          const payload = await saveFreeProviderProfile('clean', provider);
-          if (!payload) return;
-          setCleanerAiModelKey(`custom_clean:${payload.profile.id}`);
-          setStatusMessage(`Provider ${provider.name} em uso no Automatic AI Clean.`);
-        }}
-        onUseCustomProfile={(profileId) =>
-          setCleanerAiModelKey(`custom_clean:${profileId}`)
-        }
-        onTestCustomProfile={(profile) => testCustomProfileConfig('clean', profile)}
-        onSaveCustomProfile={async (draft) => {
-          const profile = await saveCustomProfileInline('clean', draft);
-          setCleanerAiModelKey(`custom_clean:${profile.id}`);
-        }}
-        onDeleteCustomProfile={(profileId) =>
-          removeCustomLlmProfileById('clean', profileId)
-        }
-        toSelectionKey={(profile) => `custom_clean:${profile.id}`}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <ImageEditModelGuideCard
+          mode={target === 'aio_ai' ? 'aio_ai' : 'clean'}
+          compact
+        />
+        <FreeProviderManagerSection
+          stage="clean"
+          providers={cleanFreeProviders}
+          standaloneProfiles={cleanStandaloneCustomProfiles}
+          selectedModelKey={selectedModelKey}
+          getDraft={getFreeProviderDraft}
+          getSelectedProfileLabel={getSelectedFreeProviderProfileLabel}
+          onDraftChange={updateFreeProviderDraft}
+          onSaveProvider={saveFreeProviderProfile}
+          onTestProvider={testFreeProviderConfig}
+          onUseProvider={async (_stage, provider) => {
+            const payload = await saveFreeProviderProfile('clean', provider);
+            if (!payload) return;
+            applyImageEditModelKeyForTarget(target, `custom_clean:${payload.profile.id}`);
+            setStatusMessage(
+              t('dashboard.status.cleanProviderInUse', { provider: provider.name }),
+            );
+          }}
+          onUseCustomProfile={(profileId) =>
+            applyImageEditModelKeyForTarget(target, `custom_clean:${profileId}`)
+          }
+          onTestCustomProfile={(profile) => testCustomProfileConfig('clean', profile)}
+          onSaveCustomProfile={async (draft) => {
+            const profile = await saveCustomProfileInline('clean', draft);
+            applyImageEditModelKeyForTarget(target, `custom_clean:${profile.id}`);
+          }}
+          onDeleteCustomProfile={(profileId) =>
+            removeCustomLlmProfileById('clean', profileId)
+          }
+          toSelectionKey={(profile) => `custom_clean:${profile.id}`}
+        />
+      </div>
     ),
     [
-      cleanerAiModelKey,
-      getFreeProviderDraft,
-      getSelectedFreeProviderProfileLabel,
       cleanFreeProviders,
       cleanStandaloneCustomProfiles,
+      getFreeProviderDraft,
+      getSelectedFreeProviderProfileLabel,
       removeCustomLlmProfileById,
       saveCustomProfileInline,
       saveFreeProviderProfile,
-      setCleanerAiModelKey,
+      selectedModelKey,
       setStatusMessage,
+      t,
+      target,
       testCustomProfileConfig,
       testFreeProviderConfig,
       updateFreeProviderDraft,

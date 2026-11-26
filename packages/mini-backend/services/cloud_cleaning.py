@@ -20,8 +20,22 @@ from PIL import Image
 from core.cloud_registry import get_clean_model_spec, get_env_value
 from core.config import normalize_stage_model_key
 from core.http_retry import post_with_retry
+from models.image_edit import is_local_image_edit_model_key
 from models.translation.providers import resolve_request_custom_openai_config
+from schemas.image_edit import ImageEditModelConfig
 from services.http_client import get_shared_client
+from services.image_edit_engine import (
+    SegmentWindow,
+    build_gemini_generation_config,
+    call_openai_images_edits_multipart,
+    is_official_openai_api_base,
+    letterbox_pad_image,
+    letterbox_unpad_image,
+    plan_segments_with_config,
+    run_local_segmented_image_edit,
+    select_gemini_aspect_ratio,
+    validate_output_image_bytes,
+)
 from services.image_edit_protocols import (
     ImageEditProtocolError,
     call_cloudflare_clean,
@@ -34,6 +48,7 @@ from services.openai_compatible import (
     build_custom_provider_http_error_detail,
     build_openai_compatible_headers,
     is_gemini_host,
+    is_openrouter_host,
     is_vertex_openai_endpoint,
     normalize_openai_compatible_api_base,
     post_openai_compatible_json,
@@ -51,7 +66,7 @@ _SEGMENT_OVERLAP = 160
 _CUT_SEARCH_RADIUS = 220
 _CUT_SEARCH_STEP = 12
 _INSTRUCTION_LIMIT = 1200
-_MAX_CONCURRENT_SEGMENT_CALLS: Final = 2  # providers rate-limit per project; 2 is the sweet spot
+_MAX_CONCURRENT_SEGMENT_CALLS: Final = 2
 _MAX_REMOTE_IMAGE_BYTES: Final = 32 * 1024 * 1024
 _MAX_REDIRECTS: Final = 3
 _IMAGE_MAGIC: Final = (b"\x89PNG", b"\xff\xd8", b"RIFF")
@@ -67,16 +82,15 @@ _IMAGE_EDIT_CLEAN_ADAPTERS: Final[dict[str, Callable[..., Coroutine[Any, Any, by
 
 
 class CloudCleanError(RuntimeError):
-    """Base for automatic-cleaning failures. Subclasses RuntimeError only so
-    existing router handlers keep working; new code must catch the subclasses."""
+    pass
 
 
 class CloudCleanConfigError(CloudCleanError):
-    """Missing API key / unsupported model or provider."""
+    pass
 
 
 class CloudCleanProviderError(CloudCleanError):
-    """The provider answered, but not with a usable image."""
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -94,16 +108,6 @@ class CleanRegion:
     structural_source: str | None = None
     matched_reference_image: str | None = None
     detected_render_mode: str | None = None
-
-
-@dataclass(frozen=True)
-class SegmentWindow:
-    start_y: int
-    end_y: int
-
-    @property
-    def height(self) -> int:
-        return self.end_y - self.start_y
 
 
 def _parse_regions(raw_regions: list[dict[str, Any]] | None) -> list[CleanRegion]:
@@ -271,12 +275,6 @@ def _extract_text_parts(parts: list[Any]) -> str:
 
 
 def _text_failure_detail(text: str, limit: int = 240) -> str:
-    """Collapse a model's raw text reply into a bounded single-line diagnostic.
-
-    Text replies here mean the provider answered the clean request without an
-    image (detection-style JSON, reasoning prose, or a refusal); the full body
-    can be thousands of characters, so the error keeps a short excerpt only.
-    """
     collapsed = " ".join(str(text or "").split())
     if len(collapsed) <= limit:
         return collapsed
@@ -564,8 +562,25 @@ async def _call_openai_compatible_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> bytes:
-    payload = {
+    temperature = (
+        model_config.temperature
+        if model_config is not None and model_config.temperature is not None
+        else 0.1
+    )
+    top_p = (
+        model_config.top_p
+        if model_config is not None and model_config.top_p is not None
+        else 1.0
+    )
+    max_tokens = (
+        model_config.max_tokens
+        if model_config is not None and model_config.max_tokens is not None
+        else 512
+    )
+    payload: dict[str, Any] = {
         "model": model_name,
         "modalities": ["text", "image"],
         "messages": [
@@ -583,10 +598,27 @@ async def _call_openai_compatible_clean(
                 ],
             },
         ],
-        "temperature": 0.1,
-        "top_p": 1.0,
-        "max_tokens": 512,
+        "temperature": temperature,
+        "top_p": top_p,
+        "max_tokens": max_tokens,
     }
+    if model_config is not None:
+        if model_config.seed is not None:
+            payload["seed"] = model_config.seed
+        if is_openrouter_host(api_base):
+            or_img_cfg: dict[str, str] = {}
+            if model_config.image_quality in {"1k", "2k", "4k"}:
+                or_img_cfg["image_size"] = model_config.image_quality.upper()
+            if (
+                image_size is not None
+                and (
+                    model_config.aspect_ratio_strategy == "pad_unpad"
+                    or model_config.image_quality != "auto"
+                )
+            ):
+                or_img_cfg["aspect_ratio"] = select_gemini_aspect_ratio(*image_size)
+            if or_img_cfg:
+                payload["image_config"] = or_img_cfg
     response_payload = await post_openai_compatible_json(
         api_base=api_base,
         api_key=api_key,
@@ -623,49 +655,17 @@ async def _call_openai_compatible_clean(
     )
 
 
-async def _call_images_edits_clean(
-    *,
-    api_base: str,
-    api_key: str | None,
-    model_name: str,
-    system_prompt: str,
-    user_prompt: str,
-    image_bytes: bytes,
-    client: httpx.AsyncClient,
-) -> bytes:
-    payload = {
-        "model": model_name,
-        "prompt": f"{system_prompt}\n\n{user_prompt}",
-        "images": [
-            {
-                "image_url": (
-                    f"data:{_PNG_MIME};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
-                )
-            }
-        ],
-        "response_format": "b64_json",
-    }
-    headers = build_openai_compatible_headers(api_key)
-    response = await post_with_retry(
-        client,
-        resolve_openai_compatible_images_edits_endpoint(api_base),
-        max_retries=3,
-        headers=headers or None,
-        json=payload,
-        follow_redirects=False,
-    )
-    if response.is_redirect:
-        raise CloudCleanProviderError(
-            "The images/edits endpoint answered with a redirect; check that the "
-            "API Base points at the images/edits route directly."
-        )
-    response.raise_for_status()
+def _infer_image_dimensions(image_bytes: bytes) -> tuple[int, int]:
     try:
-        response_payload = response.json()
-    except ValueError as exc:
-        raise CloudCleanProviderError(
-            "The provider returned a non-JSON response from the images/edits endpoint."
-        ) from exc
+        with Image.open(BytesIO(image_bytes)) as img:
+            return max(1, img.width), max(1, img.height)
+    except Exception:
+        return (1024, 1024)
+
+
+async def _extract_images_edits_bytes(
+    response_payload: object, client: httpx.AsyncClient
+) -> bytes:
     data_items = (
         response_payload.get("data") if isinstance(response_payload, dict) else None
     )
@@ -690,6 +690,83 @@ async def _call_images_edits_clean(
     raise CloudCleanProviderError(
         "The provider did not return an edited image through the images/edits endpoint."
     )
+
+
+async def _call_images_edits_clean(
+    *,
+    api_base: str,
+    api_key: str | None,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    image_bytes: bytes,
+    client: httpx.AsyncClient,
+    model_config: ImageEditModelConfig | None = None,
+) -> bytes:
+    combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+    if is_official_openai_api_base(api_base):
+        w, h = _infer_image_dimensions(image_bytes)
+        response_payload = await call_openai_images_edits_multipart(
+            api_base=api_base,
+            api_key=api_key,
+            model_name=model_name,
+            prompt=combined_prompt,
+            image_bytes=image_bytes,
+            width=w,
+            height=h,
+            client=client,
+            model_config=model_config,
+        )
+        return await _extract_images_edits_bytes(response_payload, client)
+
+    payload = {
+        "model": model_name,
+        "prompt": combined_prompt,
+        "images": [
+            {
+                "image_url": (
+                    f"data:{_PNG_MIME};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+                )
+            }
+        ],
+        "response_format": "b64_json",
+    }
+    headers = build_openai_compatible_headers(api_key)
+    response = await post_with_retry(
+        client,
+        resolve_openai_compatible_images_edits_endpoint(api_base),
+        max_retries=3,
+        headers=headers or None,
+        json=payload,
+        follow_redirects=False,
+    )
+    if response.status_code == 415:
+        w, h = _infer_image_dimensions(image_bytes)
+        response_payload = await call_openai_images_edits_multipart(
+            api_base=api_base,
+            api_key=api_key,
+            model_name=model_name,
+            prompt=combined_prompt,
+            image_bytes=image_bytes,
+            width=w,
+            height=h,
+            client=client,
+            model_config=model_config,
+        )
+        return await _extract_images_edits_bytes(response_payload, client)
+    if response.is_redirect:
+        raise CloudCleanProviderError(
+            "The images/edits endpoint answered with a redirect; check that the "
+            "API Base points at the images/edits route directly."
+        )
+    response.raise_for_status()
+    try:
+        response_payload = response.json()
+    except ValueError as exc:
+        raise CloudCleanProviderError(
+            "The provider returned a non-JSON response from the images/edits endpoint."
+        ) from exc
+    return await _extract_images_edits_bytes(response_payload, client)
 
 
 def _upstream_error_detail(upstream_message: str | None, limit: int = 300) -> str:
@@ -717,7 +794,17 @@ async def _call_custom_clean_with_protocol(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> bytes:
+    extra_chat: dict[str, Any] = {}
+    extra_edits: dict[str, Any] = {}
+    if model_config is not None:
+        extra_chat["model_config"] = model_config
+        extra_edits["model_config"] = model_config
+    if image_size is not None:
+        extra_chat["image_size"] = image_size
+
     cache_key = (api_base, model_name, api_key or "")
     if _CLEAN_CUSTOM_PROTOCOL_CACHE.get(cache_key) == "images_edits":
         return await _call_images_edits_clean(
@@ -728,6 +815,7 @@ async def _call_custom_clean_with_protocol(
             user_prompt=user_prompt,
             image_bytes=image_bytes,
             client=get_shared_client(),
+            **extra_edits,
         )
     try:
         return await _call_openai_compatible_clean(
@@ -737,6 +825,7 @@ async def _call_custom_clean_with_protocol(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             image_bytes=image_bytes,
+            **extra_chat,
         )
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code not in _PROTOCOL_FALLBACK_STATUSES:
@@ -754,6 +843,7 @@ async def _call_custom_clean_with_protocol(
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
                 client=get_shared_client(),
+                **extra_edits,
             )
         except httpx.HTTPStatusError as fallback_exc:
             fallback_detail = (
@@ -796,7 +886,10 @@ async def _call_gemini_clean(
     user_prompt: str,
     image_bytes: bytes,
     client: httpx.AsyncClient,
+    model_config: ImageEditModelConfig | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> bytes:
+    dims = image_size or _infer_image_dimensions(image_bytes)
     payload = {
         "contents": [
             {
@@ -811,9 +904,7 @@ async def _call_gemini_clean(
                 ]
             }
         ],
-        "generationConfig": {
-            "responseModalities": ["TEXT", "IMAGE"],
-        },
+        "generationConfig": build_gemini_generation_config(model_config, *dims),
     }
     response = await _post_gemini_with_retry(
         client, f"{api_base.rstrip('/')}/{model_name}:generateContent?key={quote(api_key)}", payload
@@ -849,7 +940,16 @@ async def _execute_clean_call(
     user_prompt: str,
     image_bytes: bytes,
     protocol: str | None = None,
+    model_config: ImageEditModelConfig | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> bytes:
+    extra_config: dict[str, Any] = {}
+    if model_config is not None:
+        extra_config["model_config"] = model_config
+    extra_sized: dict[str, Any] = dict(extra_config)
+    if image_size is not None:
+        extra_sized["image_size"] = image_size
+
     if provider == "gemini_image":
         if not api_key:
             raise CloudCleanConfigError(
@@ -863,6 +963,7 @@ async def _execute_clean_call(
             user_prompt=user_prompt,
             image_bytes=image_bytes,
             client=get_shared_client(),
+            **extra_sized,
         )
 
     if provider in {"custom_image", "openai_compatible_image"}:
@@ -880,6 +981,7 @@ async def _execute_clean_call(
                     user_prompt=user_prompt,
                     image_bytes=image_bytes,
                     client=get_shared_client(),
+                    **extra_sized,
                 )
             return await _call_openai_compatible_clean(
                 api_base=api_base,
@@ -888,6 +990,7 @@ async def _execute_clean_call(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
+                **extra_sized,
             )
 
         effective_protocol = resolve_clean_protocol(api_base, protocol)
@@ -901,6 +1004,7 @@ async def _execute_clean_call(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     image_bytes=image_bytes,
+                    **extra_config,
                 )
             except ImageEditProtocolError as exc:
                 raise CloudCleanProviderError(str(exc)) from exc
@@ -917,6 +1021,7 @@ async def _execute_clean_call(
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
                 client=get_shared_client(),
+                **extra_sized,
             )
         if effective_protocol == "openai_chat":
             return await _call_openai_compatible_clean(
@@ -926,6 +1031,7 @@ async def _execute_clean_call(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
+                **extra_sized,
             )
         if effective_protocol == "openai_images_edits":
             return await _call_images_edits_clean(
@@ -936,6 +1042,7 @@ async def _execute_clean_call(
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
                 client=get_shared_client(),
+                **extra_config,
             )
         return await _call_custom_clean_with_protocol(
             api_base=api_base,
@@ -944,6 +1051,7 @@ async def _execute_clean_call(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             image_bytes=image_bytes,
+            **extra_sized,
         )
 
     raise CloudCleanConfigError("Unsupported automatic cleaning provider.")
@@ -1021,13 +1129,32 @@ async def _clean_segments(
     system_prompt: str,
     additional_instructions: str,
     protocol: str | None = None,
+    model_config: ImageEditModelConfig | None = None,
 ) -> list[Image.Image]:
     width, _ = image.size
-    semaphore = asyncio.Semaphore(_MAX_CONCURRENT_SEGMENT_CALLS)
+    concurrency = (
+        model_config.max_concurrent_segments
+        if model_config is not None
+        else _MAX_CONCURRENT_SEGMENT_CALLS
+    )
+    semaphore = asyncio.Semaphore(concurrency)
+    use_pad_unpad = (
+        model_config is not None and model_config.aspect_ratio_strategy == "pad_unpad"
+    )
 
     async def clean_one(window: SegmentWindow) -> Image.Image:
         async with semaphore:
-            crop_bytes = await asyncio.to_thread(_crop_to_png, image, window, width)
+            seg_crop = await asyncio.to_thread(
+                lambda: image.crop((0, window.start_y, width, window.end_y))
+            )
+            seg_size = seg_crop.size
+            crop_box = (0.0, 0.0, 1.0, 1.0)
+            send_image = seg_crop
+            if use_pad_unpad:
+                send_image, crop_box = await asyncio.to_thread(
+                    letterbox_pad_image, seg_crop
+                )
+            crop_bytes = await asyncio.to_thread(_image_to_png_bytes, send_image)
             user_prompt = _build_user_prompt(
                 regions=_project_regions_to_window(regions, window, width),
                 additional_instructions=additional_instructions,
@@ -1042,10 +1169,15 @@ async def _clean_segments(
                 user_prompt=user_prompt,
                 image_bytes=crop_bytes,
                 protocol=protocol,
+                model_config=model_config,
+                image_size=send_image.size,
             )
-            return await asyncio.to_thread(
-                lambda: Image.open(BytesIO(cleaned_bytes)).convert("RGB")
-            )
+
+            def _decode_and_restore() -> Image.Image:
+                decoded = validate_output_image_bytes(cleaned_bytes)
+                return letterbox_unpad_image(decoded, crop_box, seg_size)
+
+            return await asyncio.to_thread(_decode_and_restore)
 
     return list(await asyncio.gather(*(clean_one(window) for window in windows)))
 
@@ -1057,8 +1189,37 @@ async def clean_image_with_ai(
     regions_payload: list[dict[str, Any]] | None,
     additional_instructions: str | None,
     custom_llm: dict[str, Any] | None,
+    model_config: ImageEditModelConfig | None = None,
 ) -> tuple[str, bytes]:
     canonical_model_key = normalize_stage_model_key("clean", model_key)
+    if is_local_image_edit_model_key(canonical_model_key):
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        width, _height = image.size
+        parsed_regions = _parse_regions(regions_payload)
+        bboxes = [region.bbox for region in parsed_regions]
+        windows = (
+            plan_segments_with_config(image, bboxes, model_config)
+            if model_config is not None
+            else _plan_segments(image, parsed_regions)
+        )
+        normalized_additional_instructions = _sanitize_additional_instructions(
+            additional_instructions
+        )
+        cleaned_bytes, _segment_count = await run_local_segmented_image_edit(
+            image=image,
+            windows=windows,
+            bboxes=bboxes,
+            segment_regions_fn=lambda window: _project_regions_to_window(
+                parsed_regions, window, width
+            ),
+            model_key=canonical_model_key,
+            mode="clean",
+            additional_instructions=normalized_additional_instructions,
+            model_config=model_config,
+            preserve_artwork=False,
+        )
+        return canonical_model_key, cleaned_bytes
+
     spec = get_clean_model_spec(canonical_model_key)
     if spec is None:
         raise CloudCleanConfigError("Unsupported automatic cleaning model.")
@@ -1082,7 +1243,13 @@ async def clean_image_with_ai(
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
     width, height = image.size
     parsed_regions = _parse_regions(regions_payload)
-    windows = _plan_segments(image, parsed_regions)
+    windows = (
+        plan_segments_with_config(
+            image, [region.bbox for region in parsed_regions], model_config
+        )
+        if model_config is not None
+        else _plan_segments(image, parsed_regions)
+    )
     system_prompt = _build_system_prompt()
     normalized_additional_instructions = _sanitize_additional_instructions(
         additional_instructions
@@ -1099,6 +1266,7 @@ async def clean_image_with_ai(
         system_prompt=system_prompt,
         additional_instructions=normalized_additional_instructions,
         protocol=protocol_override,
+        model_config=model_config,
     )
 
     if len(cleaned_segments) == 1:

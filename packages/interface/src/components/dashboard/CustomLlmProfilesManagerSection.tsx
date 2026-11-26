@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 
 import {
+  assessImageEditModelCompatibility,
+} from '../../utils/imageEditModelCompatibility';
+import {
   CLEAN_PROTOCOL_OPTIONS,
   isCleanProtocol,
   type CustomLlmProfile,
@@ -85,11 +88,16 @@ export default function CustomLlmProfilesManagerSection({
   const [usedFlash, setUsedFlash] = useState(false);
   const flashTimerRef = useRef<number | null>(null);
 
-  // The draft lives locally: keystrokes never touch the llm-providers store
-  // (and therefore never re-render the Dashboard page). The store only sees
-  // the draft at commit points — save/use — and on external loads, which the
-  // effect below adopts unless it is the echo of our own commit.
   const [localDraft, setLocalDraft] = useState<CustomLlmProfileDraft | null>(draft ?? null);
+  const cleanCompatibility =
+    stage === 'clean' && localDraft
+      ? assessImageEditModelCompatibility({
+          model: localDraft.model,
+          apiBase: localDraft.apiBase,
+          protocol: localDraft.protocol,
+          targetMode: 'clean',
+        })
+      : null;
   const lastPushedRef = useRef<CustomLlmProfileDraft | null>(null);
 
   useEffect(() => {
@@ -273,6 +281,26 @@ export default function CustomLlmProfilesManagerSection({
       </div>
 
       {providerNotice ? <p className={styles.hint}>{providerNotice}</p> : null}
+      {cleanCompatibility && cleanCompatibility.status === 'incompatible_text_only' ? (
+        <p role="alert" className={styles.compatWarning}>
+          {t(
+            cleanCompatibility.reasonKey === 'localOllama'
+              ? 'dashboard.aio.customAi.cleanCompatibility.localOllama'
+              : 'dashboard.aio.customAi.cleanCompatibility.textOnlyModel',
+            {
+              model: localDraft?.model || modelPlaceholder,
+              examples: cleanCompatibility.recommendedReplacements.join(', '),
+            },
+          )}
+        </p>
+      ) : cleanCompatibility && cleanCompatibility.status === 'clean_only' ? (
+        <p className={styles.compatInfo}>
+          {t('dashboard.aio.customAi.cleanCompatibility.textInpaintingOnly', {
+            model: localDraft?.model || modelPlaceholder,
+            examples: cleanCompatibility.recommendedReplacements.join(', '),
+          })}
+        </p>
+      ) : null}
 
       <div className={styles.actions}>
         {onApplyOllamaPreset ? (

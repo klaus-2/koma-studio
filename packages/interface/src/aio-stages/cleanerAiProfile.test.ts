@@ -5,8 +5,6 @@ import type { Translate } from './readiness';
 import { resolveAioCleanAiReadiness } from './cleanerAiProfile';
 import type { CustomLlmProfile } from '../utils/customLlm';
 
-// Resolves through the real en catalog so a missing i18n key surfaces as the
-// raw key string and fails the message assertions.
 const t: Translate = (key) => (defaultMessages as Record<string, string>)[key] ?? key;
 
 const profile = (overrides: Partial<CustomLlmProfile> = {}): CustomLlmProfile => ({
@@ -128,6 +126,40 @@ describe('resolveAioCleanAiReadiness', () => {
       t,
     });
 
-    expect(result.ok && result.customProfile.protocol).toBe('openai_chat');
+    expect(result.ok ? result.customProfile?.protocol : null).toBe('openai_chat');
+  });
+
+  it('refuses a local HF image-edit key when the model is not installed on disk', () => {
+    const result = resolveAioCleanAiReadiness({
+      modelKey: 'local_image_edit:flux2_klein_4b_gguf_q4',
+      profiles: [],
+      modelEntries: {
+        flux2_klein_4b_gguf_q4: { status: 'not_installed' },
+      },
+      t,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      kind: 'aio_clean_ai_local_not_installed',
+    });
+  });
+
+  it('accepts an installed local HF image-edit key without a cloud custom profile', () => {
+    const result = resolveAioCleanAiReadiness({
+      modelKey: 'local_image_edit:flux2_klein_4b_gguf_q4',
+      profiles: [],
+      modelEntries: {
+        flux2_klein_4b_gguf_q4: { status: 'installed' },
+      },
+      t,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      modelKey: 'local_image_edit:flux2_klein_4b_gguf_q4',
+      customProfile: null,
+      localModelId: 'flux2_klein_4b_gguf_q4',
+    });
   });
 });

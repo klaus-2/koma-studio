@@ -1,5 +1,3 @@
-"""HTTP boundary for the batch pipeline: validation, config assembly, response."""
-
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +24,7 @@ from core.languages import (
 )
 from models.detection.factory import list_detection_models
 from models.execution import get_inference_worker_capacity
+from models.image_edit.factory import list_local_image_edit_models
 from models.inpainting.factory import list_inpainting_models
 from models.ocr.factory import list_ocr_models
 from models.segmentation.factory import list_segmentation_models
@@ -50,7 +49,6 @@ logger = logging.getLogger(__name__)
 
 _DISCONNECT_CHECK_INTERVAL_SECONDS = 2.0
 _SSE_KEEPALIVE_SECONDS = 15.0
-# Manga/comic scans top out well below this; anything larger is abuse or a mistake.
 _MAX_IMAGE_BYTES = 50 * 1024 * 1024
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
 _BATCH_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -72,20 +70,10 @@ def _resolve_batch_id(raw: str | None) -> str:
 
 
 def _resolve_concurrency(requested: int | None) -> tuple[int, int]:
-    """Return (requested, effective) concurrency for the batch and preflight routes.
-
-    ``effective`` is bounded by the configured batch cap and by the inference
-    worker pool, the real limiter behind every model stage.
-    """
     cfg = get_config()
     requested_value = max(
         1, cfg.batch_default_concurrency if requested is None else requested
     )
-    # Batch stage concurrency clamps to the admission-pool capacity so the
-    # batch's run_inference calls (detect/segment/clean share the pool; OCR
-    # stays outside by design) never trip the non-blocking InferenceBusyError.
-    # Direct per-image calls above capacity refuse with that error (pinned by
-    # tests/test_inference_busy_contract.py).
     effective = min(
         requested_value, cfg.batch_max_concurrency, get_inference_worker_capacity()
     )
@@ -106,14 +94,12 @@ def _parse_optional_custom_llm(raw: str | None) -> dict[str, object] | None:
             status_code=400,
             detail="The translation_custom_llm field must be a JSON object",
         )
-    # JSON object keys are always strings.
     return cast(dict[str, object], payload)
 
 
 def _spool_upload_sync(
     source: BinaryIO, target: Path, *, limit_bytes: int
 ) -> None:
-    """Disk-to-disk copy: Starlette already spooled the part; never re-buffer it."""
     written = 0
     with target.open("wb") as sink:
         while chunk := source.read(_UPLOAD_CHUNK_BYTES):
@@ -124,13 +110,13 @@ def _spool_upload_sync(
 
 
 class _SpoolLimitExceededError(Exception):
-    """The spooled part crossed the per-image cap mid-copy."""
+    pass
 
 
 async def _spool_uploads(
     files: Sequence[UploadFile], *, limit_bytes: int
 ) -> list[BatchImageTask]:
-    spool_dir = Path(tempfile.mkdtemp(prefix="koma_batch_"))  # 0700, owner-only
+    spool_dir = Path(tempfile.mkdtemp(prefix="koma_batch_"))
     tasks: list[BatchImageTask] = []
     for index, upload in enumerate(files):
         target = spool_dir / f"{index:04d}.img"
@@ -165,7 +151,6 @@ async def _monitor_client_disconnect(
                 return
             await asyncio.sleep(_DISCONNECT_CHECK_INTERVAL_SECONDS)
     except (RuntimeError, OSError):
-        # Transport probe failed; the batch keeps running and completes normally.
         logger.warning("client disconnect monitor stopped", exc_info=True)
 
 
@@ -181,6 +166,7 @@ async def get_pipeline_options(source_language: str | None = None) -> dict[str, 
             "getTranslations": list_translation_models(),
             "segmentText": list_segmentation_models(has_gpu=has_gpu),
             "cleanImage": list_inpainting_models(has_gpu=has_gpu),
+            "imageEdit": list_local_image_edit_models(has_gpu=has_gpu),
         },
         "languages": {
             "source": get_source_language_options(),
@@ -191,11 +177,6 @@ async def get_pipeline_options(source_language: str | None = None) -> dict[str, 
 
 @router.get("/pipeline/batch/capacity")
 async def get_batch_capacity(concurrency: int | None = None) -> dict[str, object]:
-    """Preflight contract: caps plus the concurrency and time budget that apply.
-
-    ``perImageBudgetSeconds`` is read from the orchestrator constant at request
-    time so the client never duplicates it.
-    """
     cfg = get_config()
     requested, effective = _resolve_concurrency(concurrency)
     return {
@@ -357,10 +338,6 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         clean=CleanSettings(
             model_key=clean_model_key,
             mask_dilation=_clamp_int(mask_dilation, fallback=5, minimum=0, maximum=64),
-            # GATE-3 (2026-11-04): the batch clean default resolves "resize".
-            # The complexity heuristic sent every unset request to "crop",
-            # which measured 35-42s/page vs 1.1-1.7s for resize on identical
-            # input; explicit requests still choose their own strategy.
             hd_strategy=hd_strategy if hd_strategy and hd_strategy.strip() else "resize",
             hd_strategy_resize_limit=_clamp_int(
                 hd_strategy_resize_limit, fallback=960, minimum=256, maximum=4096
@@ -394,8 +371,6 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
             run_config, cancellation_event, progress=progress
         ).run(tasks)
     except BaseException:
-        # A run that never produced a report (request cancelled, hard failure)
-        # must still terminate progress polling instead of leaving it running.
         progress.cancel(resolved_batch_id)
         raise
     finally:

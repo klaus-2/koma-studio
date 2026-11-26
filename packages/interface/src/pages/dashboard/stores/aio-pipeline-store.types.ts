@@ -14,6 +14,10 @@ import type {
 import type { StageModelRefusalDetail } from '@/aio-stages/transport';
 import type { AioBatchProgress } from '@/pages/dashboard/lib/aio-batch-progress';
 import type {
+  AioAiOptions,
+  ImageEditModelConfig,
+} from '@/utils/imageEditModelConfig';
+import type {
   AioManualImageProgress,
   AioPipelineSnapshot,
   AioPipelineSnapshotKey,
@@ -57,15 +61,19 @@ export interface AioEditableState {
   aioCleanViaAi: boolean;
   aioCleanAiModelKey: string;
   aioCleanAiInstructions: string;
+  aioCleanAiModelConfig: ImageEditModelConfig;
+  aioAiModelKey: string;
+  aioAiInstructions: string;
+  aioAiOptions: AioAiOptions;
+  aioAiModelConfig: ImageEditModelConfig;
+  aioAiBakedImageIds: Record<string, boolean>;
   aioDeviceInfo: AioDeviceInfo | null;
-  /** Hydrated from `/translate/models` once per session; empty until then. */
   aioTranslationServiceAvailability: TranslationServiceAvailability;
   aioMiniBackendRuntimeState: DesktopMiniBackendRuntimeState | null;
   aioExecutionStatus: AioExecutionStatus | null;
   batchThreadsEnabled: boolean;
   batchThreads: number;
   batchModeEnabled: boolean;
-  /** chapterId -> preset id; an empty value follows the AIO setup. */
   batchChapterPresetByChapterId: Record<string, string>;
   aioBatchProgress: AioBatchProgress | null;
   aioPipelineSnapshots: AioPipelineSnapshot[];
@@ -103,13 +111,11 @@ export interface AioExecutionActions {
     stageProgressLabel: string,
   ) => void;
 
-  /** Counts one stage start of the concurrent path and moves the bar. */
   recordAioStageStarted: (
     image: LoadedImage,
     stageKey: AioPipelineSnapshotKey,
   ) => void;
 
-  /** Moves the bar from the batch sidecar's started-stage count. */
   setAioExecutionUnitsStarted: (
     startedUnits: number,
     totalUnits: number,
@@ -134,7 +140,6 @@ export interface AioPipelineStore
   aioExecutionId: number;
   aioBackendRestarting: boolean;
 
-  /** Last structured model-selection refusal per stage (runtime-only). */
   aioStageModelRefusals: Readonly<Partial<Record<AioStageKey, StageModelRefusalDetail>>>;
   setAioStageModelRefusal: (
     stage: AioStageKey,

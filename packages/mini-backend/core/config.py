@@ -35,7 +35,7 @@ def _as_float(
             return fallback
     else:
         return fallback
-    if not math.isfinite(parsed):  # "nan"/"inf" would survive min/max clamping
+    if not math.isfinite(parsed):
         return fallback
     return max(minimum, min(parsed, maximum))
 
@@ -61,11 +61,6 @@ _GLOSSARY_TARGET_MAX_CHARS = 240
 
 
 def _as_str_tuple(value: object, maximum: int) -> tuple[str, ...]:
-    """Ordered, de-duplicated strings taken from a JSON list of strings.
-
-    Anything that is not a list yields an empty tuple, which keeps a request
-    without the key on the single-engine path.
-    """
     if not isinstance(value, list):
         return ()
     items: list[str] = []
@@ -82,7 +77,6 @@ def _as_str_tuple(value: object, maximum: int) -> tuple[str, ...]:
 
 
 def _as_glossary(value: object) -> tuple[GlossaryTerm, ...]:
-    """Trimmed, de-duplicated (by source) exact-term pairs from a JSON list."""
     if not isinstance(value, list):
         return ()
     terms: list[GlossaryTerm] = []
@@ -125,9 +119,7 @@ TRANSLATOR_MODEL_ALIASES: dict[str, str] = {
     "grok_2_vision": "grok_2_vision",
     "z_ai_glm_4_5v": "z_ai_glm_4_5v",
     "custom": "custom",
-    # UI key for DeepL connects to the backend engine of the same provider.
     "deepl_translate": "deepl",
-    # Registry ids carry hyphens/dots; normalize_stage_model_key slugs them.
     "opus_mt_ja_en": "opus-mt-ja-en",
     "opus_mt_zh_en": "opus-mt-zh-en",
     "nllb_200_3_3b": "nllb-200-3.3b",
@@ -171,7 +163,7 @@ def _slugify_model_name(value: str | None) -> str:
 
 def normalize_stage_model_key(stage: str, value: str | None) -> str:
     raw = (value or "").strip()
-    if raw.startswith(("custom:", "custom_ocr:", "custom_clean:")):
+    if raw.startswith(("custom:", "custom_ocr:", "custom_clean:", "local_image_edit:")):
         return raw
 
     slug = _slugify_model_name(raw)
@@ -218,7 +210,6 @@ class LLMRequestSettings:
     neighbor_image_context_enabled: bool = False
     translation_fallback_chain: tuple[str, ...] = ()
     glossary: tuple[GlossaryTerm, ...] = ()
-    # Opt-in TM reads (D2): writes to the local store are always on.
     translation_memory_enabled: bool = False
 
 

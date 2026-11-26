@@ -19,14 +19,7 @@ type ManualToolsState = ReturnType<typeof useManualToolsStore.getState>;
 type AioImageSnapshotMeta = ReturnType<DashboardStageSectionProps['getAioImageSnapshotMeta']>;
 type TextFillSwatches = ReturnType<typeof listTextFillSwatches>;
 
-/**
- * Deps record for `renderAioStageItemBody` — everything the extracted body
- * read from the component scope. Forwarded by the `renderAioStageItem`
- * `useCallback` wrapper that stays in StageGrid.tsx (callback identity is
- * load-bearing for the memoized previews — see stageSectionProps.ts).
- */
 export interface AioStageItemDeps {
-  /** Lazy preview components — defined in StageGrid; the loaders stay there. */
   RenderTextPreview: LazyExoticComponent<
     typeof import('../../../../components/dashboard/RenderTextPreview')['default']
   >;
@@ -36,6 +29,7 @@ export interface AioStageItemDeps {
   subMode: DashboardStageSectionProps['subMode'];
   areaSelectionToolActive: boolean;
   aioSteps: AioPipelineState['aioSteps'];
+  aioAiBakedImageIds?: AioPipelineState['aioAiBakedImageIds'];
   manualImageBrushBlur: ManualToolsState['manualImageBrushBlur'];
   manualImageBrushOpacity: ManualToolsState['manualImageBrushOpacity'];
   manualImageBrushSize: ManualToolsState['manualImageBrushSize'];
@@ -75,11 +69,6 @@ export interface AioStageItemDeps {
   translationNotesEnabled: boolean;
 }
 
-/**
- * Extracted body of StageGrid's `renderAioStageItem` callback (verbatim
- * move, de-indented one level). StageGrid keeps the identical `useCallback`
- * wrapper and forwards this deps record on every invocation.
- */
 export function renderAioStageItemBody(
   {
     RenderTextPreview,
@@ -87,6 +76,7 @@ export function renderAioStageItemBody(
     subMode,
     areaSelectionToolActive,
     aioSteps,
+    aioAiBakedImageIds,
     manualImageBrushBlur,
     manualImageBrushOpacity,
     manualImageBrushSize,
@@ -143,7 +133,10 @@ export function renderAioStageItemBody(
     (imageStageKey === 'detectText' ||
       imageStageKey === 'recognizeText' ||
       imageStageKey === 'getTranslations');
+  const isAioAiBaked =
+    Boolean(aioAiBakedImageIds?.[img.id]) || subMode === 'ai';
   const shouldUseRenderPreview =
+    isAioAiBaked ||
     (!isManualEarlyStage && aioSteps.render) ||
     (subMode === 'manual' && imageStageKey === 'render') ||
     (manualImageTool !== 'none' && imageStageKey === 'render');
@@ -162,7 +155,11 @@ export function renderAioStageItemBody(
           previewSrc={getPreviewSrc(img)}
           viewMode={viewMode}
           active={resolvedActiveId === img.id}
-          regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
+          regions={
+            isAioAiBaked
+              ? EMPTY_REGIONS
+              : aioDetectionsByImage[img.id] ?? EMPTY_REGIONS
+          }
           selectedRegionId={aioSelectedRegionByImage[img.id] ?? null}
           onCardSelect={() => setActiveId(img.id)}
           onSelectRegion={(regionId) =>

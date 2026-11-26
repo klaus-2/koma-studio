@@ -17,7 +17,6 @@ const RenderTextPreview = lazy(loadRenderTextPreview);
 const TextDetectionPreview = lazy(loadTextDetectionPreview);
 const TranslatorTextStage = lazy(loadTranslatorTextStage);
 
-/** Fire-and-forget warmup of the heavy stage modules (called at browser idle). */
 export function preloadStageHeavyModules() {
   void loadRenderTextPreview().catch(() => { });
   void loadTextDetectionPreview().catch(() => { });
@@ -57,12 +56,6 @@ import type { TypographyShapeKind } from '../../../typography/types';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import { listTextFillSwatches } from '../../../utils/textFillPicker';
 
-
-/**
- * Center-stage view: the `<section>` stage block with its mode branches and
- * the per-image stage-item renderers (moved 1:1 from the page, deps fed by
- * same-name props).
- */
 function DashboardStageSection({
   images,
   setActiveId,
@@ -111,20 +104,14 @@ function DashboardStageSection({
 }: DashboardStageSectionProps) {
   const { t } = useI18n();
 
-  // React's onWheel is passive; the zoom gesture needs preventDefault, so the
-  // listener is attached directly as non-passive instead.
   const stageRef = useRef<HTMLElement>(null);
   useNonPassiveWheel(stageRef, handleStageWheelZoom, true);
 
-  // Offscreen direct-page URL eviction (GATE-3): the window follows the
-  // stage's virtualizer range; below the 5-item threshold the grid renders
-  // without virtualization and no range is reported (no eviction).
   const { onVisibleRangeChange: onEvictionRangeChange } = usePageUrlWindow({
     images,
     activeImageId: resolvedActiveId,
   });
 
-  // Archive page idle prefetch consumes the same virtualizer range.
   const { onVisibleRangeChange: onPreloadRangeChange } = useArchivePagePreload({
     images,
   });
@@ -139,7 +126,6 @@ function DashboardStageSection({
 
   const focusIndexSignal = useRegionFocusSignal();
 
-  // ── Stage-owned store slices ──
   const trackAioMaps = needsAioRegionMaps(mode);
   const trackCleanerMaps = needsCleanerRegionMaps(mode);
   const trackTranslatorMaps = needsTranslatorRegionMaps(mode);
@@ -161,7 +147,6 @@ function DashboardStageSection({
   const areaSelectionCreateMode = useManualToolsStore(
     (s) => s.areaSelectionCreateMode,
   );
-  // Same derivations the page computes for these lists (single source stores).
   const textFillSwatches = useMemo(
     () => listTextFillSwatches(textFillSwatchState),
     [textFillSwatchState],
@@ -183,6 +168,9 @@ function DashboardStageSection({
     [typographyPresetState.folders],
   );
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
+  const aioAiBakedImageIds = useAioPipelineStore(
+    (s) => s.aioAiBakedImageIds,
+  );
   const aioPipelineSnapshots = useAioPipelineStore(
     (s) => s.aioPipelineSnapshots,
   );
@@ -251,9 +239,6 @@ function DashboardStageSection({
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
-  // Preview/base sources read the stores at call time inside getPreviewSrc
-  // and the per-item manual-edit getters; these slices keep the grade's
-  // re-render cadence in sync with those reads (T4.2).
   const aioManualImageEditsByImage = useManualToolsStore(
     (s) => (trackAioMaps ? s.aioManualImageEditsByImage : EMPTY_REGION_MAP),
   );
@@ -269,6 +254,7 @@ function DashboardStageSection({
   const downloadItems = useExportStore((s) => s.downloadItems);
 
   const stageItemRenderDeps = useShallowStableObject({
+    aioAiBakedImageIds,
     aioDetectionsByImage,
     aioManualHealingBusyByImage,
     aioSelectedRegionByImage,
@@ -327,6 +313,7 @@ function DashboardStageSection({
           subMode,
           areaSelectionToolActive,
           aioSteps,
+          aioAiBakedImageIds,
           manualImageBrushBlur,
           manualImageBrushOpacity,
           manualImageBrushSize,
@@ -378,8 +365,6 @@ function DashboardStageSection({
     (index: number) => images[index]?.id ?? `${index}`,
     [images],
   );
-  // Stable row callbacks: memoized PipelineStageRow rows bail out unless
-  // their own data (or one of these identities) actually changed.
   const handleStageImageSelect = useCallback(
     (id: string) => setActiveId(id),
     [setActiveId],
@@ -504,10 +489,6 @@ function DashboardStageSection({
     },
     [setActiveId, setTypographerMultiSelectedByImage],
   );
-  // One stable deps object feeds the stage-item body: identity holds while
-  // every field is shallow-equal (mirror of stageItemRenderDeps above), so
-  // renderStageItem is not rebuilt with a ~60-entry dependency array per
-  // render and the body reads current values at call time.
   const stageItemBodyDeps = useShallowStableObject({
     aioDetectionsByImage,
     aioManualImageEditsByImage,
@@ -593,7 +574,6 @@ function DashboardStageSection({
     [stageItemBodyDeps],
   );
 
-  // ═══════════ CENTER STAGE ═══════════
   return (
     <section
       ref={stageRef}
@@ -601,7 +581,6 @@ function DashboardStageSection({
       data-tour="dashboard-stage"
     >
       <PanelBoundary label={t('dashboard.tour.stage.withImagesTitle')} resetKey={mode}>
-      {/* Info modes show content instead of images */}
       {mode === 'guides' ||
         mode === 'resources' ||
         mode === 'blogger' ||
@@ -663,7 +642,4 @@ function DashboardStageSection({
   );
 }
 
-// The parent layout re-renders for state this section does not consume
-// (footer/badge progress ticks); memo bails those out. Its props are stable
-// by contract: store primitives, hook useCallbacks, useMemo-wrapped objects.
 export default memo(DashboardStageSection);

@@ -1,8 +1,3 @@
-/**
- * Download availability derivations consumed by the topbar download menus and
- * the tour/coachmark hooks. Split out of export-download.ts (T10); the entry
- * file keeps bundle preparation and re-exports this module.
- */
 import { INFO_MODES } from '../../../constants/dashboard.constants';
 import type {
   LoadedImage,
@@ -15,12 +10,9 @@ import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 
-/* ── Download availability: render-time derivations consumed by the topbar
-   download menus and the tour/coachmark hooks (export + ui-shell + translator
-   + aio stores; `activeImage` arrives from the image-collection domain) ── */
-
 export function useExportDownloadAvailability({ activeImage }: { activeImage: LoadedImage | null }) {
   const mode = useUiShellStore((s) => s.mode);
+  const subMode = useUiShellStore((s) => s.subMode);
   const images = useImageCollectionStore((s) => s.images);
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const translatorWorkspaceMode = useTranslatorStore(
@@ -39,7 +31,7 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
     mode !== 'blogger' &&
     mode !== 'imgur';
   const hasRenderableAioOutput =
-    mode === 'aio' && aioSteps.render && images.length > 0;
+    mode === 'aio' && subMode !== 'ai' && aioSteps.render && images.length > 0;
   const hasRenderableTypographerOutput =
     mode === 'typesetter' && images.length > 0;
   const hasAioTextOutput = useRegionEditorStore((s) =>

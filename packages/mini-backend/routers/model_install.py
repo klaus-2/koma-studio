@@ -21,6 +21,10 @@ from core.models_store import resolve_model_dir
 from core.languages import normalize_language_code
 from models.detection.storage import ensure_detection_model_installed
 from models.enhance.storage import ensure_enhance_model_installed
+from models.image_edit import (
+    LOCAL_IMAGE_EDIT_MODEL_IDS,
+    ensure_local_image_edit_model_installed,
+)
 from models.inpainting.storage import ensure_inpainting_model_installed
 from models.ocr.easyocr.storage import (
     declare_easyocr_total,
@@ -42,8 +46,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["model-install"])
 
-# CWE-400 ceiling for generic registry downloads that do not declare a size;
-# the managed installers for fixed hosts use their own resolvers.
 _GENERIC_DOWNLOAD_MAX_BYTES = 32 * 1024**3
 
 
@@ -87,18 +89,10 @@ def _pororo_languages_for_source(language: str | None) -> list[str]:
 
 
 def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, Any]:
-    """Fallback for registry models without a dedicated dispatch (nllb, opus-mt…).
-
-    Uses exactly the same pipeline as the managed ones (hf_download: resume,
-    checksum, progress/cancellation via the bridge), writing model.bin to the
-    model's default directory.
-    """
     url = str(extras.get("download_url") or "").strip()
     if not url:
         raise RuntimeError(f"Invalid managed model: {model_id}")
 
-    # The URL is client-supplied over HTTP; the shell-side payload checks
-    # never see a direct API caller.
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.netloc:
         raise RuntimeError("Unsupported download URL scheme.")
@@ -115,9 +109,6 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
 
     expected_sha = str(extras.get("checksum_sha256") or "").strip() or None
     if expected_sha is not None and set(expected_sha) == {"0"}:
-        # Registry placeholder ("000...0") — treat as missing, otherwise
-        # every post-download comparison fails. It still means the registry
-        # has no integrity pin for this model, so say so out loud.
         logger.warning("registry.checksum_placeholder", extra={"model_id": model_id})
         expected_sha = None
     target_path = target_dir / "model.bin"
@@ -153,9 +144,6 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     actual = sha256_file(target_path)
     if expected_sha and actual.lower() != expected_sha.lower():
         target_path.unlink(missing_ok=True)
-        # Never echo the computed digest: with a caller-chosen expected digest
-        # the mismatch message would disclose the content SHA-256 to whoever
-        # submitted the job.
         raise ChecksumMismatchError(
             f"Invalid SHA256 checksum for '{model_id}'.",
             expected=expected_sha,
@@ -228,6 +216,8 @@ def _install_managed_model(
         return ensure_detection_model_installed(normalized_model_id)
     if normalized_model_id == "paddleocr_vl_1_5":
         return ensure_transformers_vlm_model_installed(normalized_model_id)
+    if normalized_model_id in LOCAL_IMAGE_EDIT_MODEL_IDS:
+        return ensure_local_image_edit_model_installed(normalized_model_id)
 
     extras = extras or {}
     if extras.get("download_url"):
@@ -236,7 +226,6 @@ def _install_managed_model(
     raise RuntimeError(f"Invalid managed model: {model_id}")
 
 
-# Public wiring for routers/model_downloads.py (JobManager.installer).
 install_managed_model_sync = _install_managed_model
 
 
@@ -244,11 +233,6 @@ async def _install_via_job(
     model_id: str,
     source_language: str | None,
 ) -> dict[str, Any]:
-    """Compat path: create/join a job and wait for completion off the event loop.
-
-    Replaces the old inline call (which used to hang the uvicorn worker
-    during multi-GB downloads). Preserves the endpoint response/error format.
-    """
     job, _created = get_job_manager().submit(model_id, source_language)
     await asyncio.to_thread(job.wait)
 
@@ -312,7 +296,7 @@ async def install_pororo_model(payload: PororoInstallRequest | None = None) -> d
 
 @router.post("/models/manga-ocr/install")
 async def install_manga_ocr_model(payload: MangaOCRInstallRequest | None = None) -> dict[str, Any]:
-    _ = payload  # payload kept for endpoint signature compatibility.
+    _ = payload
 
     try:
         result = await _install_via_job("manga_ocr", None)

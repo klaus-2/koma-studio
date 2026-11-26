@@ -13,11 +13,11 @@ export {
   normalizeShortcutCombo,
 } from "./keyboardShortcutUtils";
 
-import type { ToolMode } from "../types/dashboard.types";
+import type { SubMode, ToolMode } from "../types/dashboard.types";
 
 export type ShortcutToolMode = ToolMode;
 
-export type ShortcutSubMode = "auto" | "manual";
+export type ShortcutSubMode = SubMode;
 export type ShortcutTranslatorWorkspaceMode = "text" | "visual" | null;
 export type ShortcutCategory = "global" | "modes" | "typesetter" | "palette";
 export type ShortcutModeGuard =
@@ -72,7 +72,6 @@ export type ShortcutActionId =
   | "convertShapeRounded"
   | "deleteRegion"
   | "editInline"
-  // ── Tool Palette ──────────────────────────────────────────────────────────
   | "duplicateRegion"
   | "toolConfigToggle"
   | "toolAreaSelect"
@@ -570,7 +569,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
       ),
   },
 
-  // ─── Tool Palette ──────────────────────────────────────────────────────────
   {
     id: "openCommandPalette",
     label: "shortcuts.openCommandPalette.label",

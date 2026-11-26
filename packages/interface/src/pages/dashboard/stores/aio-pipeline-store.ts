@@ -29,16 +29,39 @@ import {
   parseStoredBatchThreadsEnabled,
 } from '@/utils/concurrentBatch';
 import { createEmptyAioPresetEditorDraft } from '@/utils/dashboard.utils';
+import {
+  sanitizeAioAiOptions,
+  sanitizeImageEditModelConfig,
+  type AioAiOptions,
+  type ImageEditModelConfig,
+} from '@/utils/imageEditModelConfig';
 
 export type { AioStepToggles } from '@/pages/dashboard/stores/aio-pipeline-store.types';
 
 const AIO_CLEAN_VIA_AI_STORAGE_KEY = 'koma-aio-clean-via-ai';
 const AIO_CLEAN_AI_MODEL_STORAGE_KEY = 'koma-aio-clean-ai-model';
 const AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-clean-ai-instructions';
+const AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY = 'koma-aio-clean-ai-model-config';
+const AIO_AI_MODEL_STORAGE_KEY = 'koma-aio-ai-model';
+const AIO_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-ai-instructions';
+const AIO_AI_OPTIONS_STORAGE_KEY = 'koma-aio-ai-options';
+const AIO_AI_MODEL_CONFIG_STORAGE_KEY = 'koma-aio-ai-model-config';
 
 const parseStoredAioBoolean = (value: string | null): boolean => value === 'true';
 
 const parseStoredAioString = (value: string | null): string => value ?? '';
+
+const parseStoredJson = (value: string | null): Record<string, unknown> | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -165,7 +188,6 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioTgtLang: 'pt-br',
     aioOptionsLoading: false,
     aioPresetState: loadValidatedPresetState(),
-    // Dead value by design: openCreate/openEdit replace it before the editor opens.
     aioPresetEditorDraft: createEmptyAioPresetEditorDraft({
       ...INITIAL_AIO_STAGE_SELECTION,
     }),
@@ -185,6 +207,22 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioCleanAiInstructions: parseStoredAioString(
       readAioStorage(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY),
     ),
+    aioCleanAiModelConfig: sanitizeImageEditModelConfig(
+      parseStoredJson(readAioStorage(AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY)),
+    ),
+    aioAiModelKey: parseStoredAioString(
+      readAioStorage(AIO_AI_MODEL_STORAGE_KEY),
+    ),
+    aioAiInstructions: parseStoredAioString(
+      readAioStorage(AIO_AI_INSTRUCTIONS_STORAGE_KEY),
+    ),
+    aioAiOptions: sanitizeAioAiOptions(
+      parseStoredJson(readAioStorage(AIO_AI_OPTIONS_STORAGE_KEY)),
+    ),
+    aioAiModelConfig: sanitizeImageEditModelConfig(
+      parseStoredJson(readAioStorage(AIO_AI_MODEL_CONFIG_STORAGE_KEY)),
+    ),
+    aioAiBakedImageIds: {},
 
     aioDeviceInfo: null,
     aioTranslationServiceAvailability: {},
@@ -275,6 +313,65 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
       writeAioStorage(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY, next);
     },
 
+    setAioCleanAiModelConfig: (update) => {
+      const previous = get().aioCleanAiModelConfig;
+      const rawNext: ImageEditModelConfig = isStateUpdater(update)
+        ? update(previous)
+        : update;
+      const next = sanitizeImageEditModelConfig(rawNext);
+      set({ aioCleanAiModelConfig: next });
+      writeAioStorage(
+        AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    },
+
+    setAioAiModelKey: (update) => {
+      const previous = get().aioAiModelKey;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioAiModelKey: next });
+      writeAioStorage(AIO_AI_MODEL_STORAGE_KEY, next);
+    },
+
+    setAioAiInstructions: (update) => {
+      const previous = get().aioAiInstructions;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioAiInstructions: next });
+      writeAioStorage(AIO_AI_INSTRUCTIONS_STORAGE_KEY, next);
+    },
+
+    setAioAiOptions: (update) => {
+      const previous = get().aioAiOptions;
+      const rawNext: AioAiOptions = isStateUpdater(update)
+        ? update(previous)
+        : update;
+      const next = sanitizeAioAiOptions(rawNext);
+      set({ aioAiOptions: next });
+      writeAioStorage(AIO_AI_OPTIONS_STORAGE_KEY, JSON.stringify(next));
+    },
+
+    setAioAiModelConfig: (update) => {
+      const previous = get().aioAiModelConfig;
+      const rawNext: ImageEditModelConfig = isStateUpdater(update)
+        ? update(previous)
+        : update;
+      const next = sanitizeImageEditModelConfig(rawNext);
+      set({ aioAiModelConfig: next });
+      writeAioStorage(AIO_AI_MODEL_CONFIG_STORAGE_KEY, JSON.stringify(next));
+    },
+
+    setAioAiBakedImageIds: setter('aioAiBakedImageIds'),
+
     setAioDeviceInfo: setter('aioDeviceInfo'),
     setAioTranslationServiceAvailability: setter(
       'aioTranslationServiceAvailability',
@@ -364,6 +461,7 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
         Object.keys(state.aioImageSnapshotIndexById).length === 0 &&
         Object.keys(state.aioAutoProcessedImageById).length === 0 &&
         Object.keys(state.aioManualProgressByImage).length === 0 &&
+        Object.keys(state.aioAiBakedImageIds).length === 0 &&
         !state.aioAutoHistoryAvailable
       ) {
         return;
@@ -376,6 +474,7 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
         aioAutoHistoryAvailable: false,
         aioAutoProcessedImageById: {},
         aioManualProgressByImage: {},
+        aioAiBakedImageIds: {},
       });
     },
 

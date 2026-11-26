@@ -13,7 +13,7 @@ export type AioOperationalEvent =
   | 'backend-restart-failed';
 
 interface AioOperationalFields {
-  readonly scope?: 'auto' | 'manual';
+  readonly scope?: 'auto' | 'manual' | 'ai';
   readonly pages?: number;
   readonly concurrency?: number;
 }

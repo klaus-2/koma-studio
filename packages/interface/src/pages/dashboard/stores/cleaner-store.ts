@@ -7,36 +7,51 @@ import type {
   CleanerMode,
   CleanerRunMeta,
 } from '../../../types/dashboard.types';
+import {
+  DEFAULT_IMAGE_EDIT_MODEL_CONFIG,
+  sanitizeImageEditModelConfig,
+  type ImageEditModelConfig,
+} from '../../../utils/imageEditModelConfig';
 
-/**
- * Cleaner tools domain: the cleaner mode, per-image cleaner maps (regions,
- * selection, processed bases, run metadata, manual edit layers, healing
- * busy flags) and the Automatic AI Clean model/instructions slots.
- */
+export type ImageEditModelManagerTarget = 'cleaner' | 'aio_clean' | 'aio_ai';
+
+const CLEANER_AI_MODEL_CONFIG_STORAGE_KEY = 'koma-cleaner-ai-model-config';
+
+const loadCleanerAiModelConfig = (): ImageEditModelConfig => {
+  if (typeof window === 'undefined') {
+    return { ...DEFAULT_IMAGE_EDIT_MODEL_CONFIG };
+  }
+  try {
+    const raw = window.localStorage.getItem(CLEANER_AI_MODEL_CONFIG_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_IMAGE_EDIT_MODEL_CONFIG };
+    return sanitizeImageEditModelConfig(JSON.parse(raw) as Record<string, unknown>);
+  } catch {
+    return { ...DEFAULT_IMAGE_EDIT_MODEL_CONFIG };
+  }
+};
+
+const saveCleanerAiModelConfig = (config: ImageEditModelConfig): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CLEANER_AI_MODEL_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+  }
+};
+
 interface CleanerStore {
-  /** Cleaner mode: assisted, automatic AI or AI SFX. */
   cleanerMode: CleanerMode;
-  /** Cleaner text regions per image. */
   cleanerDetectionsByImage: Record<string, AioTextRegion[]>;
-  /** Selected region id per image. */
   cleanerSelectedRegionByImage: Record<string, string | null>;
-  /** Inpainted base data URLs per image. */
   cleanerProcessedBaseByImage: Record<string, string>;
-  /** Cleaner run metadata per image. */
   cleanerRunMetaByImage: Record<string, CleanerRunMeta>;
-  /** Cleaner manual edit layers (paint/base/wand) per image. */
   cleanerManualImageEditsByImage: Record<string, AioManualImageEditState>;
-  /** Healing busy flags per image (stage item spinners). */
   cleanerHealingBusyByImage: Record<string, boolean>;
-  /** Overlay visibility toggle (stage item). */
   cleanerShowOverlays: boolean;
-  /** Automatic AI Clean model selection key. */
   cleanerAiModelKey: string;
-  /** Automatic AI Clean model manager modal flag. */
   cleanerAiModelManagerOpen: boolean;
-  /** Extra instructions for the Automatic AI Clean prompt. */
+  imageEditModelManagerTarget: ImageEditModelManagerTarget;
   cleanerAiAdditionalInstructions: string;
-  /** Cleaner OCR source language. */
+  cleanerAiModelConfig: ImageEditModelConfig;
   cleanerSrcLang: string;
 
   setCleanerMode: (value: CleanerMode) => void;
@@ -74,14 +89,20 @@ interface CleanerStore {
   setCleanerShowOverlays: (value: boolean) => void;
   setCleanerAiModelKey: (value: string) => void;
   setCleanerAiModelManagerOpen: (value: boolean) => void;
+  setImageEditModelManagerTarget: (value: ImageEditModelManagerTarget) => void;
+  openImageEditModelManager: (target: ImageEditModelManagerTarget) => void;
   setCleanerAiAdditionalInstructions: (value: string) => void;
+  setCleanerAiModelConfig: (
+    value:
+      | ImageEditModelConfig
+      | ((prev: ImageEditModelConfig) => ImageEditModelConfig),
+  ) => void;
   setCleanerSrcLang: (value: string) => void;
 }
 
 export const useCleanerStore = create<CleanerStore>()(
   devtools(
     (set) => ({
-      // Same initial values the page's useState had.
       cleanerMode: 'assisted',
       cleanerDetectionsByImage: {},
       cleanerSelectedRegionByImage: {},
@@ -92,13 +113,12 @@ export const useCleanerStore = create<CleanerStore>()(
       cleanerShowOverlays: true,
       cleanerAiModelKey: 'gemini_2_0_flash_ocr',
       cleanerAiModelManagerOpen: false,
+      imageEditModelManagerTarget: 'cleaner',
       cleanerAiAdditionalInstructions: '',
+      cleanerAiModelConfig: loadCleanerAiModelConfig(),
       cleanerSrcLang: 'ja',
 
       setCleanerMode: (cleanerMode) => set({ cleanerMode }),
-      // Value-or-updater: the page, the cleaner hooks and the image
-      // collection (removeImage) all update these maps through functional
-      // updaters.
       setCleanerDetectionsByImage: (value) =>
         set((state) => ({
           cleanerDetectionsByImage:
@@ -155,8 +175,20 @@ export const useCleanerStore = create<CleanerStore>()(
       setCleanerAiModelKey: (cleanerAiModelKey) => set({ cleanerAiModelKey }),
       setCleanerAiModelManagerOpen: (cleanerAiModelManagerOpen) =>
         set({ cleanerAiModelManagerOpen }),
+      setImageEditModelManagerTarget: (imageEditModelManagerTarget) =>
+        set({ imageEditModelManagerTarget }),
+      openImageEditModelManager: (imageEditModelManagerTarget) =>
+        set({ imageEditModelManagerTarget, cleanerAiModelManagerOpen: true }),
       setCleanerAiAdditionalInstructions: (cleanerAiAdditionalInstructions) =>
         set({ cleanerAiAdditionalInstructions }),
+      setCleanerAiModelConfig: (value) =>
+        set((state) => {
+          const rawNext =
+            typeof value === 'function' ? value(state.cleanerAiModelConfig) : value;
+          const next = sanitizeImageEditModelConfig(rawNext);
+          saveCleanerAiModelConfig(next);
+          return { cleanerAiModelConfig: next };
+        }),
       setCleanerSrcLang: (cleanerSrcLang) => set({ cleanerSrcLang }),
     }),
     { name: 'cleaner-store', enabled: import.meta.env.DEV },

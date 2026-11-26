@@ -33,6 +33,18 @@
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
+    "firered_image_edit_1_1": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "flux2_klein_4b": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "flux2_klein_4b_gguf_q4": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
     "font_rtdetr_v2": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
@@ -49,6 +61,10 @@
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
+    "instruct_pix2pix": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
     "lama_fp32": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
@@ -58,6 +74,10 @@
       "strategy": "backend_managed"
     },
     "lfm2_350m_enjp_mt": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "longcat_image_edit_turbo": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
@@ -141,6 +161,14 @@
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
+    "qwen_image_edit_2511": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "qwen_image_edit_2511_gguf_q4": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
     "realesrgan_x4plus": {
       "strategy": "manual_import"
     },
@@ -153,6 +181,10 @@
       "strategy": "backend_managed"
     },
     "sakura_galtransl_7b_v3_7": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "sdxl_instruct_pix2pix": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
@@ -274,6 +306,367 @@
       },
       "totalBytes": 77251756
     },
+    "firered_image_edit_1_1": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "5ba11ceee68457ad6a48b899b8c9493e347f4685e11e5eeca952a13f16549e35",
+          "size": 516
+        },
+        {
+          "path": "processor/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "processor/chat_template.jinja",
+          "sha256": "a0bc6f6fc7a29a80017a433e8f03a1cc1236e838a944a2d034295a60c4f2fddb",
+          "size": 1017
+        },
+        {
+          "path": "processor/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "processor/preprocessor_config.json",
+          "sha256": "e98b81513c5d03209ac71194b3cd5303b90956097ffdb9e2aa64d6d1a13ae74e",
+          "size": 826
+        },
+        {
+          "path": "processor/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "processor/tokenizer.json",
+          "sha256": "9c5ae00e602b8860cbd784ba82a8aa14e8feecec692e7076590d014d7b7fdafa",
+          "size": 11421896
+        },
+        {
+          "path": "processor/tokenizer_config.json",
+          "sha256": "1b20115c83f30580a8c0fc330f47fad9222dccd4f739fe2d48e62ee93d28ac19",
+          "size": 4727
+        },
+        {
+          "path": "processor/video_preprocessor_config.json",
+          "sha256": "099e0fbc1eb2fc67be2e318fa29e67efedeb55a34c669838e14bbcbfcea26da3",
+          "size": 952
+        },
+        {
+          "path": "processor/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "7ee767e37bae4af31d4eb935e125bb20a2237eeecafd22af6610093865c6f587",
+          "size": 485
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "e1ee4dbaaf6b90c103c11a11c2b6a6eedd23ee814b65c9c71e7236c38773a8d5",
+          "size": 3081
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "50867494bddf9ddc8e289e6214be5a2263e68f16c127a3652c6eb9f17990e5d9",
+          "size": 244
+        },
+        {
+          "path": "text_encoder/model-00001-of-00004.safetensors",
+          "sha256": "d725335e4ea2399be706469e4b8807716a8fa64bd03468252e9f7acf2415fee4",
+          "size": 4968243304
+        },
+        {
+          "path": "text_encoder/model-00002-of-00004.safetensors",
+          "sha256": "b1830db6908dcc76df3a71492acbcf2b8cac130114cf1f3c2d9edae8de8c6de3",
+          "size": 4991495816
+        },
+        {
+          "path": "text_encoder/model-00003-of-00004.safetensors",
+          "sha256": "09c1807c6d00d7cab94f7db39d4c02ebb8537225ccde383861ac48db97945aa6",
+          "size": 4932751040
+        },
+        {
+          "path": "text_encoder/model-00004-of-00004.safetensors",
+          "sha256": "5dd068336d14d45ffb43cef374d286cc6ba9d8741b028f90a7d040d847961f4a",
+          "size": 1691924384
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "4be35310ddc165e46e88de4c3fec8c1210014b0b8717f4544d82cc740814ae0c",
+          "size": 57655
+        },
+        {
+          "path": "tokenizer/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "tokenizer/chat_template.jinja",
+          "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5",
+          "size": 2427
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "0a04a9d7d4a62b28482bdfe726c122756de85714fb64166ace92ae75b8f57614",
+          "size": 4686
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "87a257b04b17642a0688c98cd1df89c398bda4fee532d6f88b38a659ecb4ac8d",
+          "size": 3383407
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "247c94f9b923a7d6b6035ca76d27b556bd0efd1a8c7672f31f037644fcce340e",
+          "size": 339
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "c448160dba5ce79c965cb075ee02e18d1c42eb6424f787e5869790d577b56a65",
+          "size": 730
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "0c8bc8b758c649abef9ea407b95408389a3b2f610d0d10fcb054fe171d0a8344",
+          "size": 253806966
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00001-of-00005.safetensors",
+          "sha256": "cd6f0d78a3a8c21792538d0abae604bd7abbca1508a2e8c778ea359f5fabd180",
+          "size": 9973578592
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00002-of-00005.safetensors",
+          "sha256": "bb6b283ea5954aa16e8df94fbbd37368c48c07ff3cfcf3a514117333c3753463",
+          "size": 9987326072
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00003-of-00005.safetensors",
+          "sha256": "e0602f9a002cf2807080bfb6d055cbcd6991887be7e89c82fa9411f938195923",
+          "size": 9987307440
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00004-of-00005.safetensors",
+          "sha256": "ae1d1ec1a35f5f59b086c1947dbf62d67d972d25cf7c771640921c9aa97ee492",
+          "size": 9930685712
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00005-of-00005.safetensors",
+          "sha256": "9d304d6539e7dad0647346cecf68d1fd5dc0efc7319626cdde2fdfc3e1533417",
+          "size": 982130472
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model.safetensors.index.json",
+          "sha256": "034f003b74493730e1c595b2e23232e99d9e28bcef3b4c10c56d1b53eee4b435",
+          "size": 198887
+        }
+      ],
+      "totalBytes": 57720454648
+    },
+    "flux2_klein_4b": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "51a76cb1cf3ed37423a1128c79c22faee8e6fbe7f5aaeb737f0a258930dbaac0",
+          "size": 446
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "067afb012cef64553a763447d1efd93daeffcc0123ca7e25b09f8de20b90762e",
+          "size": 486
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "214b4c29a0d975e9fddf9994a5673f22cb2c4c5750352f9227c2c3251ebeab40",
+          "size": 1536
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "4347b1aeed2b2b78bc059920a0b7f5fec71482e1344952b76d7665d638d71f13",
+          "size": 214
+        },
+        {
+          "path": "text_encoder/model-00001-of-00002.safetensors",
+          "sha256": "8c0506e7f4936fa7e26183a4fd8da4e2bdbc5990ba64ae441f965d51228f36ea",
+          "size": 4967215360
+        },
+        {
+          "path": "text_encoder/model-00002-of-00002.safetensors",
+          "sha256": "82f2bd839378541b0557bfabaf37c7d3d637071fdcb73302dedd7cf61162ce07",
+          "size": 3077766632
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "06b3d5319b6d76d1a4a2433419180016cfd54ed62d086a5e6567a809f8c82634",
+          "size": 32855
+        },
+        {
+          "path": "tokenizer/added_tokens.json",
+          "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
+          "size": 707
+        },
+        {
+          "path": "tokenizer/chat_template.jinja",
+          "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+          "size": 4168
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "tokenizer/tokenizer.json",
+          "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+          "size": 11422654
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0",
+          "size": 5404
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "09733c74a3da6d17dd0a0472a091a8950c7c6935889c32c16cc800ede05029de",
+          "size": 541
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948",
+          "size": 821
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
+          "size": 168120878
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model.safetensors",
+          "sha256": "9f29f9edcfdae452a653ffb51a534ca4decd389952c225724ff3b94042612a6e",
+          "size": 7751109744
+        }
+      ],
+      "totalBytes": 15980131745
+    },
+    "flux2_klein_4b_gguf_q4": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "51a76cb1cf3ed37423a1128c79c22faee8e6fbe7f5aaeb737f0a258930dbaac0",
+          "size": 446
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "067afb012cef64553a763447d1efd93daeffcc0123ca7e25b09f8de20b90762e",
+          "size": 486
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "214b4c29a0d975e9fddf9994a5673f22cb2c4c5750352f9227c2c3251ebeab40",
+          "size": 1536
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "4347b1aeed2b2b78bc059920a0b7f5fec71482e1344952b76d7665d638d71f13",
+          "size": 214
+        },
+        {
+          "path": "text_encoder/model-00001-of-00002.safetensors",
+          "sha256": "8c0506e7f4936fa7e26183a4fd8da4e2bdbc5990ba64ae441f965d51228f36ea",
+          "size": 4967215360
+        },
+        {
+          "path": "text_encoder/model-00002-of-00002.safetensors",
+          "sha256": "82f2bd839378541b0557bfabaf37c7d3d637071fdcb73302dedd7cf61162ce07",
+          "size": 3077766632
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "06b3d5319b6d76d1a4a2433419180016cfd54ed62d086a5e6567a809f8c82634",
+          "size": 32855
+        },
+        {
+          "path": "tokenizer/added_tokens.json",
+          "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
+          "size": 707
+        },
+        {
+          "path": "tokenizer/chat_template.jinja",
+          "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+          "size": 4168
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "tokenizer/tokenizer.json",
+          "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+          "size": 11422654
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0",
+          "size": 5404
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "09733c74a3da6d17dd0a0472a091a8950c7c6935889c32c16cc800ede05029de",
+          "size": 541
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948",
+          "size": 821
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
+          "size": 168120878
+        },
+        {
+          "path": "flux-2-klein-4b-Q4_K_M.gguf",
+          "sha256": "0b25d143c8469b342bc5af3bce92b783bf6b0636d285f7b2f75e38af63af9a15",
+          "size": 2604311104,
+          "target": "gguf/flux-2-klein-4b-Q4_K_M.gguf"
+        }
+      ],
+      "totalBytes": 10833333105
+    },
     "font_rtdetr_v2": {
       "assets": [
         {
@@ -374,6 +767,71 @@
       ],
       "totalBytes": 4702111200
     },
+    "instruct_pix2pix": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "4ccaf9b31f00937caf1c61578c497b53d63131a830fc08f812b2b55d86c9855e",
+          "size": 616
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "81fe3f35ef35556fed140f94a61fbefcb3982cbd771686014c9be00435c3bbcc",
+          "size": 569
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "c90121fab17b226c98ae813c1778add7edbdcbdcf7ceaff7aa197fdf8c8a6b3a",
+          "size": 617
+        },
+        {
+          "path": "text_encoder/model.fp16.safetensors",
+          "sha256": "77795e2023adcf39bc29a884661950380bd093cf0750a966d473d1718dc9ef4e",
+          "size": 246144864
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a",
+          "size": 524619
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "c4864a9376a8401918425bed71fc14fc0e81f9b59ec45c1cf96cccb2df508eac",
+          "size": 472
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "00439066fcba73de57644cf41e4e3b9f2dbb09d7f3fc2005898ba52399045882",
+          "size": 806
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349",
+          "size": 1059962
+        },
+        {
+          "path": "unet/config.json",
+          "sha256": "f6c4ea486da4d813c389de1fc405fcb64139ca18f0729733dc177dad17854347",
+          "size": 1021
+        },
+        {
+          "path": "unet/diffusion_pytorch_model.fp16.safetensors",
+          "sha256": "0d6bbc0a95dd125196d327a660b43d24c56f433eb30d2776f1327fb86bd38f78",
+          "size": 1719148344
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "46621c584ebe6666853057a58a4a60047f18f8b83a16cf4603e8359a91e485f6",
+          "size": 553
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.fp16.safetensors",
+          "sha256": "4fbcf0ebe55a0984f5a5e00d8c4521d52359af7229bb4d81890039d2aa16dd7c",
+          "size": 167335342
+        }
+      ],
+      "totalBytes": 2134217785
+    },
     "lama_fp32": {
       "assets": [
         {
@@ -403,6 +861,166 @@
         }
       ],
       "totalBytes": 219307808
+    },
+    "longcat_image_edit_turbo": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "fb1b2cf06b2ce4cc96dddb97f2e38b7bc5f08fa94aecf3eeca6bc7ea3ce26b1e",
+          "size": 48
+        },
+        {
+          "path": "model_index.json",
+          "sha256": "1b5aab9df4a3d2cada533b646050db3da57fe9940bdc1b7d1d52ea07c41fb122",
+          "size": 508
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "7c00c7e8a1c34c0b62a6e6f52b3cc2aa6ca255f8a519341779367f61c6447dde",
+          "size": 274
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+          "size": 1374
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "ee519655686f42fee1560c63107ef1e1b40e7a98084c16733f7a5716b5d17a04",
+          "size": 244
+        },
+        {
+          "path": "text_encoder/model-00001-of-00005.safetensors",
+          "sha256": "e97b877e47fde53a6c6e77aafb36e58e91ee9d95c4a3eeac6f1b5c0e6a1c986e",
+          "size": 3900233256
+        },
+        {
+          "path": "text_encoder/model-00002-of-00005.safetensors",
+          "sha256": "a9a300a43b4724eee2abe7c18ceb26768d0ab011eb0cad19d9bfd2476a24d024",
+          "size": 3864726320
+        },
+        {
+          "path": "text_encoder/model-00003-of-00005.safetensors",
+          "sha256": "111223d173e00bbee81cba1216fad28668df3476706b7fd26f4d5b50f8b3a507",
+          "size": 3864726424
+        },
+        {
+          "path": "text_encoder/model-00004-of-00005.safetensors",
+          "sha256": "ef47f634fa57d46ee134edcc09f34085a47da1e16c12a2abe0d67118be6d72ed",
+          "size": 3864733680
+        },
+        {
+          "path": "text_encoder/model-00005-of-00005.safetensors",
+          "sha256": "0c859795ad3a627a9b95bcb762e059d5b768a4a36fdd4affeff269d93fdecc67",
+          "size": 1089994880
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "73b333b0b16e5286ddba615d2caebcd495cf7e616f52eb217a81781393d79de9",
+          "size": 57619
+        },
+        {
+          "path": "text_encoder/preprocessor_config.json",
+          "sha256": "b768ac359f15303a500de73a5f218c266969156ed9822e86cdeb26fe4b690f2b",
+          "size": 351
+        },
+        {
+          "path": "text_processor/chat_template.json",
+          "sha256": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+          "size": 1050
+        },
+        {
+          "path": "text_processor/config.json",
+          "sha256": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+          "size": 1374
+        },
+        {
+          "path": "text_processor/merges.txt",
+          "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+          "size": 1671839
+        },
+        {
+          "path": "text_processor/preprocessor_config.json",
+          "sha256": "b768ac359f15303a500de73a5f218c266969156ed9822e86cdeb26fe4b690f2b",
+          "size": 351
+        },
+        {
+          "path": "text_processor/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "text_processor/tokenizer.json",
+          "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+          "size": 7031645
+        },
+        {
+          "path": "text_processor/tokenizer_config.json",
+          "sha256": "7d0fc4691628c9f6b0c77f8138a80517896a307e074dd5ac87e279ea85515774",
+          "size": 7226
+        },
+        {
+          "path": "text_processor/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "tokenizer/chat_template.json",
+          "sha256": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+          "size": 1050
+        },
+        {
+          "path": "tokenizer/config.json",
+          "sha256": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+          "size": 1374
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+          "size": 1671839
+        },
+        {
+          "path": "tokenizer/preprocessor_config.json",
+          "sha256": "b768ac359f15303a500de73a5f218c266969156ed9822e86cdeb26fe4b690f2b",
+          "size": 351
+        },
+        {
+          "path": "tokenizer/tokenizer.json",
+          "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+          "size": 7031645
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "7d0fc4691628c9f6b0c77f8138a80517896a307e074dd5ac87e279ea85515774",
+          "size": 7226
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "6d46e0a660b1022c9fc26d97c6c71ab89f5ff45af93fc25bff5159212d9b1bd4",
+          "size": 326
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model.safetensors",
+          "sha256": "fba1d2c0954bbeb624159f49edb5cb1c8f4edcbd310449b682026ca30080de2e",
+          "size": 12541410152
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "ad6f0acb584ceb3d136d1e32b684dec65db24bffe9223df2bac0b45539d4e6b5",
+          "size": 820
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "f5b59a26851551b67ae1fe58d32e76486e1e812def4696a4bea97f16604d40a3",
+          "size": 167666902
+        }
+      ],
+      "totalBytes": 29316534427
     },
     "m2m100_1_2b_ct2": {
       "assets": [
@@ -1154,6 +1772,322 @@
       ],
       "totalBytes": 7520892432
     },
+    "qwen_image_edit_2511": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "5ba11ceee68457ad6a48b899b8c9493e347f4685e11e5eeca952a13f16549e35",
+          "size": 516
+        },
+        {
+          "path": "processor/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "processor/chat_template.jinja",
+          "sha256": "a0bc6f6fc7a29a80017a433e8f03a1cc1236e838a944a2d034295a60c4f2fddb",
+          "size": 1017
+        },
+        {
+          "path": "processor/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "processor/preprocessor_config.json",
+          "sha256": "e98b81513c5d03209ac71194b3cd5303b90956097ffdb9e2aa64d6d1a13ae74e",
+          "size": 826
+        },
+        {
+          "path": "processor/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "processor/tokenizer.json",
+          "sha256": "9c5ae00e602b8860cbd784ba82a8aa14e8feecec692e7076590d014d7b7fdafa",
+          "size": 11421896
+        },
+        {
+          "path": "processor/tokenizer_config.json",
+          "sha256": "1b20115c83f30580a8c0fc330f47fad9222dccd4f739fe2d48e62ee93d28ac19",
+          "size": 4727
+        },
+        {
+          "path": "processor/video_preprocessor_config.json",
+          "sha256": "6763a66890170c801051d721ac1679339c2f1a4f4e31076bc58661756670c32f",
+          "size": 910
+        },
+        {
+          "path": "processor/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "7ee767e37bae4af31d4eb935e125bb20a2237eeecafd22af6610093865c6f587",
+          "size": 485
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "4a49f14a1594fd988ab301e491ac522cd9b0e8fd1c9232b806c54568f348c1fb",
+          "size": 3146
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "50867494bddf9ddc8e289e6214be5a2263e68f16c127a3652c6eb9f17990e5d9",
+          "size": 244
+        },
+        {
+          "path": "text_encoder/model-00001-of-00004.safetensors",
+          "sha256": "d725335e4ea2399be706469e4b8807716a8fa64bd03468252e9f7acf2415fee4",
+          "size": 4968243304
+        },
+        {
+          "path": "text_encoder/model-00002-of-00004.safetensors",
+          "sha256": "b1830db6908dcc76df3a71492acbcf2b8cac130114cf1f3c2d9edae8de8c6de3",
+          "size": 4991495816
+        },
+        {
+          "path": "text_encoder/model-00003-of-00004.safetensors",
+          "sha256": "09c1807c6d00d7cab94f7db39d4c02ebb8537225ccde383861ac48db97945aa6",
+          "size": 4932751040
+        },
+        {
+          "path": "text_encoder/model-00004-of-00004.safetensors",
+          "sha256": "5dd068336d14d45ffb43cef374d286cc6ba9d8741b028f90a7d040d847961f4a",
+          "size": 1691924384
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "4be35310ddc165e46e88de4c3fec8c1210014b0b8717f4544d82cc740814ae0c",
+          "size": 57655
+        },
+        {
+          "path": "tokenizer/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "tokenizer/chat_template.jinja",
+          "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5",
+          "size": 2427
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "0a04a9d7d4a62b28482bdfe726c122756de85714fb64166ace92ae75b8f57614",
+          "size": 4686
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "87a257b04b17642a0688c98cd1df89c398bda4fee532d6f88b38a659ecb4ac8d",
+          "size": 3383407
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "43c02875ed3e0d4c1b3a1007b34505d0bd2c1607fc90b2107c5e39c53d187113",
+          "size": 362
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "c448160dba5ce79c965cb075ee02e18d1c42eb6424f787e5869790d577b56a65",
+          "size": 730
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "0c8bc8b758c649abef9ea407b95408389a3b2f610d0d10fcb054fe171d0a8344",
+          "size": 253806966
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00001-of-00005.safetensors",
+          "sha256": "2a0c30c9ba44a5f11c21ca139e37951430bbde814ff4e0b5b1a68b80530e7a1a",
+          "size": 9973578592
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00002-of-00005.safetensors",
+          "sha256": "54ec249b07b4376e19cf16b764054f03ca03ae2cfbd9939453e2085f4e9bd259",
+          "size": 9987326072
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00003-of-00005.safetensors",
+          "sha256": "c55157843525653161e8f6af5acc670ba3aceff04284f7cf657199d24d065e16",
+          "size": 9987307440
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00004-of-00005.safetensors",
+          "sha256": "ffcfb5a4895702635890a67bad183591e0ae515d794bdcb26e217b27a7f6d12d",
+          "size": 9930685712
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model-00005-of-00005.safetensors",
+          "sha256": "2b2556b736629e10a5a0dfa14606f2057f4f81c2ba53f94103682c7ac42d4940",
+          "size": 982130472
+        },
+        {
+          "path": "transformer/diffusion_pytorch_model.safetensors.index.json",
+          "sha256": "034f003b74493730e1c595b2e23232e99d9e28bcef3b4c10c56d1b53eee4b435",
+          "size": 198887
+        }
+      ],
+      "totalBytes": 57720454694
+    },
+    "qwen_image_edit_2511_gguf_q4": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "5ba11ceee68457ad6a48b899b8c9493e347f4685e11e5eeca952a13f16549e35",
+          "size": 516
+        },
+        {
+          "path": "processor/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "processor/chat_template.jinja",
+          "sha256": "a0bc6f6fc7a29a80017a433e8f03a1cc1236e838a944a2d034295a60c4f2fddb",
+          "size": 1017
+        },
+        {
+          "path": "processor/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "processor/preprocessor_config.json",
+          "sha256": "e98b81513c5d03209ac71194b3cd5303b90956097ffdb9e2aa64d6d1a13ae74e",
+          "size": 826
+        },
+        {
+          "path": "processor/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "processor/tokenizer.json",
+          "sha256": "9c5ae00e602b8860cbd784ba82a8aa14e8feecec692e7076590d014d7b7fdafa",
+          "size": 11421896
+        },
+        {
+          "path": "processor/tokenizer_config.json",
+          "sha256": "1b20115c83f30580a8c0fc330f47fad9222dccd4f739fe2d48e62ee93d28ac19",
+          "size": 4727
+        },
+        {
+          "path": "processor/video_preprocessor_config.json",
+          "sha256": "6763a66890170c801051d721ac1679339c2f1a4f4e31076bc58661756670c32f",
+          "size": 910
+        },
+        {
+          "path": "processor/vocab.json",
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+          "size": 2776833
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "7ee767e37bae4af31d4eb935e125bb20a2237eeecafd22af6610093865c6f587",
+          "size": 485
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "4a49f14a1594fd988ab301e491ac522cd9b0e8fd1c9232b806c54568f348c1fb",
+          "size": 3146
+        },
+        {
+          "path": "text_encoder/generation_config.json",
+          "sha256": "50867494bddf9ddc8e289e6214be5a2263e68f16c127a3652c6eb9f17990e5d9",
+          "size": 244
+        },
+        {
+          "path": "text_encoder/model-00001-of-00004.safetensors",
+          "sha256": "d725335e4ea2399be706469e4b8807716a8fa64bd03468252e9f7acf2415fee4",
+          "size": 4968243304
+        },
+        {
+          "path": "text_encoder/model-00002-of-00004.safetensors",
+          "sha256": "b1830db6908dcc76df3a71492acbcf2b8cac130114cf1f3c2d9edae8de8c6de3",
+          "size": 4991495816
+        },
+        {
+          "path": "text_encoder/model-00003-of-00004.safetensors",
+          "sha256": "09c1807c6d00d7cab94f7db39d4c02ebb8537225ccde383861ac48db97945aa6",
+          "size": 4932751040
+        },
+        {
+          "path": "text_encoder/model-00004-of-00004.safetensors",
+          "sha256": "5dd068336d14d45ffb43cef374d286cc6ba9d8741b028f90a7d040d847961f4a",
+          "size": 1691924384
+        },
+        {
+          "path": "text_encoder/model.safetensors.index.json",
+          "sha256": "4be35310ddc165e46e88de4c3fec8c1210014b0b8717f4544d82cc740814ae0c",
+          "size": 57655
+        },
+        {
+          "path": "tokenizer/added_tokens.json",
+          "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b",
+          "size": 605
+        },
+        {
+          "path": "tokenizer/chat_template.jinja",
+          "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5",
+          "size": 2427
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+          "size": 1671853
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+          "size": 613
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "0a04a9d7d4a62b28482bdfe726c122756de85714fb64166ace92ae75b8f57614",
+          "size": 4686
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "87a257b04b17642a0688c98cd1df89c398bda4fee532d6f88b38a659ecb4ac8d",
+          "size": 3383407
+        },
+        {
+          "path": "transformer/config.json",
+          "sha256": "43c02875ed3e0d4c1b3a1007b34505d0bd2c1607fc90b2107c5e39c53d187113",
+          "size": 362
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "c448160dba5ce79c965cb075ee02e18d1c42eb6424f787e5869790d577b56a65",
+          "size": 730
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "0c8bc8b758c649abef9ea407b95408389a3b2f610d0d10fcb054fe171d0a8344",
+          "size": 253806966
+        },
+        {
+          "path": "qwen-image-edit-2511-Q4_K_M.gguf",
+          "sha256": "07951f61941a81e236cbd4a9b6f250d49626b3ba518f260135bf2e01a87cf1c8",
+          "size": 12842830432,
+          "target": "gguf/qwen-image-edit-2511-Q4_K_M.gguf"
+        }
+      ],
+      "totalBytes": 29702057951
+    },
     "rolmocr": {
       "assets": [
         {
@@ -1253,6 +2187,101 @@
         }
       ],
       "totalBytes": 4250296192
+    },
+    "sdxl_instruct_pix2pix": {
+      "assets": [
+        {
+          "path": "model_index.json",
+          "sha256": "16e678606109ee42708b82bdde19f2d07d9dfaca93e53b6e380c75cfdf3a2fd9",
+          "size": 660
+        },
+        {
+          "path": "scheduler/scheduler_config.json",
+          "sha256": "a8e9a8517e8739938ea85819012bad195d41ccb3e11e2501cf196da64099b1f6",
+          "size": 479
+        },
+        {
+          "path": "text_encoder/config.json",
+          "sha256": "bec07f47bf6a543fae0f641707b2d731ebc1de2ba5bc9bd763dc6836a4087062",
+          "size": 623
+        },
+        {
+          "path": "text_encoder/model.safetensors",
+          "sha256": "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd",
+          "size": 246144152
+        },
+        {
+          "path": "text_encoder_2/config.json",
+          "sha256": "29d73e132d39fc2b8fcfb3150834d573f13072acbc92b5af6577d6e88540abf0",
+          "size": 633
+        },
+        {
+          "path": "text_encoder_2/model.safetensors",
+          "sha256": "ec310df2af79c318e24d20511b601a591ca8cd4f1fce1d8dff822a356bcdb1f4",
+          "size": 1389382176
+        },
+        {
+          "path": "tokenizer/merges.txt",
+          "sha256": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a",
+          "size": 524619
+        },
+        {
+          "path": "tokenizer/special_tokens_map.json",
+          "sha256": "c4864a9376a8401918425bed71fc14fc0e81f9b59ec45c1cf96cccb2df508eac",
+          "size": 472
+        },
+        {
+          "path": "tokenizer/tokenizer_config.json",
+          "sha256": "19d7b034cb0cc3ce9766c2231373ab8aa8991fc72e2c8f76558bfaae3de0d563",
+          "size": 737
+        },
+        {
+          "path": "tokenizer/vocab.json",
+          "sha256": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349",
+          "size": 1059962
+        },
+        {
+          "path": "tokenizer_2/merges.txt",
+          "sha256": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a",
+          "size": 524619
+        },
+        {
+          "path": "tokenizer_2/special_tokens_map.json",
+          "sha256": "f118ab3a983206e4f32583448de6bd6aae4ee21869135cef1f5848a753cdaab6",
+          "size": 460
+        },
+        {
+          "path": "tokenizer_2/tokenizer_config.json",
+          "sha256": "c9d23941f76a41cbd50eda9290f57be7828f0a7a677939e9ef181f7e12bd1bdf",
+          "size": 725
+        },
+        {
+          "path": "tokenizer_2/vocab.json",
+          "sha256": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349",
+          "size": 1059962
+        },
+        {
+          "path": "unet/config.json",
+          "sha256": "b60baa09cc4afbeddafb4cc07136dbe4606c01198e4e7622eefb4c82fe7cddc8",
+          "size": 1774
+        },
+        {
+          "path": "unet/diffusion_pytorch_model.safetensors",
+          "sha256": "01d538927edfdf63511a38840b9d0cd8d8dcd4e40001566b83c9104ef1a2f92f",
+          "size": 10270123816
+        },
+        {
+          "path": "vae/config.json",
+          "sha256": "b822341e6125efedebffb8e3f35e7288aab06bb4c49853d50a16964bf104a727",
+          "size": 659
+        },
+        {
+          "path": "vae/diffusion_pytorch_model.safetensors",
+          "sha256": "98a14dc6fe8d71c83576f135a87c61a16561c9c080abba418d2cc976ee034f88",
+          "size": 334643268
+        }
+      ],
+      "totalBytes": 12243469796
     },
     "sugoi_v4_ja_en_ct2": {
       "assets": [

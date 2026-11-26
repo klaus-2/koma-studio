@@ -1,8 +1,11 @@
-/** Clean Image (AI) / SFX stage-runs behind the shared transport seam. */
 import {
   toCustomLlmRequestPayload,
   type CustomLlmRequestProfile,
 } from '../utils/customLlm';
+import {
+  toBackendImageEditModelConfigPayload,
+  type ImageEditModelConfig,
+} from '../utils/imageEditModelConfig';
 import type { SfxClassificationResponse } from '../utils/sfx';
 import { createStageForm } from './formPrep';
 import { toStructuralRegionsJson } from './payloads';
@@ -14,16 +17,15 @@ import type {
   StageRuntime,
 } from './types';
 
-/** Shared args for structural Clean Image (AI) / SFX stage-runs. */
 export interface StructuralCleanStageArgs {
   image: StageImageRef;
   modelKey: string;
   regions: RegionList;
   additionalInstructions: string;
   customProfile?: CustomLlmRequestProfile | null;
+  modelConfig?: ImageEditModelConfig | null;
 }
 
-/** Stage-specific structural extras on top of the shared form prep. */
 function appendStructuralCleanFields(
   form: FormData,
   args: StructuralCleanStageArgs,
@@ -34,9 +36,14 @@ function appendStructuralCleanFields(
   if (customPayload) {
     form.append('custom_llm', JSON.stringify(customPayload));
   }
+  if (args.modelConfig) {
+    form.append(
+      'model_config',
+      JSON.stringify(toBackendImageEditModelConfigPayload(args.modelConfig)),
+    );
+  }
 }
 
-/** POST /sfx/classify — structural SFX decisions for candidate Regions. */
 export function runSfxClassifyStage(
   args: StructuralCleanStageArgs,
   runtime: StageRuntime,
@@ -53,10 +60,6 @@ export function runSfxClassifyStage(
   });
 }
 
-/**
- * POST /clean/ai — AI Clean / SFX clean. Value is the cleaned image blob;
- * callers assert `type.startsWith('image/')`.
- */
 export function runCleanImageAiStage(
   args: StructuralCleanStageArgs,
   runtime: StageRuntime,

@@ -53,6 +53,7 @@ const STAGE_LABEL_KEYS: Record<AioLocalModelStage, string> = {
   translation: 'aio.stage.getTranslations',
   segmentText: 'aio.stage.segmentText',
   cleanImage: 'aio.stage.cleanImage',
+  imageEdit: 'modelManager.stage.imageEdit',
   enhanceImage: 'dashboard.mode.enhance',
 };
 

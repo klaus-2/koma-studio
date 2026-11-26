@@ -1,6 +1,4 @@
 const MAX_RETRY_ATTEMPTS = 3;
-// Poll interval for the job snapshot from the mini-backend (the backend already
-// throttles its own granularity; 1s is enough for multi-GB downloads).
 const MODEL_JOB_POLL_INTERVAL_MS = 200;
 const PARTIAL_FILE_NAME = "download.partial";
 const MANIFEST_FILE_NAME = "manifest.json";
@@ -77,6 +75,14 @@ const BACKEND_MANAGED_MODEL_IDS = new Set<string>([
   SEGMENT_BAKA_MODEL_ID,
   "comic_text_detector",
   FONT_RTDETR_MODEL_ID,
+  "instruct_pix2pix",
+  "sdxl_instruct_pix2pix",
+  "flux2_klein_4b_gguf_q4",
+  "flux2_klein_4b",
+  "longcat_image_edit_turbo",
+  "qwen_image_edit_2511_gguf_q4",
+  "qwen_image_edit_2511",
+  "firered_image_edit_1_1",
 ]);
 
 export {

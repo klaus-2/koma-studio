@@ -5,11 +5,10 @@ import {
   type Driver,
   type DriverHook,
 } from 'driver.js';
-// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
 import 'driver.js/dist/driver.css';
 
 import { useI18n } from '../i18n';
-import type { ToolMode } from '../types/dashboard.types';
+import type { SubMode, ToolMode } from '../types/dashboard.types';
 import { useLatestRef } from '../utils/shallowStable';
 import {
   navigateResolvableTourStep,
@@ -23,7 +22,7 @@ import './DashboardTour.css';
 
 type TFunc = ReturnType<typeof useI18n>['t'];
 type DashboardTourToolMode = ToolMode;
-type DashboardTourSubMode = 'auto' | 'manual';
+type DashboardTourSubMode = SubMode;
 
 export type DashboardTourForcedDropdown =
   | 'production'

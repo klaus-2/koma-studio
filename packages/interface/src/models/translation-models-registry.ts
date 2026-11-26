@@ -8,10 +8,14 @@ import {
 import {
   CLEAN_IMAGE_MODELS_REGISTRY,
   ENHANCE_IMAGE_MODELS_REGISTRY,
+  IMAGE_EDIT_MODELS_REGISTRY,
   SEGMENT_TEXT_MODELS_REGISTRY,
 } from "./translation-image-model-registry-data";
 
-export { ENHANCE_IMAGE_MODELS_REGISTRY } from "./translation-image-model-registry-data";
+export {
+  ENHANCE_IMAGE_MODELS_REGISTRY,
+  IMAGE_EDIT_MODELS_REGISTRY,
+} from "./translation-image-model-registry-data";
 
 export const TRANSLATION_MODELS_REGISTRY: TranslationModel[] = BASE_TRANSLATION_MODELS_REGISTRY;
 
@@ -21,6 +25,7 @@ export const LOCAL_AIO_MODELS_REGISTRY: TranslationModel[] = [
   ...RECOGNIZE_TEXT_MODELS_REGISTRY,
   ...SEGMENT_TEXT_MODELS_REGISTRY,
   ...CLEAN_IMAGE_MODELS_REGISTRY,
+  ...IMAGE_EDIT_MODELS_REGISTRY,
   ...ENHANCE_IMAGE_MODELS_REGISTRY,
 ];
 
@@ -33,6 +38,7 @@ export const AIO_LOCAL_MODELS_BY_STAGE: Record<AioLocalModelStage, TranslationMo
   recognizeText: RECOGNIZE_TEXT_MODELS_REGISTRY,
   segmentText: SEGMENT_TEXT_MODELS_REGISTRY,
   cleanImage: CLEAN_IMAGE_MODELS_REGISTRY,
+  imageEdit: IMAGE_EDIT_MODELS_REGISTRY,
   enhanceImage: ENHANCE_IMAGE_MODELS_REGISTRY,
 };
 
@@ -42,7 +48,6 @@ export const TRANSLATION_MODELS_BY_ID: Record<string, TranslationModel> =
 export const getTranslationModelById = (modelId: string): TranslationModel | null =>
   TRANSLATION_MODELS_BY_ID[modelId] ?? null;
 
-/** Missing capability means runnable: only download-only entries declare it. */
 export const getModelRuntimeSupport = (
   model: Readonly<Pick<TranslationModel, "runtimeSupport">>,
 ): ModelRuntimeSupport => model.runtimeSupport ?? "runnable";
@@ -60,6 +65,7 @@ export const modelStageLabel = (stage: AioLocalModelStage): string => {
   if (stage === "recognizeText") return "Recognize Text";
   if (stage === "segmentText") return "Segment Text";
   if (stage === "cleanImage") return "Clean Image";
+  if (stage === "imageEdit") return "Image Edit (AI)";
   return "Enhance Image";
 };
 

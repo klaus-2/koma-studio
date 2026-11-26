@@ -1,3 +1,4 @@
+import type { SubMode } from '@/types/dashboard.types';
 import type { CustomLlmProfile } from '@/utils/customLlm';
 import {
   isCloudOcrModelKey,
@@ -15,10 +16,16 @@ export interface CloudPreviewStageInput {
   readonly translationModelKey: string | null;
   readonly customTranslationProfile: CustomLlmProfile | null;
   readonly customOcrProfile: CustomLlmProfile | null;
+  readonly subMode?: SubMode;
+  readonly cleanViaAi?: boolean;
+  readonly cleanAiModelKey?: string | null;
+  readonly customCleanProfile?: CustomLlmProfile | null;
+  readonly aioAiModelKey?: string | null;
+  readonly customAioAiProfile?: CustomLlmProfile | null;
 }
 
 export interface RemoteStageDestination {
-  readonly stage: 'ocr' | 'translation';
+  readonly stage: 'ocr' | 'translation' | 'imageEdit';
   readonly provider: string;
   readonly providerLabel: string;
   readonly apiBase: string | null;
@@ -30,6 +37,7 @@ export interface CloudPreviewGate {
   readonly required: boolean;
   readonly ocr: RemoteStageDestination | null;
   readonly translation: RemoteStageDestination | null;
+  readonly imageEdit?: RemoteStageDestination | null;
 }
 
 const DIALOG_ASK_STORAGE_KEY = 'koma.aio.cloudPreview.ask';
@@ -118,6 +126,36 @@ const buildOcrDestination = (
   };
 };
 
+const buildImageEditDestination = (
+  modelKey: string | null | undefined,
+  profile: CustomLlmProfile | null,
+): RemoteStageDestination | null => {
+  if (!modelKey || !modelKey.startsWith('custom_clean:')) {
+    return null;
+  }
+  if (profile !== null) {
+    if (shouldUseLocalDesktopTranslationForCustomProfile(profile)) {
+      return null;
+    }
+    return {
+      stage: 'imageEdit',
+      provider: profile.id,
+      providerLabel: profile.label,
+      apiBase: profile.apiBase,
+      source: 'custom',
+      modelKey,
+    };
+  }
+  return {
+    stage: 'imageEdit',
+    provider: modelKey.slice('custom_clean:'.length),
+    providerLabel: '',
+    apiBase: null,
+    source: 'custom',
+    modelKey,
+  };
+};
+
 export function resolveCloudPreviewGate(
   input: CloudPreviewStageInput,
 ): CloudPreviewGate {
@@ -157,9 +195,17 @@ export function resolveCloudPreviewGate(
     }
   }
 
+  const imageEdit =
+    input.subMode === 'ai'
+      ? buildImageEditDestination(input.aioAiModelKey, input.customAioAiProfile ?? null)
+      : input.cleanViaAi
+        ? buildImageEditDestination(input.cleanAiModelKey, input.customCleanProfile ?? null)
+        : null;
+
   return {
-    required: ocr !== null || translation !== null,
+    required: ocr !== null || translation !== null || imageEdit !== null,
     ocr,
     translation,
+    imageEdit,
   };
 }

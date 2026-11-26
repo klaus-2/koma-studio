@@ -63,9 +63,6 @@ type RuntimeConfig = {
   authDisabled: boolean;
 };
 
-// Fallback for the window bridge before the main process answers the config
-// sync: `appPackaged: false` describes an unpackaged dev shell, so anything but
-// an explicit falsy value means local mode here too (same rule as main.ts).
 const authDisabledFlag = (process.env.VITE_AUTH_DISABLED ?? "").trim().toLowerCase();
 
 const fallbackRuntimeConfig: RuntimeConfig = {
@@ -109,7 +106,6 @@ const emitRendererSessionLog = (
       message,
     });
   } catch {
-    // no-op
   }
 };
 
@@ -172,7 +168,6 @@ const notifyModelManagerListeners = (event: ModelManagerEvent): void => {
     try {
       listener(event);
     } catch {
-      // Listener errors should not break the event stream.
     }
   });
 };
@@ -182,7 +177,6 @@ const notifyMiniBackendRuntimeListeners = (state: MiniBackendRuntimeStatePayload
     try {
       listener(state);
     } catch {
-      // Listener errors should not break the event stream.
     }
   });
 };
@@ -660,8 +654,12 @@ contextBridge.exposeInMainWorld("desktop", {
         | "enhance_onnx_bundle"
         | "pytorch_checkpoint"
         | "ctranslate2"
+        | "gguf"
+        | "safetensors_bundle"
+        | "transformers"
         | "transformers_vlm"
         | "transformers_vlm_paddleocr_manga"
+        | "diffusers_image_edit"
         | "managed_runtime";
       backendInstallEndpoint?: string;
     }): Promise<unknown> => invokeSecureDesktopApi("desktop-models:download", payload),
@@ -898,8 +896,6 @@ contextBridge.exposeInMainWorld("desktop", {
   },
 });
 
-/* ─── Source-sync updater bridge (git pull → bun install → venv → rebuild) ── */
-
 const SYNC_EVENT_CHANNEL = "updater:sync-event";
 
 const syncListeners = new Set<UpdaterSyncLogListener>();
@@ -919,7 +915,6 @@ ipcRenderer.on(SYNC_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
     try {
       listener(payload);
     } catch {
-      // Listener failures should not break preload event dispatch.
     }
   });
 });
@@ -950,7 +945,6 @@ ipcRenderer.on("updater:event", (_event, rawPayload: unknown) => {
     try {
       listener(payload);
     } catch {
-      // Listener failures should not break preload event dispatch.
     }
   });
 });

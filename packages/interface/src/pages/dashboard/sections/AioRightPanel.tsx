@@ -65,7 +65,9 @@ import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
+import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import AioAiConfigPanel from './AioAiConfigPanel';
 import type {
   useAioManualExecution,
   useAioModelSelection,
@@ -99,6 +101,7 @@ interface AioRightPanelProps {
   activeManualStageStatus: AioManualStageStatus | null;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
+  processAioAi?: AioPipelineExecutionApi['processAioAi'];
   activeAioStageKey: AioPipelineSnapshotKey;
   aioPipelineStageProgressLabels: SnapshotLabels;
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
@@ -166,6 +169,7 @@ export default memo(function AioRightPanel({
   activeManualStageStatus,
   stopAioExecution,
   processAIO,
+  processAioAi,
   activeAioStageKey,
   aioPipelineStageProgressLabels,
   normalizedAioSourceLanguage,
@@ -224,7 +228,6 @@ export default memo(function AioRightPanel({
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);
 
-  /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
   const resolvedActiveId = useMemo(
@@ -243,7 +246,6 @@ export default memo(function AioRightPanel({
   const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
   const setCleanerSrcLang = useCleanerStore((s) => s.setCleanerSrcLang);
 
-  /* ── UI shell ── */
   const mode = useUiShellStore((s) => s.mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
@@ -271,7 +273,6 @@ export default memo(function AioRightPanel({
     [setActiveStageTab],
   );
 
-  /* ── AIO pipeline ── */
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const cleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
@@ -353,8 +354,16 @@ export default memo(function AioRightPanel({
       && aioMiniBackendRuntimeState.requestedProfile !== 'cpu'),
   );
 
+  const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
+  const cleanCustomProfiles = useMemo(
+    () => customLlmProfiles.filter((profile) => profile.stage === 'clean'),
+    [customLlmProfiles],
+  );
+
   const cloudPreview = useAioCloudPreviewStart({
     processAIO,
+    processAioAi,
+    subMode,
     processing,
     images,
     selectedCustomTranslationProfile,
@@ -362,13 +371,12 @@ export default memo(function AioRightPanel({
 
   return (
     <div className="koma-aio-tools">
-      {/* ═══════════════════ PIPELINE ═══════════════════ */}
       <AioSection
         icon={Zap}
         title={t('dashboard.sections.pipeline')}
         badge={
           <span className="koma-aio-section__badge">
-            {enabledStepCount}/6
+            {subMode === 'ai' ? 'AIO IA' : `${enabledStepCount}/6`}
           </span>
         }
       >
@@ -377,9 +385,28 @@ export default memo(function AioRightPanel({
           onChange={handleAioSubModeChange}
         />
 
-        {subMode === 'auto' ? (
+        {subMode === 'ai' ? (
+          <AioAiConfigPanel
+            noir={noir}
+            cleanCustomProfiles={cleanCustomProfiles}
+            availableDetectStageOptions={availableDetectStageOptions}
+            availableOcrStageOptions={availableOcrStageOptions}
+            availableTranslationStageOptions={availableTranslationStageOptions}
+            formatAioStageOptionLabel={formatAioStageOptionLabel}
+            onOpenStageModelManager={(stage) => {
+              if (stage === 'getTranslations') {
+                openModelManagerForStage(stage);
+                return;
+              }
+              const currentKey =
+                useAioPipelineStore.getState().aioStageSelection[stage];
+              openModelManagerForStage(stage, {
+                focusedModelId: resolveLocalModelFocusForStage(stage, currentKey),
+              });
+            }}
+          />
+        ) : subMode === 'auto' ? (
           <>
-            {/* Auto: compact 3×2 chip grid */}
             <div
               className="koma-aio-pipeline-grid"
               data-tour="dashboard-aio-pipeline"
@@ -436,7 +463,6 @@ export default memo(function AioRightPanel({
               />
             </div>
 
-            {/* Rewind / Forward */}
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
@@ -473,7 +499,6 @@ export default memo(function AioRightPanel({
           </>
         ) : (
           <>
-            {/* Manual: timeline */}
             <div className="koma-aio-timeline">
               {AIO_MANUAL_STAGE_ORDER.map((stageKey, index) => {
                 const stageStatus =
@@ -501,7 +526,6 @@ export default memo(function AioRightPanel({
               })}
             </div>
 
-            {/* Manual controls */}
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
@@ -576,7 +600,6 @@ export default memo(function AioRightPanel({
         )}
       </AioSection>
 
-      {/* ═══════════════════ LANGUAGES ═══════════════════ */}
       {(mode as string) === 'cleaner' ? (
         <AioSection icon={Languages} title={t('dashboard.sections.languages')}>
           <div className="koma-field">
@@ -595,9 +618,8 @@ export default memo(function AioRightPanel({
             </select>
           </div>
         </AioSection>
-      ) : (
+      ) : subMode !== 'ai' ? (
         <AioSection icon={Languages} title={t('dashboard.sections.languages')}>
-          {/* Language pair */}
           <div className="koma-aio-lang-row">
             <select
               value={aioSrcLang}
@@ -628,7 +650,6 @@ export default memo(function AioRightPanel({
             </select>
           </div>
 
-          {/* Preset row */}
           <div className="koma-aio-lang-divider" />
           <div className="koma-aio-lang-preset-row">
             <span className="koma-aio-lang-preset-row__label">
@@ -716,7 +737,6 @@ export default memo(function AioRightPanel({
             </div>
           </div>
 
-          {/* Inline preset editor */}
           {aioPresetEditorOpen && (
             <AioPresetEditorForm
               noir={noir}
@@ -731,21 +751,20 @@ export default memo(function AioRightPanel({
 
           <p className="koma-aio-hint">{t('dashboard.aio.config.langHint')}</p>
         </AioSection>
-      )}
+      ) : null}
 
-      {/* ═══════════════════ MODELS & CONFIG ═══════════════════ */}
-      <AioSection
-        icon={Settings}
-        title={t('dashboard.sections.modelsConfig')}
-        data-tour="dashboard-aio-stage-config"
-      >
+      {subMode !== 'ai' && (
+        <AioSection
+          icon={Settings}
+          title={t('dashboard.sections.modelsConfig')}
+          data-tour="dashboard-aio-stage-config"
+        >
         {aioOptionsLoading && (
           <p className="koma-aio-hint">
             {t('dashboard.aio.config.loadingCatalogs')}
           </p>
         )}
 
-        {/* Tab bar */}
         <AioStageTabBar
           tabs={STAGE_TABS}
           activeTab={activeStageTab}
@@ -753,7 +772,6 @@ export default memo(function AioRightPanel({
           onSelect={handleSelectStageTab}
         />
 
-        {/* Tab content */}
         <div className="koma-aio-stage-content">
           {visitedStageTabs.map((tabKey) => (
             <Activity
@@ -803,19 +821,17 @@ export default memo(function AioRightPanel({
           ))}
         </div>
 
-        {/* GPU per-stage toggles */}
         <AioRightPanelGpuSection
           noir={noir}
           aioGpuStages={aioGpuStages}
           aioHasGpuExecutionProfile={aioHasGpuExecutionProfile}
           updateAioGpuStage={updateAioGpuStage}
         />
-      </AioSection>
+        </AioSection>
+      )}
 
-      {/* ═══════════════════ PENDING ISSUES ═══════════════════ */}
       <AioReviewIssuesSection noir={noir} />
 
-      {/* ═══════════════════ MANUAL HINT ═══════════════════ */}
       {subMode === 'manual' && (
         <div className="koma-aio-info" role="status">
           <Paintbrush size={13} className="koma-aio-info__icon" />
@@ -825,11 +841,14 @@ export default memo(function AioRightPanel({
         </div>
       )}
 
-      {/* ═══════════════════ EXECUTE BAR ═══════════════════ */}
       <div
         className="koma-aio-execute"
         ref={executeBarRef}
-        data-auto-processing={processing && subMode === 'auto' ? '' : undefined}
+        data-auto-processing={
+          processing && (subMode === 'auto' || subMode === 'ai')
+            ? ''
+            : undefined
+        }
       >
         <button
           type="button"
@@ -878,7 +897,9 @@ export default memo(function AioRightPanel({
                   activeManualStageStatus === 'skipped'
                   ? t("dashboard.dashboardExecute.rerunStage")
                   : t("dashboard.dashboardExecute.runStage")
-                : t("dashboard.dashboardExecute.runAio")}
+                : subMode === 'ai'
+                  ? t("dashboard.dashboardExecute.runAioAi")
+                  : t("dashboard.dashboardExecute.runAio")}
             </>
           )}
         </button>
@@ -890,6 +911,8 @@ export default memo(function AioRightPanel({
         <AioCloudPreviewMount
           cloudPreview={cloudPreview}
           processAIO={processAIO}
+          processAioAi={processAioAi}
+          subMode={subMode}
           anchorEl={executeBarRef.current}
         />
       </div>
@@ -897,8 +920,6 @@ export default memo(function AioRightPanel({
   );
 });
 
-// The AIO progress tick updates several times per second during a batch: this
-// leaf subscribes itself so those updates stop re-rendering the whole panel.
 interface AioExecuteProcessingLabelProps {
   activeAioStageKey: AioPipelineSnapshotKey;
   stageProgressLabels: SnapshotLabels;

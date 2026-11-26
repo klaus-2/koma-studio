@@ -132,6 +132,50 @@ describe('resolveCloudPreviewGate', () => {
 
     expect(gate.required).toBe(false);
   });
+
+  it('captures imageEdit destination when subMode is ai or cleanViaAi is active', () => {
+    const cleanProfile: CustomLlmProfile = {
+      id: 'clean-1',
+      stage: 'clean',
+      label: 'Gemini Image',
+      apiBase: 'https://generativelanguage.googleapis.com/v1beta/models',
+      apiKey: 'AIza',
+      model: 'gemini-3.1-flash-image-preview',
+      protocol: 'gemini',
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    const aioAiGate = resolveCloudPreviewGate({
+      aioSteps: { recognizeText: false, getTranslations: false },
+      ocrModelKey: null,
+      translationModelKey: null,
+      customTranslationProfile: null,
+      customOcrProfile: null,
+      subMode: 'ai',
+      aioAiModelKey: 'custom_clean:clean-1',
+      customAioAiProfile: cleanProfile,
+    });
+
+    expect(aioAiGate.required).toBe(true);
+    expect(aioAiGate.imageEdit?.stage).toBe('imageEdit');
+    expect(aioAiGate.imageEdit?.provider).toBe('clean-1');
+    expect(aioAiGate.imageEdit?.providerLabel).toBe('Gemini Image');
+
+    const cleanGate = resolveCloudPreviewGate({
+      aioSteps: { recognizeText: false, getTranslations: false },
+      ocrModelKey: null,
+      translationModelKey: null,
+      customTranslationProfile: null,
+      customOcrProfile: null,
+      cleanViaAi: true,
+      cleanAiModelKey: 'custom_clean:clean-1',
+      customCleanProfile: cleanProfile,
+    });
+
+    expect(cleanGate.required).toBe(true);
+    expect(cleanGate.imageEdit?.modelKey).toBe('custom_clean:clean-1');
+  });
 });
 
 describe('cloud preview suppression persistence', () => {

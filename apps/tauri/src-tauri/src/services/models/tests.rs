@@ -1,6 +1,3 @@
-//! Wire pins (serde field spellings shared with the frontend and the on-disk
-//! manifests) plus behavior tests for checksum parsing and the model store.
-
 use std::fs;
 
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -12,10 +9,6 @@ use crate::models::model_manager::{
 
 use super::{checksum, normalize_download_payload, storage, validate_model_id};
 
-// The exact payload the frontend sends for "PaddleOCR v5 English (ONNX)".
-// It was refused with a security error — its download URL points at
-// ModelScope, which the allowlist did not know — so every install attempt
-// failed before a byte was fetched.
 #[test]
 fn paddleocr_payload_from_the_frontend_is_accepted() {
     let payload = DesktopModelDownloadPayload {
@@ -52,10 +45,6 @@ fn model_id_normalizes_and_rejects_path_components() {
     assert!(validate_model_id("").is_err());
 }
 
-// Every host the model registry points at must survive the download URL
-// allowlist, and nothing else may. A host that is not on the list is refused
-// with a security error, which used to make the PaddleOCR bundles (ModelScope)
-// and the comic-text-detector weights (GitHub releases) uninstallable.
 #[test]
 fn download_url_allows_every_host_the_registry_uses() {
     for url in [
@@ -85,10 +74,6 @@ fn download_url_allows_every_host_the_registry_uses() {
     }
 }
 
-// The TS contract (shared-models/desktop-api.ts) spells checksum fields
-// `*SHA256`, matching the on-disk manifest. These tests pin the serde names so
-// a payload from the frontend never fails with
-// "missing field `checksumSha256`" again.
 #[test]
 fn download_payload_accepts_frontend_field_names() {
     let payload = r#"{
@@ -107,7 +92,6 @@ fn download_payload_accepts_frontend_field_names() {
         "54e50d7b19c16883541a0f42f2f2be3617c6597457d8a29f86dc6f5d130f8f2d"
     );
 
-    // The pre-fix plain-camelCase spelling stays accepted on input.
     let legacy = payload.replace("checksumSHA256", "checksumSha256");
     let parsed_legacy: DesktopModelDownloadPayload =
         serde_json::from_str(&legacy).expect("legacy payload spelling must deserialize");
@@ -176,7 +160,6 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     assert_eq!(json["etaSeconds"], 18.0);
     assert_eq!(json["phase"], "downloading");
 
-    // An unknown total must reach the renderer as null, never as a guess.
     let unknown = ModelManagerEvent::Progress {
         model_id: "nllb-200".to_owned(),
         bytes_downloaded: 10,
@@ -207,9 +190,6 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     assert!(json.get("code").is_none());
 }
 
-// Regression pin: the backend's job snapshot reports speed as a JSON float
-// ("speedBytesPerSecond": 0.0). Typing it as u64 failed every snapshot and
-// downloads died at 0 B / 0% after exhausting poll failures.
 #[test]
 fn backend_snapshot_accepts_float_speed_and_null_total() {
     use crate::services::models::backend::BackendJobSnapshot;
@@ -253,7 +233,6 @@ fn checksum_header_parser_accepts_explicit_sha256() {
     );
     assert_eq!(checksum::parse_checksum_from_header_value("etag"), None);
 }
-
 
 #[test]
 fn missing_payload_is_reported_as_incomplete() {
@@ -355,6 +334,14 @@ fn newly_added_backend_managed_models_are_normalized_and_payload_checked() {
         ("lfm2_350m_enjp_mt", "LFM2-350M-ENJP-MT-Q4_0.gguf"),
         ("pp_doclayout_v3", "model.safetensors"),
         ("paddleocr_vl_1_5", "model.safetensors"),
+        ("instruct_pix2pix", "unet/diffusion_pytorch_model.fp16.safetensors"),
+        ("sdxl_instruct_pix2pix", "unet/diffusion_pytorch_model.safetensors"),
+        ("flux2_klein_4b_gguf_q4", "gguf/flux-2-klein-4b-Q4_K_M.gguf"),
+        ("flux2_klein_4b", "transformer/diffusion_pytorch_model.safetensors"),
+        ("longcat_image_edit_turbo", "transformer/diffusion_pytorch_model.safetensors"),
+        ("qwen_image_edit_2511_gguf_q4", "gguf/qwen-image-edit-2511-Q4_K_M.gguf"),
+        ("qwen_image_edit_2511", "transformer/diffusion_pytorch_model-00001-of-00005.safetensors"),
+        ("firered_image_edit_1_1", "transformer/diffusion_pytorch_model-00001-of-00005.safetensors"),
     ] {
         let payload = DesktopModelDownloadPayload {
             id: id.to_string(),

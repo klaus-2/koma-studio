@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useI18n } from "../../i18n";
 import { EMPTY_REGIONS, EMPTY_SELECTED_REGION_IDS } from "../../utils/dashboardRenderUtils";
 import type { RenderTextStyle } from "../../utils/renderText";
-import type { AioTextRegion, LoadedImage } from "../../types/dashboard.types";
+import type { AioTextRegion, LoadedImage, SubMode } from "../../types/dashboard.types";
 import RenderTextPreview from "./RenderTextPreview";
 
 interface TypesetterStageItemProps {
@@ -13,7 +13,7 @@ interface TypesetterStageItemProps {
   aioDetectionsByImage: Record<string, any[]>;
   aioSelectedRegionByImage: Record<string, string | null>;
   resolvedActiveId: string | null;
-  subMode: "auto" | "manual";
+  subMode: SubMode;
   typographerSelectionTool: string;
   renderDefaultStyle: RenderTextStyle;
   renderFontRefreshToken: number;

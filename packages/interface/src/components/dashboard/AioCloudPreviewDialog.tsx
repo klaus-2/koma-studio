@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { Cloud, Languages, X } from 'lucide-react';
+import { Cloud, Languages, Wand2, X } from 'lucide-react';
 
 import { getApiConfig } from '@/config/api';
 import { formatBytes } from '@/utils/formatBytes';
@@ -225,10 +225,10 @@ export function AioCloudPreviewDialog({
 
   const providers = useMemo(
     () =>
-      [gate.ocr?.provider, gate.translation?.provider].filter(
+      [gate.ocr?.provider, gate.translation?.provider, gate.imageEdit?.provider].filter(
         (provider): provider is string => typeof provider === 'string',
       ),
-    [gate.ocr, gate.translation],
+    [gate.imageEdit, gate.ocr, gate.translation],
   );
 
   useLayoutEffect(() => {
@@ -303,6 +303,19 @@ export function AioCloudPreviewDialog({
       }),
     );
   }
+  const imageEditFacts: string[] = [];
+  if (gate.imageEdit) {
+    imageEditFacts.push(
+      t('dashboard.aio.cloudPreview.inventory.imageCount', {
+        count: imageCount,
+      }),
+    );
+    imageEditFacts.push(
+      t('dashboard.aio.cloudPreview.inventory.imageBytes', {
+        bytes: formatBytes(imageBytes),
+      }),
+    );
+  }
 
   const popStyle: Record<string, string | number> =
     position === null
@@ -371,6 +384,18 @@ export function AioCloudPreviewDialog({
           destination={gate.translation}
           listings={translationListings}
           facts={translationFacts}
+          destinationText={t('dashboard.aio.cloudPreview.destination')}
+          fallbackText={t('dashboard.aio.cloudPreview.customProvider')}
+        />
+      )}
+
+      {gate.imageEdit && (
+        <StageRow
+          icon={<Wand2 size={13} />}
+          title={t('dashboard.aio.cloudPreview.stage.imageEdit')}
+          destination={gate.imageEdit}
+          listings={[]}
+          facts={imageEditFacts}
           destinationText={t('dashboard.aio.cloudPreview.destination')}
           fallbackText={t('dashboard.aio.cloudPreview.customProvider')}
         />

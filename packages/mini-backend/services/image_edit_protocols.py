@@ -6,11 +6,15 @@ import binascii
 import ipaddress
 import re
 import time
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import httpx
 
 from services.http_client import get_shared_client
+from services.image_edit_engine import prepare_upload_image_bytes
+
+if TYPE_CHECKING:
+    from schemas.image_edit import ImageEditModelConfig
 
 _POLL_INTERVAL_SECONDS: Final = 2.0
 _POLL_DEADLINE_SECONDS: Final = 180.0
@@ -19,12 +23,15 @@ _MAX_DOWNLOAD_BYTES: Final = 32 * 1024 * 1024
 _IMAGE_MAGIC: Final = (b"\x89PNG", b"\xff\xd8", b"RIFF", b"GIF8")
 _PNG_MIME = "image/png"
 _REPLICATE_INLINE_IMAGE_LIMIT: Final = 700 * 1024
+_STABILITY_UPLOAD_LIMIT: Final = 9_500_000
+_FAL_UPLOAD_LIMIT: Final = 60_000_000
 _REPLICATE_VERSION_HEX: Final = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
 _CLOUDFLARE_RETRY_STATUSES: Final = frozenset({400, 422})
+_FAL_RESOLUTIONS: Final[dict[str, str]] = {"1k": "1K", "2k": "2K", "4k": "4K"}
 
 
 class ImageEditProtocolError(RuntimeError):
-    """The provider answered, but not with a usable edited image."""
+    pass
 
 
 async def _polite_sleep(seconds: float) -> None:
@@ -47,7 +54,6 @@ def _json_body(response: httpx.Response) -> dict[str, object]:
 
 
 def _host_root_api_base(api_base: str) -> str:
-    """Provider paths are built from the host root, so a trailing `/v1` is dropped."""
     normalized = (api_base or "").strip().rstrip("/")
     if normalized.lower().endswith("/v1"):
         return normalized[:-3].rstrip("/")
@@ -182,7 +188,6 @@ _REPLICATE_VERSION_CACHE: dict[tuple[str, str, str], str] = {}
 
 
 def _split_replicate_model(model_name: str) -> tuple[str, str | None]:
-    """`owner/name:<64-hex>` keeps its version; other `:suffix` shapes resolve latest."""
     raw = model_name.strip()
     owner_name, _, suffix = raw.partition(":")
     owner_name = owner_name.strip()
@@ -263,6 +268,7 @@ async def call_replicate_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
 ) -> bytes:
     host_root = _host_root_api_base(api_base)
     owner_name, explicit_version = _split_replicate_model(model_name)
@@ -277,12 +283,18 @@ async def call_replicate_clean(
     input_image = await _replicate_input_image(
         client, host_root=host_root, api_key=api_key, image_bytes=image_bytes
     )
+    replicate_input: dict[str, object] = {
+        "image": input_image,
+        "prompt": f"{system_prompt}\n\n{user_prompt}",
+    }
+    if model_config is not None:
+        if model_config.seed is not None:
+            replicate_input["seed"] = model_config.seed
+        if "nano-banana" in owner_name.lower() and model_config.image_quality in _FAL_RESOLUTIONS:
+            replicate_input["resolution"] = _FAL_RESOLUTIONS[model_config.image_quality]
     payload = {
         "version": version,
-        "input": {
-            "image": input_image,
-            "prompt": f"{system_prompt}\n\n{user_prompt}",
-        },
+        "input": replicate_input,
     }
     response = await client.post(
         f"{host_root}/v1/predictions",
@@ -394,6 +406,7 @@ async def call_fal_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
 ) -> bytes:
     root = _host_root_api_base(api_base)
     model = _require_path_safe_model(model_name)
@@ -404,13 +417,21 @@ async def call_fal_clean(
     headers = {"Authorization": f"Key {api_key}"} if api_key else {}
     client = get_shared_client()
     deadline = time.monotonic() + _POLL_DEADLINE_SECONDS
-    payload = {
+    upload_bytes, upload_mime, _ = prepare_upload_image_bytes(
+        image_bytes, max_bytes=_FAL_UPLOAD_LIMIT
+    )
+    payload: dict[str, object] = {
         "image_urls": [
-            f"data:{_PNG_MIME};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+            f"data:{upload_mime};base64,{base64.b64encode(upload_bytes).decode('utf-8')}"
         ],
         "prompt": f"{system_prompt}\n\n{user_prompt}",
         "sync_mode": True,
     }
+    if model_config is not None:
+        if model_config.seed is not None:
+            payload["seed"] = model_config.seed
+        if "nano-banana" in model.lower() and model_config.image_quality in _FAL_RESOLUTIONS:
+            payload["resolution"] = _FAL_RESOLUTIONS[model_config.image_quality]
     response = await client.post(f"{root}/{model}", headers=headers, json=payload)
     response.raise_for_status()
     body = _json_body(response)
@@ -438,6 +459,7 @@ async def call_stability_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
 ) -> bytes:
     root = _host_root_api_base(api_base)
     mode = _require_path_safe_model(model_name)
@@ -446,14 +468,20 @@ async def call_stability_clean(
             "A Stability AI edit mode (e.g. `search-and-replace`) is required."
         )
     client = get_shared_client()
+    upload_bytes, upload_mime, upload_filename = prepare_upload_image_bytes(
+        image_bytes, max_bytes=_STABILITY_UPLOAD_LIMIT
+    )
+    data: dict[str, str] = {
+        "prompt": f"{system_prompt}\n\n{user_prompt}",
+        "output_format": "png",
+    }
+    if model_config is not None and model_config.seed is not None:
+        data["seed"] = str(model_config.seed)
     response = await client.post(
         f"{root}/v2beta/stable-image/edit/{mode}",
         headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
-        files={"image": ("image.png", image_bytes, _PNG_MIME)},
-        data={
-            "prompt": f"{system_prompt}\n\n{user_prompt}",
-            "output_format": "png",
-        },
+        files={"image": (upload_filename, upload_bytes, upload_mime)},
+        data=data,
     )
     response.raise_for_status()
     content_type = response.headers.get("content-type", "").lower()
@@ -507,17 +535,23 @@ async def call_cloudflare_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    model_config: ImageEditModelConfig | None = None,
 ) -> bytes:
     url = _cloudflare_run_url(api_base, model_name)
     headers = _bearer_headers(api_key)
     prompt = f"{system_prompt}\n\n{user_prompt}"
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
     client = get_shared_client()
+    multipart_data: dict[str, str] = {"prompt": prompt}
+    json_body: dict[str, object] = {"prompt": prompt, "image_b64": encoded_image}
+    if model_config is not None and model_config.seed is not None:
+        multipart_data["seed"] = str(model_config.seed)
+        json_body["seed"] = model_config.seed
     response = await client.post(
         url,
         headers=headers,
         files={"image": ("image.png", image_bytes, _PNG_MIME)},
-        data={"prompt": prompt},
+        data=multipart_data,
     )
     if response.status_code == 410:
         raise ImageEditProtocolError(
@@ -529,7 +563,7 @@ async def call_cloudflare_clean(
         response = await client.post(
             url,
             headers=headers,
-            json={"prompt": prompt, "image_b64": encoded_image},
+            json=json_body,
         )
         if response.status_code == 410:
             raise ImageEditProtocolError(

@@ -115,11 +115,6 @@ interface UseAioManualStageExecutorArgs {
   setRuntimeExecutionNotice: (notice: RuntimeExecutionNotice | null) => void;
 }
 
-/**
- * Surfaces a structured backend refusal (explicit selection of an
- * unimplemented/unknown/unconfigured model) on the stage picker, where the
- * "use default model" action lives.
- */
 function recordStageModelRefusal(error: unknown): void {
   if (!(error instanceof StageModelRefusalError)) {
     return;
@@ -132,11 +127,6 @@ function recordStageModelRefusal(error: unknown): void {
   }
 }
 
-/**
- * Converts a segment brush data URL (image-scale PNG with painted areas)
- * into a binary grayscale mask Blob (painted pixels = white, unpainted = black).
- * This gives pixel-exact inpainting — only the brushed pixels are cleaned.
- */
 export function useAioManualStageExecutor({
   activeId,
   processing,
@@ -221,10 +211,6 @@ export function useAioManualStageExecutor({
       segmentText: getAioRegionsFromSnapshot('segmentText', activeId),
       cleanImage: getAioRegionsFromSnapshot('cleanImage', activeId),
     });
-    // The shared provenance module decides runnability from the stage regions.
-    // Manual now accepts the same fallback chains as the runner: detect-text
-    // for segmentText and getTranslations for cleanImage; everything else
-    // stays equally strict.
     const readiness = getAioStageReadiness(stageKey, stageRegionsFromSnapshot());
     if (!readiness.runnable) {
       if (isPreviousManualStageFinished(stageIndex, progress.statusByStage)) {
@@ -274,9 +260,6 @@ export function useAioManualStageExecutor({
     onStageStart(stageKey, activeImageData, 0);
     setStatusMessage(`Modo manual: executando "${stageLabel}" em "${activeImageData.file.name}"...`);
 
-    // Named stage body keeps the try/catch shallow around error mapping.
-    // Tagged result: refusals already set their own status message and must not
-    // be overwritten by the "stage done" message.
     type ManualStageBodyResult =
       | { refused: true }
       | { refused: false; notice: RuntimeExecutionNotice | null }
@@ -398,8 +381,6 @@ export function useAioManualStageExecutor({
               targetLanguage: aioTgtLang,
               regions: ocrRegions,
               fallbackOcrModelKey: selectedOcrKey,
-              // Per-image request-local merge: the active page's chapter
-              // selects the work whose glossary rides on this request.
               llmSettings: translationReadiness.useLlmSettings
                 ? resolveWorkGlossarySettings(
                     activeImageData,
@@ -466,6 +447,7 @@ export function useAioManualStageExecutor({
           const cleanAiReadiness = resolveAioCleanAiReadiness({
             modelKey: cleanAiModelKey,
             profiles: cleanCustomProfiles,
+            modelEntries,
             t,
           });
           if (!cleanAiReadiness.ok) {
@@ -480,6 +462,7 @@ export function useAioManualStageExecutor({
               regions: sourceRegions,
               additionalInstructions: cleanAiInstructions.trim(),
               customProfile: cleanAiReadiness.customProfile,
+              modelConfig: useAioPipelineStore.getState().aioCleanAiModelConfig,
             },
             stageRuntime,
             {
@@ -517,9 +500,6 @@ export function useAioManualStageExecutor({
             return { refused: true };
           }
 
-          // If the user manually painted brush areas, convert the canvas to a pixel-exact
-          // binary mask blob and send it alongside the auto-detected regions. This ensures
-          // inpainting only touches the exact painted pixels (not their bounding boxes).
           const manualEditState = getAioManualImageEditState(activeId);
           const cleanDone = await runCleanImageStage(
             {
@@ -554,8 +534,6 @@ export function useAioManualStageExecutor({
             blob: cleanBlob,
             sourceImageId: activeId,
           };
-          // Store the original source regions in the snapshot (NOT the virtual brush region)
-          // so downstream stages don't show a giant full-image bounding box.
           patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, cleanEntry);
         }
       } else {

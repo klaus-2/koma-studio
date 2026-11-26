@@ -1,7 +1,3 @@
-//! Model download orchestration: payload normalization, backend job polling
-//! with confirmed cancellation and bounded retries, remote update checks, and
-//! the transactional ONNX import flow.
-
 pub mod backend;
 pub mod checksum;
 pub mod payload;
@@ -38,7 +34,6 @@ const MAX_CHECK_MODELS: usize = 1000;
 const MAX_MODEL_BYTES: u64 = 2 * 1024 * 1024 * 1024 * 1024;
 const MAX_DOWNLOAD_ATTEMPTS: u32 = 3;
 
-/// Wire-stable backend error codes (see `core/download_jobs.py`).
 pub const CODE_CHECKSUM_MISMATCH: &str = "checksum_mismatch";
 pub const CODE_DISK_FULL: &str = "disk_full";
 pub const CODE_CANCELLED: &str = "cancelled";
@@ -86,6 +81,14 @@ const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     "comic_text_detector",
     "font_rtdetr_v2",
     "pp_doclayout_v3",
+    "instruct_pix2pix",
+    "sdxl_instruct_pix2pix",
+    "flux2_klein_4b_gguf_q4",
+    "flux2_klein_4b",
+    "longcat_image_edit_turbo",
+    "qwen_image_edit_2511_gguf_q4",
+    "qwen_image_edit_2511",
+    "firered_image_edit_1_1",
 ];
 
 pub type TransferObserver = Arc<dyn Fn(crate::models::model_manager::ModelTransferProgress) + Send + Sync + 'static>;
@@ -151,8 +154,6 @@ impl ModelServiceContext {
     }
 }
 
-/// Normalizes a frontend download payload: validates the id, checksum, size
-/// bounds, and restricts download origins to the approved HTTPS model hosts.
 pub fn normalize_download_payload(
     mut model: DesktopModelDownloadPayload,
 ) -> AppResult<DesktopModelDownloadPayload> {
@@ -217,8 +218,6 @@ pub fn normalize_import_payload(
     Ok(model)
 }
 
-/// Trims to lowercase and validates the mini-backend id charset; the same
-/// value names the on-disk directory, so path components are rejected.
 pub fn validate_model_id(model_id: &str) -> AppResult<String> {
     let normalized = model_id.trim().to_ascii_lowercase();
     let valid = !normalized.is_empty()

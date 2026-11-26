@@ -1,10 +1,3 @@
-/**
- * Cleaner AI model/profile selection — the Automatic AI Clean model picker,
- * the cleaner AI stage option lists with custom-profile resolution, and the
- * draft-profile save/remove actions for the manager sections. Split out of
- * cleaner.ts (T10); the entry file keeps the run orchestration and re-exports
- * this module.
- */
 import { useCallback, useMemo } from 'react';
 
 import { useI18n } from '../../../i18n';
@@ -13,21 +6,56 @@ import {
   ocrStageOptionSupportsLanguage as ocrModelSupportsLanguage,
   type AioStageOption,
 } from '../../../models/aioStageCatalog';
+import { IMAGE_EDIT_MODELS_REGISTRY } from '../../../models/translation-models-registry';
+import { useModelManagerStatusSnapshot } from '../../../hooks/useModelManager';
 import {
   findCustomProfileForSelection,
   getCustomLlmProviderNotice,
   type CustomLlmProfile,
 } from '../../../utils/customLlm';
+import {
+  formatLocalImageEditModelKey,
+  getLocalImageEditSpec,
+  isLocalImageEditModelKey,
+  type LocalImageEditModelId,
+} from '../../../utils/imageEditLocalModels';
 import type { useCustomLlmDrafts } from './llm-providers';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useCleanerStore } from '../stores/cleaner-store';
+import {
+  useCleanerStore,
+  type ImageEditModelManagerTarget,
+} from '../stores/cleaner-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useStatusStore } from '../stores/status-store';
 
-/* ── Automatic AI Clean model selection + custom profile reuse ── */
+export const applyImageEditModelKeyForTarget = (
+  target: ImageEditModelManagerTarget,
+  modelKey: string,
+): void => {
+  if (target === 'aio_ai') {
+    useAioPipelineStore.getState().setAioAiModelKey(modelKey);
+    return;
+  }
+  if (target === 'aio_clean') {
+    useAioPipelineStore.getState().setAioCleanAiModelKey(modelKey);
+    return;
+  }
+  useCleanerStore.getState().setCleanerAiModelKey(modelKey);
+};
+
+export const getImageEditModelKeyForTarget = (
+  target: ImageEditModelManagerTarget,
+): string => {
+  if (target === 'aio_ai') {
+    return useAioPipelineStore.getState().aioAiModelKey;
+  }
+  if (target === 'aio_clean') {
+    return useAioPipelineStore.getState().aioCleanAiModelKey;
+  }
+  return useCleanerStore.getState().cleanerAiModelKey;
+};
 
 interface UseCleanerModelSelectionArgs {
-  /* Page memos (multi-store derived — selector candidates in T12) */
   cleanerAiOptionsForSelect: AioStageOption[];
   cleanStandaloneCustomProfiles: CustomLlmProfile[];
 }
@@ -54,10 +82,11 @@ export function useCleanerModelSelection({
       setTonedStatus(t('dashboard.status.cleanerProfileNotFound'), 'error');
       return false;
     }
-    setCleanerAiModelKey(`custom_clean:${profile.id}`);
+    const activeTarget = useCleanerStore.getState().imageEditModelManagerTarget;
+    applyImageEditModelKeyForTarget(activeTarget, `custom_clean:${profile.id}`);
     setStatusMessage(t('dashboard.status.cleanerProfileInUse', { label: profile.label }));
     return true;
-  }, [customLlmDrafts.clean?.id, cleanStandaloneCustomProfiles, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
+  }, [customLlmDrafts.clean?.id, cleanStandaloneCustomProfiles, setStatusMessage, setTonedStatus, t]);
 
   const selectCleanerAiModel = useCallback(
     (modelKey: string) => {
@@ -72,33 +101,56 @@ export function useCleanerModelSelection({
         setTonedStatus(t('dashboard.status.modelInRoadmap', { name: option.name }), 'error');
         return;
       }
-      if (!option.available) {
+      if (!option.available && !isLocalImageEditModelKey(modelKey)) {
         setTonedStatus(t('dashboard.status.modelNeedsConfig', { name: option.name }), 'error');
         return;
       }
       setCleanerAiModelKey(modelKey);
+      if (isLocalImageEditModelKey(modelKey) && !option.available) {
+        setTonedStatus(
+          t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+            model: option.name,
+          }),
+          'warning',
+        );
+      } else {
+        setStatusMessage(t('dashboard.status.aiCleanModelSelected', { model: option.name }));
+      }
     },
-    [cleanerAiOptionsForSelect, setCleanerAiModelKey, setStatusMessage, setTonedStatus],
+    [cleanerAiOptionsForSelect, setCleanerAiModelKey, setStatusMessage, setTonedStatus, t],
   );
 
   return { selectCleanerAiModel, useExistingCleanerCustomProfile };
 }
-
-/* ── Cleaner AI stage options: option lists, custom-profile resolution and the
-   draft-profile callbacks for the Automatic AI Clean manager (cleaner + llm +
-   aio store reads; profile lists arrive from the llm domain by args) ── */
 
 export function useCleanerAiStageOptions({ cleanCustomProfiles }: { cleanCustomProfiles: CustomLlmProfile[] }) {
   const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
   const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
   const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
+  const { entries: modelEntries } = useModelManagerStatusSnapshot();
   const filteredCleanerOcrStageOptions = useMemo(() => {
     const compatible = aioStageOptions.recognizeText.filter((option) =>
       ocrModelSupportsLanguage(option, cleanerSrcLang),
     );
     return compatible.length > 0 ? compatible : aioStageOptions.recognizeText;
   }, [cleanerSrcLang, aioStageOptions.recognizeText]);
+  const cleanerAiLocalOptionsForSelect = useMemo<AioStageOption[]>(
+    () =>
+      IMAGE_EDIT_MODELS_REGISTRY.map((model) => ({
+        key: formatLocalImageEditModelKey(model.id as LocalImageEditModelId),
+        name: model.name,
+        device: model.requirements.gpu ? `GPU (${model.requirements.vramMin})` : 'CPU',
+        use_case: `${model.requirements.diskSpace} · ${
+          getLocalImageEditSpec(model.id)?.hfRepo ?? model.docsUrl ?? ''
+        }`,
+        implemented: true,
+        available: modelEntries[model.id]?.status === 'installed',
+        minVramGb: model.minVramGb,
+        provider_name: 'Hugging Face (Local)',
+      })),
+    [modelEntries],
+  );
   const cleanerAiCustomOptionsForSelect = useMemo(
     () =>
       cleanCustomProfiles.map((profile) => ({
@@ -107,18 +159,10 @@ export function useCleanerAiStageOptions({ cleanCustomProfiles }: { cleanCustomP
       })),
     [buildCustomStageOption, cleanCustomProfiles],
   );
-  const cleanerAiOptionsForSelect = useMemo(() => {
-    const customSelectedOption = cleanerAiCustomOptionsForSelect.find(
-      (option) => option.key === cleanerAiModelKey,
-    );
-    if (customSelectedOption) {
-      return [customSelectedOption];
-    }
-    return [...cleanerAiCustomOptionsForSelect];
-  }, [
-    cleanerAiCustomOptionsForSelect,
-    cleanerAiModelKey,
-  ]);
+  const cleanerAiOptionsForSelect = useMemo(
+    () => [...cleanerAiCustomOptionsForSelect, ...cleanerAiLocalOptionsForSelect],
+    [cleanerAiCustomOptionsForSelect, cleanerAiLocalOptionsForSelect],
+  );
   const selectedCleanerAiDisplayOption = useMemo(() => {
     return (
       cleanerAiOptionsForSelect.find((option) => option.key === cleanerAiModelKey)
@@ -128,6 +172,10 @@ export function useCleanerAiStageOptions({ cleanCustomProfiles }: { cleanCustomP
     cleanerAiOptionsForSelect,
     cleanerAiModelKey,
   ]);
+  const selectedCleanerLocalSpec = useMemo(
+    () => (isLocalImageEditModelKey(cleanerAiModelKey) ? getLocalImageEditSpec(cleanerAiModelKey) : null),
+    [cleanerAiModelKey],
+  );
   const selectedCleanerCustomProfile = useMemo(
     () =>
       findCustomProfileForSelection(cleanerAiModelKey, cleanCustomProfiles),
@@ -135,22 +183,20 @@ export function useCleanerAiStageOptions({ cleanCustomProfiles }: { cleanCustomP
   );
   const cleanerAiCustomProviderNotice = useMemo(
     () =>
-      getCustomLlmProviderNotice(selectedCleanerCustomProfile?.apiBase ?? customLlmDrafts.ocr.apiBase),
-    [customLlmDrafts.ocr.apiBase, selectedCleanerCustomProfile?.apiBase],
+      getCustomLlmProviderNotice(selectedCleanerCustomProfile?.apiBase ?? customLlmDrafts.clean.apiBase),
+    [customLlmDrafts.clean.apiBase, selectedCleanerCustomProfile?.apiBase],
   );
   return {
     filteredCleanerOcrStageOptions,
+    cleanerAiLocalOptionsForSelect,
     cleanerAiCustomOptionsForSelect,
     cleanerAiOptionsForSelect,
     selectedCleanerAiDisplayOption,
+    selectedCleanerLocalSpec,
     selectedCleanerCustomProfile,
     cleanerAiCustomProviderNotice,
   };
 }
-
-
-/* ── Cleaner AI draft-profile actions (need the custom-llm drafts hook
-   callbacks, which arrive by args; the manager sections consume them) ── */
 
 export function useCleanerAiDraftProfileActions({
   cleanerAiOptionsForSelect,
@@ -163,23 +209,18 @@ export function useCleanerAiDraftProfileActions({
 }) {
   const { t } = useI18n();
   const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
-  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
-  const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
-  const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
   const saveCleanerCustomDraftProfile = useCallback(async (): Promise<boolean> => {
     try {
-      // Event-time read: the section commits its local draft right before
-      // calling this, and this closure may predate that commit.
       const profile = await saveCustomProfileInline('clean', useLlmProvidersStore.getState().customLlmDrafts.clean);
-      setCleanerAiModelKey(`custom_clean:${profile.id}`);
+      const activeTarget = useCleanerStore.getState().imageEditModelManagerTarget;
+      applyImageEditModelKeyForTarget(activeTarget, `custom_clean:${profile.id}`);
       setTonedStatus(t('dashboard.status.cleanerProfileSaved', { label: profile.label }), 'success');
       return true;
     } catch {
-      // saveCustomProfileInline already updates the error message
       return false;
     }
-  }, [saveCustomProfileInline, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
+  }, [saveCustomProfileInline, setTonedStatus, t]);
   const removeCleanerCustomDraftProfile = useCallback(async () => {
     const profileId = customLlmDrafts.clean?.id;
     if (!profileId) {
@@ -187,20 +228,20 @@ export function useCleanerAiDraftProfileActions({
       return;
     }
     await removeCustomLlmProfileById('clean', profileId);
-    if (cleanerAiModelKey === `custom_clean:${profileId}`) {
-      const fallbackManagedKey = cleanerAiOptionsForSelect[0]?.key ?? '';
+    const activeTarget = useCleanerStore.getState().imageEditModelManagerTarget;
+    if (getImageEditModelKeyForTarget(activeTarget) === `custom_clean:${profileId}`) {
+      const fallbackManagedKey =
+        cleanerAiOptionsForSelect.find((option) => option.available)?.key ?? '';
       if (fallbackManagedKey) {
-        setCleanerAiModelKey(fallbackManagedKey);
+        applyImageEditModelKeyForTarget(activeTarget, fallbackManagedKey);
       }
     }
   }, [
-    cleanerAiModelKey,
     cleanerAiOptionsForSelect,
     customLlmDrafts.clean?.id,
     removeCustomLlmProfileById,
-    setCleanerAiModelKey,
-    setStatusMessage,
     setTonedStatus,
+    t,
   ]);
   return {
     saveCleanerCustomDraftProfile,

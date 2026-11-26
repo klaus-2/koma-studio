@@ -16,8 +16,12 @@ export interface DesktopDownloadModelPayload {
     | "enhance_onnx_bundle"
     | "pytorch_checkpoint"
     | "ctranslate2"
+    | "gguf"
+    | "safetensors_bundle"
+    | "transformers"
     | "transformers_vlm"
     | "transformers_vlm_paddleocr_manga"
+    | "diffusers_image_edit"
     | "managed_runtime";
   backendInstallEndpoint?: string;
 }
@@ -67,10 +71,8 @@ export type DesktopModelManagerEvent =
       type: "progress";
       modelId: string;
       bytesDownloaded: number;
-      /** Total bundle size; null when the backend cannot know it yet. */
       totalBytes: number | null;
       speedBytesPerSecond: number;
-      /** null while the total is unknown — the UI renders an indeterminate state. */
       percent: number | null;
       attempt: number;
       currentFile?: string | null;
@@ -102,7 +104,6 @@ export type DesktopModelManagerEvent =
       modelId: string;
     };
 
-// Taxonomy mirrors packages/mini-backend/core/download_jobs.py.
 export {
   isModelDownloadErrorCode,
   type ModelDownloadErrorCode,

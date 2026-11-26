@@ -19,6 +19,10 @@ sentencepiece>=0.2.0
 transformers>=4.50.0
 torch>=2.5.0
 torchvision>=0.20.0
+diffusers>=0.37.0
+accelerate>=1.0.0
+safetensors>=0.4.5
+gguf>=0.14.0
 pyinstaller
 psutil>=5.9.0
 llama-cpp-python>=0.3.14

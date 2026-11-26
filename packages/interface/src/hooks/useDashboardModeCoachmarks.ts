@@ -5,7 +5,6 @@ import {
   type Driver,
   type DriverHook,
 } from 'driver.js';
-// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
 import 'driver.js/dist/driver.css';
 
 import { readOnboardingState } from '../components/onboarding/onboardingStorage';
@@ -287,6 +286,10 @@ export const buildModeCoachmarkSteps = (
       steps.push(common.stageStep);
     }
     return steps;
+  }
+
+  if (mode === 'aio' && subMode === 'ai') {
+    return [];
   }
 
   if (mode === 'aio' && subMode === 'manual') {

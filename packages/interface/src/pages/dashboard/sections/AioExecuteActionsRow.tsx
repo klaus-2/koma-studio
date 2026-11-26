@@ -2,10 +2,11 @@ import { memo } from 'react';
 import { X } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
+import type { SubMode } from '../../../types/dashboard.types';
 import AioBatchPauseButton from './AioBatchPauseButton';
 
 interface AioExecuteActionsRowProps {
-  subMode: 'auto' | 'manual';
+  subMode: SubMode;
   runActive: boolean;
   onStop: () => void;
 }

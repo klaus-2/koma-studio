@@ -30,7 +30,6 @@ const TypographerToolsPanel = lazy(loadTypographerToolsPanel);
 const TranslatorToolsPanel = lazy(loadTranslatorToolsPanel);
 const EnhanceToolsPanelSection = lazy(loadEnhanceToolsPanel);
 
-/** Fire-and-forget warmup of the mode tool panels (called at browser idle). */
 export function preloadModeToolPanels() {
   void loadAioRightPanel().catch(() => { });
   void loadCleanerToolsPanel().catch(() => { });
@@ -134,7 +133,6 @@ import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { StageTabDef } from '../../AioStageTabBar';
 import type { SnapshotLabels } from '../hooks/aio-snapshot.normalization';
 
-/* Store/hook-backed prop types (same fields the page reads today). */
 type ImageCollectionState = ReturnType<typeof useImageCollectionStore.getState>;
 type ShellLayoutApi = ReturnType<typeof useDashboardShellLayout>;
 type ExternalActionsApi = ReturnType<typeof useDashboardExternalActions>;
@@ -174,13 +172,7 @@ type TranslatorImportsApi = ReturnType<typeof useTranslatorImports>;
 type EnhanceSelectionApi = ReturnType<typeof useEnhanceModelSelection>;
 type EnhanceActionsApi = ReturnType<typeof useDashboardEnhanceActions>;
 
-/**
- * Full dashboard layout view. Receives page-derived values as same-name
- * props, reads store-backed fields via granular selectors, and mounts the
- * already-extracted panels plus `DashboardStageSection` (stage renderers).
- */
 export interface DashboardMainLayoutProps {
-  /* ── Stage section (page-derived values forwarded to StageGrid) ── */
   resolvedActiveId: string | null;
   translationNotesEnabled: boolean;
   handleStageWheelZoom: (event: WheelEvent) => void;
@@ -237,7 +229,6 @@ export interface DashboardMainLayoutProps {
   handleKeyboardShortcutConfigChange: (nextConfig: KeyboardShortcutConfigV2) => void;
   isDesktopRuntime: boolean;
 
-  /* ── Shell layout (hook-local state) ── */
   mobileNavOpen: boolean;
   setMobileNavOpen: ShellLayoutApi['setMobileNavOpen'];
   mobileSidebarOpen: boolean;
@@ -262,7 +253,6 @@ export interface DashboardMainLayoutProps {
   resetRightSidebarWidth: ShellLayoutApi['resetRightSidebarWidth'];
   handleToolsToggle: ShellLayoutApi['handleToolsToggle'];
 
-  /* ── Sidebar / uploads / collection hooks ── */
   getRootProps: UploadsApi['getRootProps'];
   getInputProps: UploadsApi['getInputProps'];
   isDragActive: boolean;
@@ -270,7 +260,6 @@ export interface DashboardMainLayoutProps {
   activeImage: ImageCollectionState['images'][number] | null;
   modeLabel: string;
 
-  /* ── Workspace persistence ── */
   workspaceHistory: WorkspacePersistenceApi['workspaceHistory'];
   handleWorkspaceUndo: WorkspacePersistenceApi['handleWorkspaceUndo'];
   handleWorkspaceRedo: WorkspacePersistenceApi['handleWorkspaceRedo'];
@@ -278,7 +267,6 @@ export interface DashboardMainLayoutProps {
   importWorkspaceFile: WorkspacePersistenceApi['importWorkspaceFile'];
   closeWorkspace: WorkspacePersistenceApi['closeWorkspace'];
 
-  /* ── Export / download ── */
   hasDownloadActions: boolean;
   hasDownloads: boolean;
   activeDownloadScope: ProcessableMode | null;
@@ -289,7 +277,6 @@ export interface DashboardMainLayoutProps {
   handleDownload: DownloadActionsApi['handleDownload'];
   handleDownloadPsd: PsdDownloadApi;
 
-  /* ── Auth / account ── */
   authUser: AuthApi['user'];
   logout: AuthApi['logout'];
   userDisplayName: UsageAndPresenceApi['userDisplayName'];
@@ -300,7 +287,6 @@ export interface DashboardMainLayoutProps {
   replayTour: TourApi['replayTour'];
   onboarding: OnboardingState;
 
-  /* ── External actions ── */
   openShortcutCenter: ExternalActionsApi['openShortcutCenter'];
   shortcutCenterOpen: ExternalActionsApi['shortcutCenterOpen'];
   closeShortcutCenter: ExternalActionsApi['closeShortcutCenter'];
@@ -314,7 +300,6 @@ export interface DashboardMainLayoutProps {
   openSettingsOnTab: ExternalActionsApi['openSettingsOnTab'];
   openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab']; openSettingsOnIntegrationsTab: ExternalActionsApi['openSettingsOnIntegrationsTab']; openSettingsOnRuntimeTab: ExternalActionsApi['openSettingsOnRuntimeTab'];
 
-  /* ── Footer / dock derivations ── */
   manualDockVisible: boolean;
   manualDockRightOffset: number;
   isAioManualMode: boolean;
@@ -337,7 +322,6 @@ export interface DashboardMainLayoutProps {
   activeHasManualPaintLayer: boolean;
   activeHasManualEdits: boolean;
 
-  /* ── AIO right panel ── */
   handleAioSubModeChange: (nextMode: SubMode) => void;
   rewindAioPipeline: () => void;
   forwardAioPipeline: () => void;
@@ -348,6 +332,7 @@ export interface DashboardMainLayoutProps {
   activeManualStageStatus: AioManualStageStatus | null;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
+  processAioAi: AioPipelineExecutionApi['processAioAi'];
   activeAioStageKey: AioPipelineSnapshotKey;
   aioPipelineStageProgressLabels: SnapshotLabels;
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
@@ -401,7 +386,6 @@ export interface DashboardMainLayoutProps {
   renderFontRefreshToken: RenderFontCatalogApi['renderFontRefreshToken'];
   availableRenderFonts: RenderFontCatalogApi['availableRenderFonts'];
 
-  /* ── Cleaner / translator / typographer panels ── */
   cleanerAiOptionsForSelect: AioStageOption[];
   cleanerAvailableOcrStageOptions: AioStageOption[];
   cleanerAvailableSegmentStageOptions: AioStageOption[];
@@ -431,7 +415,6 @@ export interface DashboardMainLayoutProps {
   handleTypographerImportQueueText: TypographerControlsApi['handleTypographerImportQueueText'];
   handleUpdateTypographyPreset: AioRegionEditingApi['handleUpdateTypographyPreset'];
 
-  /* ── Utility / enhance panels ── */
   stitchBatchPlans: StitchWorkspaceApi['stitchBatchPlans'];
   stitchAutoBatchIndexes: StitchWorkspaceApi['stitchAutoBatchIndexes'];
   selectedEnhanceModel: EnhanceSelectionApi['selectedEnhanceModel'];
@@ -442,7 +425,6 @@ export interface DashboardMainLayoutProps {
   installSelectedEnhanceModel: ReturnType<typeof useEnhanceInstallAction>;
   processEnhance: EnhanceActionsApi['processEnhance'];
 
-  /* ── Model managers modal ── */
   activeModelManagerStage: ModelManagerPanelApi['activeModelManagerStage'];
   ocrStageOptionsForSelect: AioStageOption[];
   translationFreeProviderManagerSection: React.ReactNode;
@@ -608,6 +590,7 @@ export default memo(function DashboardMainLayout({
   activeManualStageStatus,
   stopAioExecution,
   processAIO,
+  processAioAi,
   activeAioStageKey,
   aioPipelineStageProgressLabels,
   normalizedAioSourceLanguage,
@@ -722,7 +705,6 @@ export default memo(function DashboardMainLayout({
   const { t } = useI18n();
   const apiConfig = getApiConfig();
 
-  // ── Store-backed values (granular selectors) ──
   const mode = useUiShellStore((s) => s.mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
@@ -894,7 +876,6 @@ export default memo(function DashboardMainLayout({
     <div className="koma-dash">
       <DashboardBackdrop />
 
-      {/* Mobile overlay backdrop */}
       <DashboardMobileBackdrop
         visible={mobileNavOpen || mobileSidebarOpen || mobileToolsOpen}
         onClose={() => {
@@ -904,7 +885,6 @@ export default memo(function DashboardMainLayout({
         }}
       />
 
-      {/* ═══════════ LEFT SIDEBAR ═══════════ */}
       <ImageCollectionSidebar
         mobileSidebarOpen={mobileSidebarOpen}
         isCompactViewport={isCompactViewport}
@@ -926,7 +906,6 @@ export default memo(function DashboardMainLayout({
         removeImage={removeImage}
       />
 
-      {/* ═══════════ CENTER STAGE ═══════════ */}
       <main className="koma-dash__main">
         <KomaTopbar
           mode={mode}
@@ -1024,7 +1003,6 @@ export default memo(function DashboardMainLayout({
           shortcutModalOpen={shortcutCenterOpen}
         />
 
-        {/* Email verify banner */}
         {emailVerificationRequired && (
           <div className="koma-alert koma-alert--amber">
             <AlertTriangle size={16} />
@@ -1057,7 +1035,6 @@ export default memo(function DashboardMainLayout({
           </div>
         )}
 
-        {/* Stage */}
         <DashboardStageSection
           mode={deferredStageMode}
           subMode={subMode}
@@ -1156,7 +1133,6 @@ export default memo(function DashboardMainLayout({
         activeHasManualEdits={activeHasManualEdits}
       />
 
-      {/* ═══════════ RIGHT TOOLS ═══════════ */}
       <DashboardRightSidebar
         mobileToolsOpen={mobileToolsOpen}
         isCompactViewport={isCompactViewport}
@@ -1173,11 +1149,9 @@ export default memo(function DashboardMainLayout({
         resizeRightSidebarBy={resizeRightSidebarBy}
         sidebarResizeStep={SIDEBAR_RESIZE_STEP}
       >
-        {/* ─── AIO — ALL IN ONE ─── */}
         {deferredStageMode === 'aio' && (
           <Suspense fallback={<DashboardSidebarSkeleton />}>
             <AioRightPanel
-              // ── AIO pipeline — sub-mode & execution (not yet migrated) ──
               handleAioSubModeChange={handleAioSubModeChange}
               rewindAioPipeline={rewindAioPipeline}
               forwardAioPipeline={forwardAioPipeline}
@@ -1188,9 +1162,9 @@ export default memo(function DashboardMainLayout({
               activeManualStageStatus={activeManualStageStatus}
               stopAioExecution={stopAioExecution}
               processAIO={processAIO}
+              processAioAi={processAioAi}
               activeAioStageKey={activeAioStageKey}
               aioPipelineStageProgressLabels={aioPipelineStageProgressLabels}
-              // ── AIO pipeline — preset editor (not yet migrated) ──
               normalizedAioSourceLanguage={normalizedAioSourceLanguage}
               presetsForCurrentLanguage={presetsForCurrentLanguage}
               activePresetForCurrentLanguage={activePresetForCurrentLanguage}
@@ -1204,7 +1178,6 @@ export default memo(function DashboardMainLayout({
               handleSaveCurrentSelectionAsPreset={handleSaveCurrentSelectionAsPreset}
               handleSavePresetEditor={handleSavePresetEditor}
               openSettingsOnPresetsTab={openSettingsOnPresetsTab}
-              // ── AIO pipeline — model selection & catalogs (not yet migrated) ──
               availableDetectStageOptions={availableDetectStageOptions}
               availableOcrStageOptions={availableOcrStageOptions}
               availableTranslationStageOptions={availableTranslationStageOptions}
@@ -1227,24 +1200,19 @@ export default memo(function DashboardMainLayout({
               selectedTranslationModelState={selectedTranslationModelState}
               selectedLegacyTranslationOption={selectedLegacyTranslationOption}
               selectedCustomTranslationProfile={selectedCustomTranslationProfile}
-              // ── AIO pipeline — labels & stage tabs (page memos) ──
               aioStageLabels={aioStageLabels}
               STAGE_TABS={STAGE_TABS}
-              // ── LLM settings (not yet migrated) ──
               showLlmSettingsPanel={showLlmSettingsPanel}
               llmSettingsSupportSummary={llmSettingsSupportSummary}
-              // ── Region editor / render stage (not yet migrated) ──
               updateActiveRenderMode={updateActiveRenderMode}
               applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
               activeImageRenderStageActive={activeImageRenderStageActive}
-              // ── Typographer — render fonts (not yet migrated) ──
               loadRenderFontCatalog={loadRenderFontCatalog}
               fontCatalogLoading={fontCatalogLoading}
               fontCatalogImporting={fontCatalogImporting}
               fontCatalogError={fontCatalogError}
               fontCatalogInputRef={fontCatalogInputRef}
               handleRenderFontImport={handleRenderFontImport}
-              // ── Shell (not yet migrated) ──
               isDesktopRuntime={isDesktopRuntime}
             />
           </Suspense>
@@ -1339,7 +1307,6 @@ export default memo(function DashboardMainLayout({
           stitchAutoBatchIndexes={stitchAutoBatchIndexes}
         />
         <InfoModesToolsPanel mode={mode} />
-        {/* ─── MELHORAR (ENHANCE) ─── */}
         {deferredStageMode === 'enhance' && (
           <Suspense fallback={<DashboardSidebarSkeleton />}>
             <EnhanceToolsPanelSection
@@ -1425,6 +1392,15 @@ export default memo(function DashboardMainLayout({
         customProfilesSection={cleanerAiCustomProfilesManagerSection}
         defaultLanguageFilter={modelModalLanguageFilter || aioSrcLang}
         selectCleanerAiModel={selectCleanerAiModel}
+        onSetLanguageFilter={setModelModalLanguageFilter}
+        onInstallModel={installTranslationModel}
+        onUpdateModel={updateTranslationModel}
+        onUninstallModel={uninstallTranslationModel}
+        onRetryModel={retryTranslationModel}
+        onCancelModel={cancelTranslationModel}
+        onInstallAll={installAllTranslationModels}
+        onCancelAll={cancelAllTranslationModels}
+        onCheckUpdatesNow={checkModelUpdatesNow}
       />
     </div>
   );

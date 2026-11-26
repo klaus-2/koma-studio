@@ -18,6 +18,8 @@ export {
   useActiveCleanerRegionState,
 } from './cleaner.editing';
 export {
+  applyImageEditModelKeyForTarget,
+  getImageEditModelKeyForTarget,
   useCleanerModelSelection,
   useCleanerAiStageOptions,
   useCleanerAiDraftProfileActions,
@@ -116,10 +118,6 @@ export function useCleanerActions(args: UseCleanerActionsArgs): CleanerRun {
   ]);
 }
 
-/**
- * Deep Cleaner run — assisted + automatic AI + AI SFX behind one interface.
- * Tests hit this seam; the workflows behind it stay in their modules.
- */
 export async function runCleaner(
   ctx: import('./cleaner.types').CleanerRunContext,
 ): Promise<void> {

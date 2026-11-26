@@ -20,6 +20,7 @@ import {
   releasePage,
 } from '../../../utils/page-source';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useCleanerStore } from '../stores/cleaner-store';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
@@ -33,6 +34,7 @@ import type {
 } from '../../../types/dashboard.types';
 import type { CleanerRunContext, I18nTranslate } from './cleaner.types';
 import { createAioStageRunSession } from './aio-stage-runner';
+import { getLocalImageEditSpec, isLocalImageEditModelKey } from '../../../utils/imageEditLocalModels';
 
 export async function runAutomaticCleanerWorkflow(
   ctx: CleanerRunContext,
@@ -75,10 +77,21 @@ export async function runAutomaticCleanerWorkflow(
 
   const isAutomaticAiMode = cleanerMode === 'automatic_ai';
   const isAiSfxMode = cleanerMode === 'ai_sfx';
-  const isCustomCleanerAi = cleanerAiModelKey.startsWith('custom_clean');
+  const isLocalCleanerAi = isLocalImageEditModelKey(cleanerAiModelKey);
+  const localCleanerSpec = isLocalCleanerAi ? getLocalImageEditSpec(cleanerAiModelKey) : null;
+  const isCustomCleanerAi = !isLocalCleanerAi && cleanerAiModelKey.startsWith('custom_clean');
   const normalizedCleanerAiInstructions = cleanerAiAdditionalInstructions.trim();
 
   if (isAutomaticAiMode || isAiSfxMode) {
+    if (localCleanerSpec && modelEntries[localCleanerSpec.id]?.status !== 'installed') {
+      setStatusMessage(
+        t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+          model: localCleanerSpec.name,
+        }),
+      );
+      return;
+    }
+
     const detectReadiness = ensureStageModelReadiness(
       {
         stage: 'detectText',
@@ -127,7 +140,7 @@ export async function runAutomaticCleanerWorkflow(
     try {
       const results = await runConcurrentBatch({
         items: images,
-        concurrency: effectiveBatchConcurrency,
+        concurrency: isLocalCleanerAi ? 1 : effectiveBatchConcurrency,
         worker: async ({
           item: imgData,
           index,
@@ -140,9 +153,6 @@ export async function runAutomaticCleanerWorkflow(
             state: translate('discord.presence.batch.state', { current: index + 1, total: images.length }),
           });
 
-          // The signal comes from the shared AIO pipeline AbortController so a
-          // stop request aborts in-flight cleaner stage fetches. Success
-          // notices are dropped here (automatic cleaner contract).
           const session = createAioStageRunSession({
             localApiUrl,
             signal: useAioPipelineStore.getState().getActiveAioAbortSignal(),
@@ -152,8 +162,6 @@ export async function runAutomaticCleanerWorkflow(
 
           session.assertNotAborted();
           try {
-            // One page's bytes live only for this run: materialized on demand,
-            // released in `finally` even when a stage throws.
             const stageImage = await materializePageForProcessing(imgData);
             const detectDone = await runDetectTextStage(
               {
@@ -236,6 +244,7 @@ export async function runAutomaticCleanerWorkflow(
                       normalizedCleanerAiInstructions,
                     ),
                     customProfile: customCleanerPayload,
+                    modelConfig: useCleanerStore.getState().cleanerAiModelConfig,
                   },
                   stageRuntime,
                   {
@@ -258,6 +267,7 @@ export async function runAutomaticCleanerWorkflow(
                   regions: detectDetections,
                   additionalInstructions: normalizedCleanerAiInstructions,
                   customProfile: customCleanerPayload,
+                  modelConfig: useCleanerStore.getState().cleanerAiModelConfig,
                 },
                 stageRuntime,
                 {
@@ -379,4 +389,3 @@ export async function runAutomaticCleanerWorkflow(
     return;
   }
 }
-

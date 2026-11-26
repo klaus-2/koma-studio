@@ -19,6 +19,8 @@ export type FreeProviderTransport =
   | "cloudflare_native"
   | "unsupported";
 
+export type ImageEditCapability = "clean_and_aio_ai" | "clean_only";
+
 export interface FreeProviderModelDefinition {
   id: string;
   label: string;
@@ -28,6 +30,8 @@ export interface FreeProviderModelDefinition {
   accessBadgeLabel?: string;
   rateLimitSummary?: string;
   sourceUrl?: string;
+  imageEditCapability?: ImageEditCapability;
+  recommendedFor?: ReadonlyArray<"clean" | "aio_ai">;
 }
 
 export interface FreeProviderConfigField {

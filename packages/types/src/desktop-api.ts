@@ -32,12 +32,6 @@ import type {
   WorkspaceImportResult,
 } from "./workspace";
 
-/**
- * Local-API session header shared by the desktop shells and the mini-backend
- * gate. Wire contract: keep in sync with `LOCAL_API_SESSION_HEADER` in the
- * Electron shell's desktop-auth-constants, the Tauri sidecar modules and
- * `app.py`.
- */
 import type { RuntimeConfig } from "./runtime-config";
 export type { RuntimeConfig } from "./runtime-config";
 
@@ -67,6 +61,7 @@ export type ModelRuntimeFamily =
   | "transformers"
   | "transformers_vlm"
   | "transformers_vlm_paddleocr_manga"
+  | "diffusers_image_edit"
   | "managed_runtime";
 
 export interface MiniBackendRuntimeInstallResult {
@@ -85,7 +80,6 @@ export interface MiniBackendRuntimeArtifactOption {
 
 export interface DesktopFontEntry {
   id: string;
-  /** Family name only — never a style instance or a file name. */
   family: string;
   source?: string;
   fileName: string;
@@ -93,10 +87,6 @@ export interface DesktopFontEntry {
 }
 
 export interface DesktopFontsListResult {
-  /**
-   * Family names only (see `DesktopFontEntry.family`), deduped case-insensitively, order not
-   * significant. Empty means the shell could not ask the OS, not that nothing is installed.
-   */
   system: string[];
   custom: DesktopFontEntry[];
 }
@@ -188,15 +178,6 @@ export interface AuthTravelTokenRequest {
   deliveryMode?: "copy" | "email";
 }
 
-/**
- * Uniform bridge envelope for desktop auth/API calls.
- *
- * `status` mirrors the server HTTP status; `status: 0` is the BRIDGE-FAILURE
- * sentinel — the tauri transport emits it when the request could not reach
- * the server at all (see auth.rs session_api_fetch's ensure_session_token
- * failure path), so `ok === false` + `status === 0` means transport-level
- * failure rather than a server rejection.
- */
 export interface DesktopApiEnvelope<TPayload = JsonRecord> {
   ok: boolean;
   status: number;
@@ -338,9 +319,7 @@ export interface DesktopImageAllowedEntry {
 
 export interface DesktopImageFolderPayload {
   folderPath: string;
-  /** Opaque pagination cursor: the last file name of the previous page. */
   cursor?: string;
-  /** Page size, 1-200 (default 100). */
   limit?: number;
 }
 
@@ -687,11 +666,6 @@ export interface DesktopWorkspaceApi {
   saveAutosave(
     payload: WorkspaceAutosaveSavePayload,
   ): Promise<WorkspaceAutosaveSaveResult>;
-  /**
-   * Fire-and-forget autosave for teardown (unmount / beforeunload).
-   * Electron uses ipcRenderer.send so the message is queued before the
-   * renderer dies.
-   */
   sendAutosave(payload: WorkspaceAutosaveSavePayload): void;
   clearAutosave(
     payload?: WorkspaceAutosaveClearPayload,
@@ -702,11 +676,6 @@ export interface DesktopWorkspaceApi {
   restoreBackup?(payload: DesktopBackupRestorePayload): Promise<DesktopBackupRestoreResult>;
 }
 
-/**
- * Session user as the desktop bridges deliver it (better-auth user plus the
- * workspace/profile fields the server attaches when present). Mirrors the
- * renderer's AuthUser (@koma/auth context) so bridge payloads assign to it.
- */
 export interface DesktopAuthSessionUser {
   id: string;
   email: string;
@@ -718,7 +687,6 @@ export interface DesktopAuthSessionUser {
   authorNotificationWebhookConfigured?: boolean;
 }
 
-/** Session/login/register snapshot payload: the user plus the access token. */
 export interface DesktopAuthSessionSnapshot {
   user: DesktopAuthSessionUser;
   accessToken: string;
@@ -726,8 +694,6 @@ export interface DesktopAuthSessionSnapshot {
 
 export interface DesktopAuthApi {
   config(): Promise<DesktopApiEnvelope<AuthConfigPayload>>;
-  /** payload is null when the bridge has no session (electron skips the
-   * fetch without an auth cookie — desktop-auth-ipc.ts). */
   session(): Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot | null>>;
   refreshSession(): Promise<DesktopApiEnvelope<{ refreshed: boolean }>>;
   login(payload: AuthLoginPayload): Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>;
@@ -755,7 +721,6 @@ export interface DesktopApiNamespace {
     list(userId: string): Promise<unknown>;
     save(userId: string, profile: LlmProfilePayload): Promise<unknown>;
     remove(userId: string, profileId: string): Promise<unknown>;
-    /** Keychain-backed shells only (Tauri). Electron returns keys inline. */
     resolveKey?(userId: string, profileId: string): Promise<unknown>;
   };
   blogger: {
@@ -810,7 +775,6 @@ export interface DesktopApiNamespace {
 }
 
 export interface DesktopImagesApi {
-  /** Tauri-only: widens the koma-image protocol scope for files picked outside list-folder. */
   allowPaths?(paths: string[]): Promise<DesktopImageAllowOutcome[]>;
   listFolder(
     payload: DesktopImageFolderPayload,
@@ -846,9 +810,6 @@ export interface DesktopDiscordRpcApi {
 }
 
 export interface DesktopFilesApi {
-  /**
-   * Native save dialog + write. Returns cancelled when the user dismisses.
-   */
   saveBlob(payload: {
     defaultFileName: string;
     data: ArrayBuffer;
@@ -857,17 +818,10 @@ export interface DesktopFilesApi {
 }
 
 export interface DesktopOpenLogsFolderResult {
-  /** Whether the OS file manager revealed the folder. */
   opened: boolean;
-  /** Resolved logs directory, echoed even when the reveal failed. */
   path: string | null;
 }
 
-/**
- * Diagnostics helpers shared by both shells. Optional: shells without a
- * native integration leave it undefined and the UI falls back to web-only
- * behavior.
- */
 export interface DesktopDiagnosticsApi {
   openLogsFolder(): Promise<DesktopOpenLogsFolderResult>;
 }

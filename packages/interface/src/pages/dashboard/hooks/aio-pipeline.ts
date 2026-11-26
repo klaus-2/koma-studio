@@ -20,6 +20,7 @@ import { useI18n } from '@/i18n';
 import { TRANSLATION_MODELS_REGISTRY } from '@/models/translation-models-registry';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
+import { useAioAiPipelineExecution } from '@/pages/dashboard/hooks/aio-pipeline.aio-ai';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
 import { enforceCacheLimitAfterRun } from '@/pages/dashboard/hooks/use-cache-limit-enforcement';
 import {
@@ -122,7 +123,8 @@ interface ActiveAutoExecution {
 
 export function useAioPipelineExecution(
   args: UseAioPipelineExecutionArgs,
-): Readonly<{ processAIO: () => Promise<void> }> {
+): Readonly<{ processAIO: () => Promise<void>; processAioAi: () => Promise<void> }> {
+  const { processAioAi } = useAioAiPipelineExecution(args);
   const { t } = useI18n();
   const images = useImageCollectionStore((state) => state.images);
   const aioSteps = useAioPipelineStore((state) => state.aioSteps);
@@ -293,7 +295,6 @@ export function useAioPipelineExecution(
       return;
     }
 
-    // Preparação e consolidação pertencem ao mesmo commit do React.
     if (
       pipeline.aioSteps !== aioSteps ||
       pipeline.aioSrcLang !== aioSrcLang ||
@@ -314,15 +315,6 @@ export function useAioPipelineExecution(
     }
 
     const executionImages = [...images];
-    // WHY one blob here: non-queue multi-chapter batches fold ALL pages into
-    // a single sidecar request carrying ONE llm_settings blob — the backend
-    // builds every prompt from that single blob (core/config.py:246), so a
-    // per-image/per-chapter work-glossary merge is impossible on this path
-    // without a backend protocol change (out of scope for this cycle). The
-    // GLOBAL glossary does apply (it rides the same blob). Every other
-    // client path merges work glossary per image (retranslate, visual batch,
-    // single-image processor, manual stage) or per chapter (the chapter
-    // queue below — one blob per chapter request, so per-chapter merge works).
     const llmSettings = useLlmProvidersStore.getState().llmSettings;
     const enabledStages = AIO_MANUAL_STAGE_ORDER.filter(
       (stage) => stage === 'detectText' || aioSteps[stage],
@@ -412,6 +404,7 @@ export function useAioPipelineExecution(
         cleanAiModelKey,
         cleanAiInstructions,
         cleanAiCustomProfile: prepared.cleanAiCustomProfile ?? null,
+        cleanAiModelConfig: pipeline.aioCleanAiModelConfig,
         onStageCompleted: (stageKey, image, regions, download) => {
           advanceLiveStageForRun(stageKey, image, regions, download);
         },
@@ -451,9 +444,6 @@ export function useAioPipelineExecution(
             });
           },
         });
-      // setAioDownloadItems replaces every prior `aio` download entry on each
-      // call, so each settle consolidation must pass the ACCUMULATED results:
-      // chunk-only results would revoke earlier chunks' cleaned previews.
       const consolidateSettledResults = (
         newResults: readonly AioBatchImageResult[],
       ): void => {
@@ -507,9 +497,6 @@ export function useAioPipelineExecution(
           hdCropMargin: options.hdCropMargin,
           hdCropTriggerSize: options.hdCropTriggerSize,
           gpuStages: options.gpuStages,
-          // Only a Custom AI selection carries the profile: the backend folds
-          // `custom_llm` into the translation cache key, so sending it while a
-          // regular model is selected would fragment the cache for nothing.
           translationCustomProfile: isCustomModelSelectionKey(
             options.translationSelectionKey,
           )
@@ -545,8 +532,6 @@ export function useAioPipelineExecution(
           }
           useStatusStore.getState().setStatusMessage(chunkMessage);
 
-          // Stages run inside the sidecar, so polled state is the only source
-          // for the indicator the per-image path feeds directly.
           const stageKey = aioStageKeyForBatchStage(state.stage);
           if (stageKey !== null) {
             currentStageLabel =
@@ -660,12 +645,6 @@ export function useAioPipelineExecution(
               ),
               pipeline.aioStageOptions,
             );
-            // Per-chapter request-local merge: one llm_settings blob rides on
-            // THIS chapter's sidecar request and every image in the chapter
-            // shares the label, so one merge covers the chapter's batch.
-            // Direct uploads share the DIRECT_IMAGES_CHAPTER_ID group on the
-            // per-image paths — the queue labels that group 'Images', so the
-            // group id (not the display label) keys the work lookup here.
             return {
               ...options,
               llmSettings: resolveWorkGlossaryForChapter(
@@ -936,8 +915,6 @@ export function useAioPipelineExecution(
         useUiShellStore.getState().setProcessing(false);
         useUiShellStore.getState().setProgress(0);
         useStatusStore.getState().setRuntimeExecutionNotice(null);
-        // The handoff has to follow the release of `processing`: entering the
-        // Manual editor is refused while a run owns the shell.
         if (runCompleted) {
           void enforceCacheLimitAfterRun();
           args.onAutoRunCompleted();
@@ -952,5 +929,5 @@ export function useAioPipelineExecution(
     }
   });
 
-  return { processAIO };
+  return { processAIO, processAioAi };
 }

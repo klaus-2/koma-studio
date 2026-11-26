@@ -1,31 +1,4 @@
-﻿"""Generate the canonical model-asset manifest for every managed model.
-
-Every asset the Python backend installs is declared ONCE here: its path inside
-the upstream tree, its real byte size and its sha256. The install manifests are
-built from this file, so a size can never drift away from the digest that
-protects it.
-
-The asset LISTS come from the backend's own registries (they already own the
-asset lists); this script only resolves the sizes and digests from upstream.
-The ``install`` map records, per model id, the install routing the backend
-registry declares, so the desktop shells can read it instead of re-encoding it.
-
-Sources:
-  * HuggingFace ``GET /api/models/{repo}/tree/{rev}?recursive=true``
-    -> ``size`` per file; ``lfs.oid`` is the sha256 for LFS files. For small
-    non-LFS files the oid is a git SHA1, so the content is hashed locally.
-  * ModelScope ``GET /api/v1/models/{repo}/repo/files?Revision={rev}&Root={leaf}``
-    -> ``Size`` + ``Sha256`` (covers the plain-text dictionaries too).
-  * GitHub releases ``GET /repos/{repo}/releases``
-    -> ``size`` per asset; the digest is computed from the downloaded bytes.
-
-Usage:
-    python generate_model_asset_manifest.py            # write the snapshot
-    python generate_model_asset_manifest.py --check    # fail if the snapshot drifted
-    python generate_model_asset_manifest.py --verify   # also re-download and hash every asset
-"""
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import hashlib
@@ -60,7 +33,6 @@ DETECTOR_PATH = "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx"
 INSTALL_ENDPOINT = "/models/install"
 MANAGED_INSTALL_STRATEGY = "backend_managed"
 
-# model id -> (recognizer upstream name, dictionary file name)
 PADDLEOCR_MODELS: dict[str, tuple[str, str]] = {
     "paddleocr": ("eslav_PP-OCRv5_rec_mobile_infer", "ppocrv5_eslav_dict.txt"),
     "paddleocr_latin_v5": ("latin_PP-OCRv5_rec_mobile_infer", "ppocrv5_latin_dict.txt"),
@@ -99,15 +71,11 @@ def _download_sha256(url: str, expected_size: int | None = None) -> tuple[int, s
     return size, digest.hexdigest()
 
 
-# ----------------------------------------------------------------- upstream --
-
-
 def _hf_tree(repo: str, rev: str = HF_REVISION) -> list[dict[str, Any]]:
     return _get_json(HF_TREE_API.format(repo=repo, rev=rev) + "?recursive=true")
 
 
 def _hf_assets(repo: str, rev: str = HF_REVISION) -> dict[str, dict[str, Any]]:
-    """path -> {size, sha256} for a HuggingFace repo (sha256 from the LFS oid)."""
     assets: dict[str, dict[str, Any]] = {}
     for entry in _hf_tree(repo):
         if entry.get("type") != "file":
@@ -131,7 +99,6 @@ def _hf_resolve_url(repo: str, path: str, rev: str = HF_REVISION) -> str:
 
 
 def _github_release_assets(repo: str, tag: str) -> dict[str, dict[str, Any]]:
-    """asset name -> {size, url} for a GitHub release."""
     release = _get_json(GITHUB_RELEASE_API.format(repo=repo) + f"/tags/{tag}")
     return {
         str(asset["name"]): {
@@ -143,11 +110,6 @@ def _github_release_assets(repo: str, tag: str) -> dict[str, dict[str, Any]]:
 
 
 def _github_asset(url: str) -> dict[str, Any]:
-    """Resolve a GitHub release download URL to its size.
-
-    Uses a HEAD request instead of the releases API: the API is rate limited
-    for unauthenticated callers and the size is all we need from it.
-    """
     request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
         size = int(response.headers.get("Content-Length") or 0)
@@ -157,7 +119,6 @@ def _github_asset(url: str) -> dict[str, Any]:
 
 
 def _modelscope_assets() -> dict[str, dict[str, Any]]:
-    """path -> {size, sha256} for the RapidOCR ModelScope repo."""
     roots = {
         "onnx/PP-OCRv5/det",
         "onnx/PP-OCRv5/rec",
@@ -183,9 +144,6 @@ def _modelscope_assets() -> dict[str, dict[str, Any]]:
                 raise SystemExit(f"modelscope manifest entry is incomplete: {entry!r}")
             resolved[path] = {"size": size, "sha256": sha256}
     return resolved
-
-
-# ------------------------------------------------------------------ helpers --
 
 
 def _asset(
@@ -220,7 +178,6 @@ def _hf_bundle(
             raise SystemExit(f"{repo}: missing file {path}")
         sha256 = info["sha256"]
         if len(sha256) != 64:
-            # Small non-LFS files carry no upstream sha256; hash them locally.
             if info["size"] > _MAX_INLINE_HASH_BYTES:
                 raise SystemExit(
                     f"{repo}: {path} is not LFS-backed and too large to hash inline"
@@ -236,9 +193,6 @@ def _hf_bundle(
 def _model_total(models: dict[str, dict[str, Any]]) -> None:
     for model_id, entry in models.items():
         entry["totalBytes"] = sum(int(asset["size"]) for asset in entry["assets"])
-
-
-# --------------------------------------------------------------- the models --
 
 
 def _paddleocr_models(verify: bool) -> dict[str, dict[str, Any]]:
@@ -348,12 +302,6 @@ def _transformers_vlm_models(verify: bool) -> dict[str, dict[str, Any]]:
 
 
 def _easyocr_models(verify: bool) -> dict[str, dict[str, Any]]:
-    """EasyOCR ships its assets as GitHub release zips.
-
-    The URLs and the file name inside each zip come from the installed easyocr
-    package, which owns that manifest; this script only resolves their sizes
-    and digests.
-    """
     from easyocr.config import detection_models, recognition_models
 
     from models.ocr.easyocr.storage import _EASYOCR_BUCKETS
@@ -478,6 +426,26 @@ def _paddleocr_vl_manga_models(verify: bool) -> dict[str, dict[str, Any]]:
     return models
 
 
+def _local_image_edit_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.image_edit.registry import LOCAL_IMAGE_EDIT_SPECS
+
+    models: dict[str, dict[str, Any]] = {}
+    for model_id, spec in LOCAL_IMAGE_EDIT_SPECS.items():
+        assets: list[dict[str, Any]] = []
+        for group in spec.assets:
+            assets.extend(
+                _hf_bundle(
+                    group.hf_repo,
+                    list(group.files),
+                    targets=dict(group.targets) if group.targets else None,
+                    verify=verify,
+                )
+            )
+        models[model_id] = {"assets": assets}
+    _model_total(models)
+    return models
+
+
 BUILDERS = (
     ("paddleocr", _paddleocr_models),
     ("meiki", _meiki_models),
@@ -491,18 +459,11 @@ BUILDERS = (
     ("detection", _detection_models),
     ("transformers_vlm", _transformers_vlm_models),
     ("easyocr", _easyocr_models),
+    ("image_edit", _local_image_edit_models),
 )
 
 
 def _install_metadata(models: dict[str, dict[str, Any]]) -> dict[str, dict[str, str]]:
-    """model id -> install routing, derived from the backend's own registries.
-
-    A model with an asset builder is backend-managed by construction: the
-    builder wraps the registry the ``/models/install`` dispatch reads. The
-    enhance registry also lists models with no pinned assets, so those declare
-    their strategy explicitly; a registry that leaves it unset is reported as
-    ``unknown`` instead of guessed.
-    """
     from models.enhance.storage import ENHANCE_MODEL_SPECS
 
     install: dict[str, dict[str, str]] = {
@@ -537,8 +498,6 @@ def serialize(snapshot: dict[str, object]) -> str:
     return json.dumps(snapshot, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-# ----------------------------------------------------------- registry sizes --
-
 REGISTRY_FILES = (
     BACKEND_ROOT.parent / "interface" / "src" / "models" / "translation-text-model-registry-data.ts",
     BACKEND_ROOT.parent / "interface" / "src" / "models" / "translation-image-model-registry-data.ts",
@@ -546,7 +505,6 @@ REGISTRY_FILES = (
 
 
 def human_size(total_bytes: int) -> str:
-    """Binary size string, the unit the registry and its parser use."""
     value = float(total_bytes)
     for unit in ("B", "KB", "MB", "GB"):
         if value < 1024 or unit == "GB":
@@ -567,11 +525,6 @@ def _registry_total(snapshot: dict[str, object], model_id: str) -> int | None:
 
 
 def registry_size_drift(snapshot: dict[str, object]) -> list[str]:
-    """Registry entries whose declared size no longer matches the manifest.
-
-    The registry stays a human-readable source: this check is what keeps it
-    honest, and CI fails on a drift instead of a generator rewriting source.
-    """
     drifted: list[str] = []
     for path in REGISTRY_FILES:
         if not path.exists():
@@ -596,7 +549,6 @@ def registry_size_drift(snapshot: dict[str, object]) -> list[str]:
 
 
 def _same_size(current: str, size: str) -> bool:
-    """True when both strings describe the same magnitude."""
     def to_bytes(raw: str) -> int:
         match = re.match(r"^\s*([\d.]+)\s*([KMGT]?B)\s*$", raw, re.IGNORECASE)
         if not match:
@@ -656,4 +608,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

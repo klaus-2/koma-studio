@@ -1,11 +1,12 @@
 import { m } from "framer-motion";
-import { Paintbrush, Sparkles } from "lucide-react";
+import { Paintbrush, Sparkles, Wand2 } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
+import type { SubMode } from "../../../types/dashboard.types";
 
 export interface SubModeToggleProps {
-  value: "auto" | "manual";
-  onChange: (value: "auto" | "manual") => void;
+  value: SubMode;
+  onChange: (value: SubMode) => void;
 }
 
 export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProps) {
@@ -13,6 +14,7 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
   const options = [
     { key: "auto" as const, Icon: Sparkles, label: t("dashboard.aio.autoScope"), title: t("dashboard.aio.autoScopeTitle") },
     { key: "manual" as const, Icon: Paintbrush, label: t("dashboard.aio.manualScope"), title: t("dashboard.aio.manualScopeTitle") },
+    { key: "ai" as const, Icon: Wand2, label: t("dashboard.aio.aiScope"), title: t("dashboard.aio.aiScopeTitle") },
   ];
 
   return (
@@ -21,7 +23,7 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
       aria-label="Sub-mode"
       onKeyDown={handleTablistArrowKeys}
       data-tour="dashboard-submode-toggle"
-      className="glass panel-cut-sm inline-flex items-center gap-0.5 p-1"
+      className="glass panel-cut-sm inline-flex w-full items-center gap-0.5 p-1"
     >
       {options.map(({ key, Icon, label, title }) => {
         const active = value === key;
@@ -33,7 +35,7 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
             aria-selected={active}
             title={title}
             onClick={() => onChange(key)}
-            className={`relative panel-cut-sm px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson ${
+            className={`relative flex-1 whitespace-nowrap panel-cut-sm px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson ${
               active ? "text-ink" : "text-paper/45 hover:text-paper"
             }`}
           >

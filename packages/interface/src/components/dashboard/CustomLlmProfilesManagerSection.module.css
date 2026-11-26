@@ -25,6 +25,53 @@
   color: #fda4af;
 }
 
+.compatWarning,
+.compatInfo {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.compatWarning {
+  border: 1px solid rgba(245, 158, 11, 0.36);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fde68a;
+}
+
+.compatInfo {
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.08);
+  color: #bae6fd;
+}
+
+:global([data-theme="light"]) .compatWarning {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+:global([data-theme="light"]) .compatInfo {
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.28);
+}
+
+:global([data-theme-family='noir']) .compatWarning {
+  border-radius: 0;
+  border-left: 3px solid var(--color-gold);
+  border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  background: color-mix(in srgb, var(--color-gold) 8%, transparent);
+  color: var(--color-gold);
+}
+
+:global([data-theme-family='noir']) .compatInfo {
+  border-radius: 0;
+  border-left: 3px solid var(--color-azure);
+  border-color: color-mix(in srgb, var(--color-azure) 35%, transparent);
+  background: color-mix(in srgb, var(--color-azure) 8%, transparent);
+  color: var(--color-azure);
+}
+
 .profileRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

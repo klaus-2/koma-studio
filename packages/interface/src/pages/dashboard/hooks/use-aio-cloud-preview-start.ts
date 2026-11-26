@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { CustomLlmProfile } from '@/utils/customLlm';
-import type { LoadedImage } from '@/types/dashboard.types';
+import type { LoadedImage, SubMode } from '@/types/dashboard.types';
 import {
   isCloudPreviewSuppressed,
   resolveCloudPreviewGate,
@@ -12,9 +12,12 @@ import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store
 import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
 import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
 import { useTypographerStore } from '@/pages/dashboard/stores/typographer-store';
+import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 
 export interface UseAioCloudPreviewStartArgs {
   readonly processAIO: () => void;
+  readonly processAioAi?: () => void;
+  readonly subMode?: SubMode;
   readonly processing: boolean;
   readonly images: ReadonlyArray<LoadedImage>;
   readonly selectedCustomTranslationProfile: CustomLlmProfile | null;
@@ -35,12 +38,22 @@ export interface UseAioCloudPreviewStartResult {
 
 export function useAioCloudPreviewStart({
   processAIO,
+  processAioAi,
+  subMode: explicitSubMode,
   images,
   processing,
   selectedCustomTranslationProfile,
 }: UseAioCloudPreviewStartArgs): UseAioCloudPreviewStartResult {
+  const storeSubMode = useUiShellStore((s) => s.subMode);
+  const subMode = explicitSubMode ?? storeSubMode;
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
+  const aioCleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
+  const aioCleanAiModelKey = useAioPipelineStore((s) => s.aioCleanAiModelKey);
+  const aioAiModelKey = useAioPipelineStore((s) => s.aioAiModelKey);
+  const aioAiExecutionMode = useAioPipelineStore(
+    (s) => s.aioAiOptions.executionMode,
+  );
   const aioAbortController = useAioPipelineStore(
     (s) => s.aioAbortController,
   );
@@ -56,44 +69,76 @@ export function useAioCloudPreviewStart({
   );
 
   const handleAutoStartWithCloudPreview = useCallback((): void => {
+    const customProfiles = useLlmProvidersStore.getState().customLlmProfiles;
+    const findCleanProfile = (selectionKey: string): CustomLlmProfile | null => {
+      if (!selectionKey.startsWith('custom_clean:')) {
+        return null;
+      }
+      const id = selectionKey.slice('custom_clean:'.length);
+      return (
+        customProfiles.find(
+          (profile) => profile.stage === 'clean' && profile.id === id,
+        ) ?? null
+      );
+    };
     const ocrSelection = aioStageSelection.recognizeText;
     const ocrProfileId = ocrSelection.startsWith('custom_ocr:')
       ? ocrSelection.slice('custom_ocr:'.length)
       : null;
     const customOcrProfile =
       ocrProfileId !== null
-        ? (useLlmProvidersStore
-            .getState()
-            .customLlmProfiles.find(
-              (profile) =>
-                profile.stage === 'ocr' && profile.id === ocrProfileId,
-            ) ?? null)
+        ? (customProfiles.find(
+            (profile) => profile.stage === 'ocr' && profile.id === ocrProfileId,
+          ) ?? null)
         : null;
     const gate = resolveCloudPreviewGate({
       customOcrProfile,
       aioSteps: {
-        recognizeText: aioSteps.recognizeText,
-        getTranslations: aioSteps.getTranslations,
+        recognizeText:
+          subMode === 'ai'
+            ? aioAiExecutionMode === 'script_guided'
+            : aioSteps.recognizeText,
+        getTranslations:
+          subMode === 'ai'
+            ? aioAiExecutionMode === 'script_guided'
+            : aioSteps.getTranslations,
       },
       ocrModelKey: aioStageSelection.recognizeText,
       translationModelKey: aioStageSelection.getTranslations,
       customTranslationProfile: selectedCustomTranslationProfile,
+      subMode,
+      cleanViaAi: aioCleanViaAi,
+      cleanAiModelKey: aioCleanAiModelKey,
+      customCleanProfile: findCleanProfile(aioCleanAiModelKey),
+      aioAiModelKey,
+      customAioAiProfile: findCleanProfile(aioAiModelKey),
     });
-    const providers = [gate.ocr?.provider, gate.translation?.provider].filter(
+    const providers = [
+      gate.ocr?.provider,
+      gate.translation?.provider,
+      gate.imageEdit?.provider,
+    ].filter(
       (provider): provider is string => typeof provider === 'string',
     );
+    const startExecution = subMode === 'ai' ? (processAioAi ?? processAIO) : processAIO;
     if (!gate.required || isCloudPreviewSuppressed(providers)) {
-      processAIO();
+      startExecution();
       return;
     }
     setPreviewGate(gate);
   }, [
+    aioAiExecutionMode,
+    aioAiModelKey,
+    aioCleanAiModelKey,
+    aioCleanViaAi,
     aioStageSelection.getTranslations,
     aioStageSelection.recognizeText,
     aioSteps.getTranslations,
     aioSteps.recognizeText,
     processAIO,
+    processAioAi,
     selectedCustomTranslationProfile,
+    subMode,
   ]);
 
   const previewTextRegions = useMemo(() => {

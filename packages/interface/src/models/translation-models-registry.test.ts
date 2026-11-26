@@ -6,6 +6,7 @@ import type { InstalledModelRecord } from "./types";
 import {
   AIO_LOCAL_MODELS_BY_STAGE,
   ENHANCE_IMAGE_MODELS_REGISTRY,
+  IMAGE_EDIT_MODELS_REGISTRY,
   getLocalAioModelById,
   getModelRuntimeSupport,
   getTranslationModelById,
@@ -34,6 +35,8 @@ describe("translation models registry", () => {
     expect(TRANSLATION_MODELS_REGISTRY.length).toBeGreaterThan(5);
     expect(LOCAL_AIO_MODELS_REGISTRY.length).toBeGreaterThan(TRANSLATION_MODELS_REGISTRY.length);
     expect(ENHANCE_IMAGE_MODELS_REGISTRY.length).toBe(AIO_LOCAL_MODELS_BY_STAGE.enhanceImage.length);
+    expect(IMAGE_EDIT_MODELS_REGISTRY.length).toBe(8);
+    expect(AIO_LOCAL_MODELS_BY_STAGE.imageEdit.length).toBe(8);
   });
 
   test("aligns nllb-200-3.3b with the backend CPU device truth", () => {

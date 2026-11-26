@@ -1,11 +1,12 @@
 import { memo } from 'react';
 
 import { useI18n } from '../../../i18n';
+import type { SubMode } from '../../../types/dashboard.types';
 import { useAioBatchPauseStore } from '../stores/aio-batch-pause-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 
 interface AioBatchPauseButtonProps {
-  subMode: 'auto' | 'manual';
+  subMode: SubMode;
 }
 
 export default memo(function AioBatchPauseButton({
@@ -17,7 +18,7 @@ export default memo(function AioBatchPauseButton({
   const isPaused = useAioBatchPauseStore((s) => s.isPaused);
   const pausePhase = useAioBatchPauseStore((s) => s.pausePhase);
 
-  if (subMode !== 'auto' || (!processing && pausePhase === 'idle')) {
+  if ((subMode !== 'auto' && subMode !== 'ai') || (!processing && pausePhase === 'idle')) {
     return null;
   }
 

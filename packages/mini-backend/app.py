@@ -1,8 +1,3 @@
-"""
-Mini Backend Local - Always runs on user machine
-Local processing without authentication
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -64,6 +59,7 @@ from core.warmup_state import (
 )
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
+from models.image_edit.factory import clear_image_edit_cache
 from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache_size
 from models.ocr.factory import clear_ocr_cache, get_ocr_cache_size
 from models.segmentation.factory import clear_segmenter_cache, get_segmenter_cache_size
@@ -100,8 +96,6 @@ logger = logging.getLogger("mini-backend")
 LOCAL_API_SESSION_HEADER: Final = "x-koma-local-session"
 REQUEST_ID_HEADER: Final = "X-Koma-Request-Id"
 REQUEST_ID_STATE_KEY: Final = "request_id"
-# Desktop shells (Electron V1 + Tauri WebView2 on Windows/macOS/Linux).
-# Must always be allowlisted even if ALLOWED_ORIGINS omits them.
 DESKTOP_APP_ORIGINS: Final = (
     "app://local",
     "tauri://localhost",
@@ -115,9 +109,6 @@ PROFILES_WITHOUT_DLLS: Final = frozenset({"cpu", "apple-mps"})
 MIB: Final = 1024 * 1024
 
 
-# --------------------------------------------------------------------------- #
-# Settings (parsed once, from the environment)
-# --------------------------------------------------------------------------- #
 def _env_flag(name: str, *, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -161,11 +152,6 @@ class LocalApiSettings:
 
     @property
     def allowed_hosts(self) -> frozenset[str]:
-        """Host header values a legitimate loopback client can produce.
-
-        A rebound browser page still sends the attacker's domain here, so the
-        guard rejects it even though the TCP connection lands on 127.0.0.1.
-        """
         return _allowed_hosts_for_port(self.port, is_production=self.is_production)
 
     @property
@@ -183,23 +169,11 @@ def _allowed_hosts_for_port(port: int, *, is_production: bool) -> frozenset[str]
     return frozenset(hosts)
 
 
-# --------------------------------------------------------------------------- #
-# Warmup with acceleration-profile self-healing
-# --------------------------------------------------------------------------- #
 def _current_profile() -> str:
     return (os.getenv("MINI_BACKEND_ACCELERATION_PROFILE") or "").strip().lower() or "cpu"
 
 
 def _switch_to_cpu_profile() -> None:
-    """Move the runtime to CPU and announce the downgrade.
-
-    The announcement is a cross-language contract: the desktop shell matches
-    this marker in the sidecar's stderr to raise its CPU-fallback banner
-    (FALLBACK_LOG_MARKERS in apps/tauri/src-tauri/src/sidecar/mini_backend.rs,
-    guarded by sidecar_fallback_markers_match_backend_log_strings). Announcing
-    from this single chokepoint keeps both downgrade paths — failed warmup and
-    unrecoverable native DLLs — on the same line.
-    """
     previous = _current_profile()
     os.environ["MINI_BACKEND_ACCELERATION_PROFILE"] = "cpu"
     reset_device_runtime_cache()
@@ -209,7 +183,6 @@ def _switch_to_cpu_profile() -> None:
 
 
 def _ensure_profile_runtime(profile: str) -> str:
-    """Verify (and try to repair) native DLLs; degrade to CPU when unrecoverable."""
     if profile in PROFILES_WITHOUT_DLLS:
         return profile
     ok, missing = verify_profile_dlls(profile)
@@ -289,12 +262,6 @@ async def warmup_text_detection_model() -> None:
 
 
 def _configure_torch_thread_limit() -> None:
-    """Apply ``MINI_BACKEND_INTRA_OP_THREADS`` to torch at startup.
-
-    Runtime-safe (unlike ``OMP_NUM_THREADS``, which OpenMP reads once at
-    process start — the desktop shells mirror the intra-op value into the
-    spawn env for that). Never raises: torch is an optional heavy import.
-    """
     threads = env_thread_limit(INTRA_OP_THREADS_ENV)
     if threads is None:
         return
@@ -307,9 +274,6 @@ def _configure_torch_thread_limit() -> None:
         logger.warning("threads.torch_configure_failed", exc_info=True)
 
 
-# --------------------------------------------------------------------------- #
-# Memory diagnostics
-# --------------------------------------------------------------------------- #
 class _CacheManager(Protocol):
     def stats(self) -> CacheManagerStats: ...
     def clear(self) -> None: ...
@@ -361,7 +325,7 @@ class MemoryStatsPayload(TypedDict):
 def _collect_gpu_stats() -> GpuStats | None:
     if importlib.util.find_spec("torch") is None:
         return None
-    import torch  # heavy import; only ever executed inside a worker thread
+    import torch
 
     if not torch.cuda.is_available():
         return None
@@ -371,7 +335,7 @@ def _collect_gpu_stats() -> GpuStats | None:
         free_bytes, total_bytes = torch.cuda.mem_get_info(0)
         free_mb = round(free_bytes / MIB, 1)
         device_used_mb = round((total_bytes - free_bytes) / MIB, 1)
-    except Exception as exc:  # best-effort probe: a broken driver stays None
+    except Exception as exc:
         logger.debug("gpu free-memory probe failed: %s", type(exc).__name__)
     return GpuStats(
         allocated_mb=round(torch.cuda.memory_allocated(0) / MIB, 1),
@@ -442,6 +406,7 @@ _MODEL_CACHE_CLEARERS: Final[tuple[Callable[[], None], ...]] = (
     clear_inpainter_cache,
     clear_segmenter_cache,
     clear_translator_cache,
+    clear_image_edit_cache,
 )
 _REQUEST_CACHE_MANAGERS: Final[tuple[_CacheManager, ...]] = (
     OCR_CACHE_MANAGER,
@@ -459,9 +424,6 @@ def _clear_all_caches() -> int:
     return gc.collect()
 
 
-# --------------------------------------------------------------------------- #
-# Application factory
-# --------------------------------------------------------------------------- #
 def _configure_stdio_utf8() -> None:
     for stream in (sys.stdout, sys.stderr):
         if isinstance(stream, io.TextIOWrapper):
@@ -475,12 +437,6 @@ _CRASH_LOG_HANDLE: io.TextIOWrapper | None = None
 
 
 def _configure_crash_logging() -> None:
-    """Log unhandled exceptions and segfaults to disk.
-
-    PyInstaller builds with console=False hide crashes silently. Writes a
-    crash log next to the app data dir so 'Failed to fetch' (process died
-    mid-request) can be diagnosed.
-    """
     global _CRASH_LOG_HANDLE
     import atexit
     import faulthandler
@@ -582,14 +538,10 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             from services.http_client import close_shared_client
 
             await close_shared_client()
-            # The persistent translation store outlives the in-memory caches:
-            # closed only here at shutdown, never by _clear_all_caches.
             try:
                 await asyncio.to_thread(close_translation_store)
             except Exception:  # noqa: BLE001 — shutdown must not raise
                 logger.warning("shutdown.translation_store_close_failed", exc_info=True)
-            # The persistent stage store follows the same doctrine: closed
-            # only here at shutdown, never by _clear_all_caches.
             try:
                 await asyncio.to_thread(close_stage_store)
             except Exception:  # noqa: BLE001 — shutdown must not raise
@@ -604,8 +556,6 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        # The desktop WebView is cross-origin: without this the batch client
-        # cannot read the id it must poll progress with.
         expose_headers=["X-Koma-Batch-Id"],
     )
     app.add_middleware(IpcGzipMiddleware)
@@ -620,8 +570,6 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         if request.url.path in public_paths:
             return await call_next(request)
 
-        # Reads the module globals, not the frozen settings: the test suite
-        # flips auth/environment by patching these names at request time.
         if ENVIRONMENT == "production":
             host = (request.headers.get("host") or "").strip().lower()
             allowed_hosts = _allowed_hosts_for_port(
@@ -638,10 +586,6 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
 
         origin = (request.headers.get("origin") or "").strip().rstrip("/").lower()
 
-        # CORS preflight never carries the session header; CORSMiddleware
-        # (inside this layer) answers it. Everything else must present the
-        # per-launch secret, including requests without an Origin header:
-        # local processes used to be waved through by that missing header.
         if request.method == "OPTIONS":
             if origin in trusted_origins or origin in frozenset(
                 o.lower() for o in DESKTOP_APP_ORIGINS
@@ -655,14 +599,10 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
                 },
             )
 
-        # Development-only convenience: the Vite origin stays usable without a
-        # header even when a secret is set (the packaged shells always send it).
         if ENVIRONMENT != "production" and origin in trusted_origins:
             return await call_next(request)
 
         if not LOCAL_API_SESSION_SECRET:
-            # Fail closed in production: an unprovisioned secret must not
-            # silently disable the loopback session gate (CWE-306).
             if ENVIRONMENT != "production":
                 return await call_next(request)
             return JSONResponse(
@@ -799,8 +739,6 @@ _configure_stdio_utf8()
 _configure_crash_logging()
 configure_logging()
 SETTINGS = LocalApiSettings.from_env()
-# Test-suite compatibility aliases: tests patch these module globals to flip
-# auth/environment behavior on the already-created app.
 LOCAL_API_SESSION_SECRET = SETTINGS.session_secret
 ENVIRONMENT = SETTINGS.environment
 _ACTIVE_PORT: int = SETTINGS.port

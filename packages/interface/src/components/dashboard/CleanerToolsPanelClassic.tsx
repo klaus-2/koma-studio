@@ -17,6 +17,15 @@ import type {
 } from '../../types/dashboard.types';
 import type { AioStageOption } from '../../models/aioStageCatalog';
 import KlSlider from './KlSlider';
+import ImageEditCompatibilityBanner from './ImageEditCompatibilityBanner';
+import ImageEditModelConfigFields from './ImageEditModelConfigFields';
+import ImageEditModelGuideCard from './ImageEditModelGuideCard';
+import type { CustomLlmProfile } from '../../utils/customLlm';
+import {
+  getLocalImageEditSpec,
+  isLocalImageEditModelKey,
+} from '../../utils/imageEditLocalModels';
+import type { ImageEditModelConfig } from '../../utils/imageEditModelConfig';
 import '../../pages/CleanerTranslatorTools.css';
 import { useI18n } from '../../i18n';
 import { CleanerProcessingLabel } from './CleanerProcessingLabel';
@@ -65,6 +74,9 @@ interface CleanerToolsPanelProps {
   setAioHdCropTriggerSize: (value: number) => void;
   cleanerAiAdditionalInstructions: string;
   setCleanerAiAdditionalInstructions: (value: string) => void;
+  cleanerAiModelConfig?: ImageEditModelConfig;
+  setCleanerAiModelConfig?: (value: ImageEditModelConfig) => void;
+  selectedCleanerProfile?: CustomLlmProfile | null;
   activeCleanerRunMeta: {
     ocrCount: number;
     segmentedCount: number;
@@ -162,6 +174,9 @@ export default function CleanerToolsPanelClassic({
   setAioHdCropTriggerSize,
   cleanerAiAdditionalInstructions,
   setCleanerAiAdditionalInstructions,
+  cleanerAiModelConfig,
+  setCleanerAiModelConfig,
+  selectedCleanerProfile = null,
   activeCleanerRunMeta,
   activeCleanerSelectedRegion,
   processing,
@@ -555,11 +570,34 @@ export default function CleanerToolsPanelClassic({
                     {t('dashboard.cleaner.ai.noneAvailable')}
                   </option>
                 ) : (
-                  cleanerAiModelOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {formatAioStageOptionLabel(option)}
-                    </option>
-                  ))
+                  <>
+                    {cleanerAiModelOptions.some((o) => isLocalImageEditModelKey(o.key)) && (
+                      <optgroup label={t('dashboard.imageEdit.optgroup.localHf')}>
+                        {cleanerAiModelOptions
+                          .filter((o) => isLocalImageEditModelKey(o.key))
+                          .map((option) => (
+                            <option key={option.key} value={option.key}>
+                              {`${formatAioStageOptionLabel(option)}${
+                                option.available
+                                  ? ''
+                                  : ` · ${t('dashboard.imageEdit.notInstalledTag')}`
+                              }`}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    {cleanerAiModelOptions.some((o) => !isLocalImageEditModelKey(o.key)) && (
+                      <optgroup label={t('dashboard.imageEdit.optgroup.cloudApi')}>
+                        {cleanerAiModelOptions
+                          .filter((o) => !isLocalImageEditModelKey(o.key))
+                          .map((option) => (
+                            <option key={option.key} value={option.key}>
+                              {formatAioStageOptionLabel(option)}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                  </>
                 )}
               </select>
               {selectedCleanerAiOption && (
@@ -577,6 +615,36 @@ export default function CleanerToolsPanelClassic({
                   {selectedCleanerAiOption.use_case}
                 </p>
               ) : null}
+              {isLocalImageEditModelKey(cleanerAiModelKey) ? (
+                <div style={{ marginTop: 6 }}>
+                  <ImageEditCompatibilityBanner
+                    model={getLocalImageEditSpec(cleanerAiModelKey)?.id ?? cleanerAiModelKey}
+                    targetMode="clean"
+                  />
+                  {!selectedCleanerAiOption?.available && (
+                    <p className="koma-tools-hint" style={{ marginTop: 4 }}>
+                      {t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+                        model:
+                          getLocalImageEditSpec(cleanerAiModelKey)?.name ??
+                          cleanerAiModelKey,
+                      })}
+                    </p>
+                  )}
+                </div>
+              ) : selectedCleanerProfile ? (
+                <div style={{ marginTop: 6 }}>
+                  <ImageEditCompatibilityBanner
+                    model={selectedCleanerProfile.model}
+                    apiBase={selectedCleanerProfile.apiBase}
+                    protocol={selectedCleanerProfile.protocol}
+                    targetMode="clean"
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <ImageEditModelGuideCard mode="clean" compact />
             </div>
 
             <div className="koma-field">
@@ -598,6 +666,17 @@ export default function CleanerToolsPanelClassic({
                   : t('dashboard.cleaner.instructions.hintAi')}
               </p>
             </div>
+            {cleanerAiModelConfig && setCleanerAiModelConfig ? (
+              <div style={{ marginTop: 10 }}>
+                <ImageEditModelConfigFields
+                  config={cleanerAiModelConfig}
+                  onChange={setCleanerAiModelConfig}
+                  protocol={selectedCleanerProfile?.protocol}
+                  apiBase={selectedCleanerProfile?.apiBase}
+                  isLocalDiffusers={isLocalImageEditModelKey(cleanerAiModelKey)}
+                />
+              </div>
+            ) : null}
             {isAiSfx && activeCleanerRunMeta && (
               <div className="koma-cleaner-stats" style={{ marginTop: 10 }}>
                 <div className="koma-cleaner-stat">

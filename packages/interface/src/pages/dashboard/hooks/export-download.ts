@@ -1,9 +1,3 @@
-/**
- * Export-download domain — entry point. Hosts the per-scope download bundle
- * preparation (typesetter/cleaner/aio/translator entry rendering, zip/txt/pdf
- * packaging) and re-exports the per-concern sibling modules split out in T10,
- * so consumer imports from 'hooks/export-download' stay valid.
- */
 import { useCallback } from 'react';
 
 import { AIO_STAGE_BADGE_LABELS } from '../../../constants/dashboard.constants';
@@ -66,10 +60,6 @@ const getExportPool = (): ExportWorkerPool => {
   return sharedExportPool;
 };
 
-/** Naming context of one ordered bundle entry: works/chapter label/AIO
- * target language resolve `{obra}/{capitulo}/{idioma}` (bundle scopes never
- * reach this builder as 'translator' — same rule as export-download.actions).
- * Exported alongside `resolveBundleFileName` as the naming integration seam. */
 export const buildEntryNamingContext = (
   entry: PreparedDownloadEntry,
   pageIndex: number,
@@ -88,9 +78,6 @@ export const buildEntryNamingContext = (
   });
 };
 
-/** Bundle name: pattern-based when set (recorded as used), else the legacy one.
- *  Exported as the integration seam of the naming feature: the user-
- *  visible bundle name and the recent-patterns recording flow through here. */
 export const resolveBundleFileName = (
   pattern: string,
   firstEntry: PreparedDownloadEntry | undefined,
@@ -109,12 +96,6 @@ export const resolveBundleFileName = (
   );
 };
 
-/**
- * One-shot sheet worker run (Feature 3): a fresh standalone worker per
- * operation, terminated on settle. Sheet ops are rare single-file ops — no
- * pool, no queue, and `xlsx` stays out of every other chunk. A wedged worker
- * is terminated after `SHEET_WORKER_TIMEOUT_MS` so the promise always settles.
- */
 const SHEET_WORKER_TIMEOUT_MS = 30_000;
 const runSheetWorkerRequest = (request: SheetWorkerRequest): Promise<SheetWorkerResponse> =>
   new Promise<SheetWorkerResponse>((resolve, reject) => {
@@ -160,7 +141,6 @@ export interface SheetExportFile {
   fileName: string;
 }
 
-/** Serializes sheet rows to CSV/XLSX bytes in the standalone sheet worker. */
 export const buildSheetExportFile = async (
   rows: readonly SheetRow[],
   format: SheetExportFormat,
@@ -183,7 +163,6 @@ export const buildSheetExportFile = async (
   };
 };
 
-/** Parses a reviewer's CSV/XLSX file back into sheet rows via the worker. */
 export const parseSheetCorrections = async (file: File): Promise<SheetRow[]> => {
   const bytes = await file.arrayBuffer();
   const response = await runSheetWorkerRequest({
@@ -201,13 +180,10 @@ export const parseSheetCorrections = async (file: File): Promise<SheetRow[]> => 
   return response.rows;
 };
 
-/** Anchor download of a generated blob (object-URL lifecycle 1:1). */
 export function triggerBlobDownload(blob: Blob, fileName: string) {
   const desktopBridgeRef = desktopBridge.desktop;
   const desktopFiles = desktopBridgeRef?.files;
   if (desktopFiles?.saveBlob) {
-    // Native save dialog on desktop; browser fallback if the dialog is
-    // cancelled or the IPC fails.
     void (async () => {
       try {
         const data = await blob.arrayBuffer();
@@ -217,7 +193,6 @@ export function triggerBlobDownload(blob: Blob, fileName: string) {
           return;
         }
       } catch {
-        // fall through to anchor download
       }
       useExportStore.getState().setLastExportedFilePath(null);
       anchorBlobDownload(blob, fileName);
@@ -280,7 +255,6 @@ export function useDashboardDownloadBundle({
     if (scope === 'typesetter') {
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
-      // ponytail: sequential by design — canvas render pipeline holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
       for (const imgData of getImages()) {
         const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
         const blob = await renderAioImageToBlob(imgData, regions);
@@ -296,7 +270,6 @@ export function useDashboardDownloadBundle({
     if (scope === 'cleaner') {
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
-      // ponytail: sequential by design — canvas composition holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
       for (const imgData of getImages()) {
         const baseItem = getDownloadItems().find((item) => item.scope === 'cleaner' && item.sourceImageId === imgData.id) ?? null;
         if (hasCleanerManualImageEdits(imgData.id)) {
@@ -336,7 +309,6 @@ export function useDashboardDownloadBundle({
     if (scope === 'aio') {
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
-      // ponytail: sequential by design — canvas composition holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
       for (const imgData of getImages()) {
         if (aioTextOnly) {
           outputs.push({
@@ -347,7 +319,10 @@ export function useDashboardDownloadBundle({
           continue;
         }
         const stageKey = resolveAioStageKeyForImage(imgData.id);
-        if (stageKey === 'render') {
+        const isAioAiBaked = Boolean(
+          useAioPipelineStore.getState().aioAiBakedImageIds[imgData.id],
+        );
+        if (stageKey === 'render' && !isAioAiBaked) {
           const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
           const blob = await renderAioImageToBlob(imgData, regions);
           outputs.push({
@@ -388,8 +363,6 @@ export function useDashboardDownloadBundle({
         const normalizedStem = removeFileExtension(imgData.file.name).replace(/\s+/g, '-') || 'image';
         outputs.push({
           fileName: `koma-studio-aio-${stageToken}-${normalizedStem}.${sourceExt}`,
-          // The export owns these bytes: the archive-backed page is
-          // materialized and kept until the bundle is written.
           blob: await materializePageFile(imgData),
           sourceImageId: imgData.id,
         });
@@ -467,7 +440,6 @@ export function useDashboardDownloadBundle({
         },
         transferBytes: true,
       });
-      // First ordered page = representative context; empty pattern → legacy.
       return {
         blob: new Blob([result.blobBytes], { type: result.mimeType }),
         fileName: resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt),
@@ -494,8 +466,6 @@ export function useDashboardDownloadBundle({
     const imageWriteJobs = orderedEntries.map(async (entry, index) => {
       const imageRef = getImages().find((item) => item.id === entry.sourceImageId);
       const imageExt = getImageExtensionFromMime(entry.blob.type || outFormat);
-      // Empty pattern → the legacy base name exactly; a pattern resolves the
-      // shared page stem (reused by the sibling texts/typographer paths).
       const patternedStem = buildExportName(namingPattern, buildEntryNamingContext(entry, index, imageExt));
       const baseName = patternedStem ?? sanitizeArchivePathToken(removeFileExtension(imageRef?.file.name ?? `page-${index + 1}`));
       const orderedIndex = String(index + 1).padStart(3, '0');

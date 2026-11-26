@@ -1,6 +1,3 @@
-/**
- * Cleaner AI Custom profile — API Base + Model + API key policy for
- */
 import {
   findCustomProfileForSelection,
   normalizeKnownCustomLlmApiBase,
@@ -10,6 +7,11 @@ import {
   type CustomLlmProfile,
   type CustomLlmRequestProfile,
 } from '../utils/customLlm';
+import {
+  getLocalImageEditSpec,
+  isLocalImageEditModelKey,
+  type LocalImageEditModelId,
+} from '../utils/imageEditLocalModels';
 import type { ReadinessCustomProfile, Translate } from './readiness';
 
 export interface CleanerAiProfileReadinessReady {
@@ -75,12 +77,14 @@ export function resolveCleanerAiProfileReadiness(args: {
 export type AioCleanAiReadinessRefusalKind =
   | 'aio_clean_ai_model_missing'
   | 'aio_clean_ai_profile_missing'
-  | 'aio_clean_ai_api_key_missing';
+  | 'aio_clean_ai_api_key_missing'
+  | 'aio_clean_ai_local_not_installed';
 
 export interface AioCleanAiReadinessReady {
   ok: true;
   modelKey: string;
-  customProfile: CustomLlmRequestProfile;
+  customProfile: CustomLlmRequestProfile | null;
+  localModelId?: LocalImageEditModelId;
 }
 
 export interface AioCleanAiReadinessRefusal {
@@ -96,12 +100,14 @@ export type AioCleanAiReadiness =
 const AIO_CLEAN_AI_SELECTION_PREFIX = 'custom_clean:';
 
 const isAioCleanAiSelectionKey = (value: string): boolean =>
-  value.startsWith(AIO_CLEAN_AI_SELECTION_PREFIX)
-  && value.slice(AIO_CLEAN_AI_SELECTION_PREFIX.length).trim().length > 0;
+  (value.startsWith(AIO_CLEAN_AI_SELECTION_PREFIX)
+    && value.slice(AIO_CLEAN_AI_SELECTION_PREFIX.length).trim().length > 0)
+  || isLocalImageEditModelKey(value);
 
 export function resolveAioCleanAiReadiness(args: {
   modelKey: string;
   profiles: CustomLlmProfile[];
+  modelEntries?: Record<string, { status: string } | undefined>;
   t: Translate;
 }): AioCleanAiReadiness {
   const modelKey = args.modelKey.trim();
@@ -111,6 +117,32 @@ export function resolveAioCleanAiReadiness(args: {
       ok: false,
       kind: 'aio_clean_ai_model_missing',
       message: args.t('dashboard.aio.clean.aiClean.readiness.selectModel'),
+    };
+  }
+
+  if (isLocalImageEditModelKey(modelKey)) {
+    const spec = getLocalImageEditSpec(modelKey);
+    if (!spec) {
+      return {
+        ok: false,
+        kind: 'aio_clean_ai_model_missing',
+        message: args.t('dashboard.aio.clean.aiClean.readiness.selectModel'),
+      };
+    }
+    if (args.modelEntries && args.modelEntries[spec.id]?.status !== 'installed') {
+      return {
+        ok: false,
+        kind: 'aio_clean_ai_local_not_installed',
+        message: args.t('dashboard.aio.clean.aiClean.readiness.localNotInstalled', {
+          model: spec.name,
+        }),
+      };
+    }
+    return {
+      ok: true,
+      modelKey,
+      customProfile: null,
+      localModelId: spec.id,
     };
   }
 

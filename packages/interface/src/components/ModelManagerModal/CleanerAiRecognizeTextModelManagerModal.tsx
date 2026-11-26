@@ -3,7 +3,7 @@ import { ModelManagerModal, type ModelManagerModalProps } from "./ModelManagerMo
 
 export type CleanerAiRecognizeTextModelManagerModalProps = Omit<
   ModelManagerModalProps,
-  "selectionStage" | "selectionStageLabel" | "localStageFilter" | "enableCloudCatalog" | "initialSourceFilter" | "hideSourceToggle" | "hideLanguageFilter" | "hideStatusFilter" | "hideFooter" | "hideHeaderMeta"
+  "selectionStage" | "localStageFilter" | "enableCloudCatalog" | "initialSourceFilter" | "hideLanguageFilter"
 >;
 
 export const CleanerAiRecognizeTextModelManagerModal = (
@@ -13,16 +13,12 @@ export const CleanerAiRecognizeTextModelManagerModal = (
   return (
     <ModelManagerModal
       {...props}
-      selectionStage="recognizeText"
-      selectionStageLabel={t('modelManager.stage.automaticAiClean')}
-      localStageFilter="recognizeText"
+      selectionStage="imageEdit"
+      selectionStageLabel={props.selectionStageLabel ?? t('modelManager.stage.automaticAiClean')}
+      localStageFilter="imageEdit"
       enableCloudCatalog
-      initialSourceFilter="cloud"
-      hideSourceToggle
+      initialSourceFilter="all"
       hideLanguageFilter
-      hideStatusFilter
-      hideFooter
-      hideHeaderMeta
     />
   );
 };

@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// jsdom has no storage backend (same as theme-store.test.ts) — Map-backed
-// stub keeps the GPU-preferences and preset rehydration paths honest.
 const storageMap = new Map<string, string>();
 Object.defineProperty(window, 'localStorage', {
   configurable: true,
@@ -200,5 +198,58 @@ describe('useAioPipelineStore', () => {
     expect(freshStore.getState().aioCleanViaAi).toBe(true);
     expect(freshStore.getState().aioCleanAiModelKey).toBe('custom_clean:restored');
     expect(freshStore.getState().aioCleanAiInstructions).toBe('From storage');
+  });
+
+  it('persists aio ai model, instructions, options, and model config and clears baked ids on history invalidation', async () => {
+    const store = useAioPipelineStore.getState();
+    store.setAioAiModelKey('custom_clean:gemini-image');
+    store.setAioAiInstructions('Match comic lettering');
+    store.setAioAiOptions({
+      executionMode: 'hybrid_guided',
+      sfxMode: 'keep',
+      styleMode: 'clean_comic',
+      refineAlignment: true,
+      preserveArtwork: true,
+      skipEmptyPages: false,
+    });
+    store.setAioAiModelConfig({
+      ...store.aioAiModelConfig,
+      imageQuality: '2k',
+      aspectRatioStrategy: 'pad_unpad',
+      seed: 123,
+    });
+    store.setAioCleanAiModelConfig({
+      ...store.aioCleanAiModelConfig,
+      slicingMode: 'custom',
+      segmentHeight: 1600,
+    });
+    store.setAioAiBakedImageIds({ img1: true });
+
+    expect(useAioPipelineStore.getState().aioAiBakedImageIds).toEqual({ img1: true });
+    useAioPipelineStore.getState().invalidateAioPipelineHistory();
+    expect(useAioPipelineStore.getState().aioAiBakedImageIds).toEqual({});
+
+    vi.resetModules();
+    const { useAioPipelineStore: freshStore } = await import(
+      '@/pages/dashboard/stores/aio-pipeline-store'
+    );
+    const restored = freshStore.getState();
+    expect(restored.aioAiModelKey).toBe('custom_clean:gemini-image');
+    expect(restored.aioAiInstructions).toBe('Match comic lettering');
+    expect(restored.aioAiOptions).toMatchObject({
+      executionMode: 'hybrid_guided',
+      sfxMode: 'keep',
+      preserveArtwork: true,
+      skipEmptyPages: false,
+    });
+    expect(restored.aioAiModelConfig).toMatchObject({
+      imageQuality: '2k',
+      aspectRatioStrategy: 'pad_unpad',
+      seed: 123,
+    });
+    expect(restored.aioCleanAiModelConfig).toMatchObject({
+      slicingMode: 'custom',
+      segmentHeight: 1600,
+    });
   });
 });

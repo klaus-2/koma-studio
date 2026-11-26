@@ -21,6 +21,7 @@ const STAGE_RECOMMENDED_MODEL_IDS: Partial<Record<AioLocalModelStage, string[]>>
   detectText: ['font_rtdetr_v2'],
   segmentText: ['baka_content_cc'],
   cleanImage: ['aot'],
+  imageEdit: ['flux2_klein_4b_gguf_q4'],
 };
 
 const RECOGNIZE_TEXT_RECOMMENDED_BY_LANGUAGE: Record<string, string[]> = {
@@ -58,14 +59,10 @@ const JAPANESE_TRANSLATION_RECOMMENDED_BY_TARGET: Record<string, string[]> = {
   en: ['sugoi_v4_ja_en_ct2'],
 };
 
-// Derived from the registry instead of copied: when the upstream target list
-// changes, the recommendation follows without a second edit.
 const HUNYUAN_TARGET_LANGUAGES = new Set(
   TRANSLATION_MODELS_BY_ID['hunyuan_7b_mt_v1_0']?.targetLanguages ?? [],
 );
 
-// M2M100 covers "*" on both sides (100 languages): the floor that keeps a
-// recommendation available for every registry language pair.
 const UNIVERSAL_TRANSLATION_FALLBACK = 'm2m100_1_2b_ct2';
 
 const KNOWN_LANGUAGE_SET = new Set(listRegistryLanguages());
@@ -88,7 +85,6 @@ const getTranslationRecommendation = (
 
   const target = normalizeLanguage(targetLanguage);
   if (!target) {
-    // Target-agnostic callers keep the pre-target-aware picks.
     if (source === 'ja') return ['sakura_1_5b_qwen2_5_v1_0'];
     if (source === 'ko') return ['hunyuan_7b_mt_v1_0'];
     return TRANSLATION_RECOMMENDED_BY_LANGUAGE[source] ?? [];
@@ -103,8 +99,6 @@ const getTranslationRecommendation = (
     );
   }
 
-  // Hunyuan's own target list is narrower than the filter languages, so an
-  // uncovered pair (ko->fi, ko->hu) falls through to the universal model.
   if (source === 'ko' && !HUNYUAN_TARGET_LANGUAGES.has(target)) {
     return [UNIVERSAL_TRANSLATION_FALLBACK];
   }

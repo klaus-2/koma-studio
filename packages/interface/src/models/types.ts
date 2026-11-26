@@ -1,5 +1,3 @@
-
-
 export type ModelSpeedRating = "fast" | "ok" | "good" | "excellent";
 
 export type AioLocalModelStage =
@@ -8,14 +6,11 @@ export type AioLocalModelStage =
   | "recognizeText"
   | "segmentText"
   | "cleanImage"
+  | "imageEdit"
   | "enhanceImage";
 
 export type ModelInstallStrategy = "direct_download" | "backend_managed" | "manual_import";
 
-/**
- * Whether this delivery ships a runtime for the model. Missing means runnable,
- * so only the entries without a runtime have to declare themselves.
- */
 export type ModelRuntimeSupport = "runnable" | "download_only";
 
 export type ModelRuntimeFamily =
@@ -29,6 +24,7 @@ export type ModelRuntimeFamily =
   | "transformers"
   | "transformers_vlm"
   | "transformers_vlm_paddleocr_manga"
+  | "diffusers_image_edit"
   | "managed_runtime";
 
 export interface ModelArtifactFile {
@@ -65,7 +61,6 @@ export interface TranslationModel {
   sourceLanguages: string[];
   targetLanguages: string[];
   requirements: TranslationModelRequirements;
-  /** Numeric free-VRAM floor (GB) declared by the backend; absent = undeclared. */
   minVramGb?: number;
   speed: ModelSpeedRating;
   downloadUrl: string;
@@ -114,10 +109,8 @@ export interface RemoteModelUpdateCheckResult {
 export interface ModelProgress {
   modelId: string;
   bytesDownloaded: number;
-  /** Total bundle size; null when the backend cannot know it yet. */
   totalBytes: number | null;
   speedBytesPerSecond: number;
-  /** null while the total is unknown — the UI renders an indeterminate state. */
   percent: number | null;
   attempt: number;
   currentFile?: string | null;
@@ -141,7 +134,6 @@ export interface ModelInstallState {
   incomplete: boolean;
 }
 
-// Taxonomia espelha packages/mini-backend/core/download_jobs.py.
 export type ModelDownloadErrorCode =
   | "network"
   | "disk_full"

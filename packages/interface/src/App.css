@@ -1,20 +1,11 @@
-/* ============================================================
-   KŌMA STUDIO — DESIGN SYSTEM
-   ============================================================ */
-
 @import 'tailwindcss';
-/* monorepo: the scanner needs to see shared package sources */
 @source "./";
 @source "../../../packages/ui/src";
 @source "../../../packages/auth/src";
 @import 'tw-animate-css';
-/* Noir theme family — fully scoped, classic selectors untouched */
 @import './themes/noir/noir.css';
-/* Noir settings page re-skin */
 @import './themes/noir/settings-noir.css';
-/* Noir LegalHub/ModelRankings/Feed extras */
 @import './themes/noir/a7b4-noir.css';
-/* Noir type dock compact sizing */
 @import './themes/noir/type-dock-noir.css';
 @import './themes/noir/noir-app.css';
 
@@ -84,10 +75,6 @@ body {
 .koma-app-restricted .koma-legal-inline__link:focus-visible {
   color: #cffafe;
 }
-
-/* ============================================================
-   ERROR BOUNDARY — PANEL CRASH FALLBACK (classic family)
-   ============================================================ */
 
 .koma-error-boundary {
   position: relative;
@@ -323,10 +310,6 @@ body {
   }
 }
 
-/* ============================================================
-   AUTH SHELL — MAIN LAYOUT
-   ============================================================ */
-
 .auth-shell {
   position: relative;
   min-height: 100vh;
@@ -395,10 +378,6 @@ body {
   padding: 40px;
 }
 
-/* ============================================================
-   GRADIENT ORBS
-   ============================================================ */
-
 .auth-orb {
   position: absolute;
   border-radius: 9999px;
@@ -434,10 +413,6 @@ body {
   animation: orb-drift-3 30s ease-in-out infinite alternate;
 }
 
-/* ============================================================
-   SFX DECORATIVE TEXT
-   ============================================================ */
-
 .auth-sfx {
   position: absolute;
   z-index: 2;
@@ -464,10 +439,6 @@ body {
   transform: rotate(8deg);
   animation: sfx-drift 16s ease-in-out infinite alternate-reverse;
 }
-
-/* ============================================================
-   AUTH CARD
-   ============================================================ */
 
 .auth-card {
   width: min(100%, 470px);
@@ -530,10 +501,6 @@ body {
   color: #fff;
   background: #0b1020;
 }
-
-/* ============================================================
-   BRAND HEADER
-   ============================================================ */
 
 .auth-brand {
   display: flex;
@@ -651,10 +618,6 @@ body {
   color: var(--auth-text-muted);
 }
 
-/* ============================================================
-   AUTH TABS
-   ============================================================ */
-
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -705,10 +668,6 @@ body {
 .auth-tab--active .auth-tab__icon {
   opacity: 1;
 }
-
-/* ============================================================
-   FORM ELEMENTS
-   ============================================================ */
 
 .auth-form {
   display: flex;
@@ -790,10 +749,6 @@ body {
     0 0 24px rgba(168, 85, 247, 0.06);
 }
 
-/* ============================================================
-   CHECKBOX
-   ============================================================ */
-
 .auth-check {
   display: inline-flex;
   align-items: center;
@@ -834,10 +789,6 @@ body {
   transform: rotate(45deg);
 }
 
-/* ============================================================
-   LINKS
-   ============================================================ */
-
 .auth-link {
   border: 0;
   background: transparent;
@@ -853,10 +804,6 @@ body {
 .auth-link:hover {
   color: #c084fc;
 }
-
-/* ============================================================
-   SUBMIT BUTTON
-   ============================================================ */
 
 .auth-submit {
   position: relative;
@@ -952,10 +899,6 @@ body {
   flex-shrink: 0;
 }
 
-/* ============================================================
-   ALERTS / FEEDBACK
-   ============================================================ */
-
 .auth-alert {
   border-radius: 12px;
   border: 1px solid transparent;
@@ -1008,10 +951,6 @@ body {
   gap: 12px;
 }
 
-/* ============================================================
-   EMAIL DISPLAY (VerifyEmail)
-   ============================================================ */
-
 .auth-email-display {
   display: flex;
   align-items: center;
@@ -1038,10 +977,6 @@ body {
   color: var(--auth-emerald);
 }
 
-/* ============================================================
-   DIVIDER
-   ============================================================ */
-
 .auth-divider {
   margin: 22px 0 16px;
   display: flex;
@@ -1067,10 +1002,6 @@ body {
   white-space: nowrap;
 }
 
-/* ============================================================
-   PILLS
-   ============================================================ */
-
 .auth-pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -1095,10 +1026,6 @@ body {
   opacity: 0.5;
   flex-shrink: 0;
 }
-
-/* ============================================================
-   SWITCH / NOTE
-   ============================================================ */
 
 .auth-switch {
   margin: 20px 0 0;
@@ -1217,20 +1144,12 @@ body {
   margin-top: 0;
 }
 
-/* ============================================================
-   FOCUS VISIBILITY
-   ============================================================ */
-
 .auth-link:focus-visible,
 .auth-submit:focus-visible,
 .auth-tab:focus-visible {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ============================================================
-   PASSWORD STRENGTH
-   ============================================================ */
 
 .auth-strength {
   border-radius: 12px;
@@ -1281,10 +1200,6 @@ body {
   color: rgba(186, 199, 247, 0.35);
 }
 
-/* ============================================================
-   CAPTCHA
-   ============================================================ */
-
 .auth-captcha {
   margin-top: 2px;
   border-radius: 12px;
@@ -1308,10 +1223,6 @@ body {
   font-size: 12px;
 }
 
-/* ============================================================
-   RIGHT PANEL — CONTENT
-   ============================================================ */
-
 .auth-right-content {
   position: relative;
   z-index: 2;
@@ -1322,10 +1233,6 @@ body {
   max-width: 480px;
   text-align: center;
 }
-
-/* ============================================================
-   QUOTE
-   ============================================================ */
 
 .auth-quote {
   position: relative;
@@ -1356,10 +1263,6 @@ body {
   line-height: 1;
   pointer-events: none;
 }
-
-/* ============================================================
-   STATS
-   ============================================================ */
 
 .auth-stats {
   display: flex;
@@ -1404,10 +1307,6 @@ body {
   height: 32px;
   background: rgba(255, 255, 255, 0.08);
 }
-
-/* ============================================================
-   TOOLKIT — ORGANIZED FEATURE TAGS
-   ============================================================ */
 
 .auth-toolkit {
   display: flex;
@@ -1514,10 +1413,6 @@ body {
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
 }
 
-/* ============================================================
-   COMMUNITY
-   ============================================================ */
-
 .auth-community {
   display: flex;
   flex-direction: column;
@@ -1578,10 +1473,6 @@ body {
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* ============================================================
-   FLOATING MANHWA COVERS
-   ============================================================ */
-
 .manhwa-float {
   position: absolute;
   border-radius: 12px;
@@ -1596,7 +1487,6 @@ body {
   transition: transform 0.4s ease;
 }
 
-/* Shine sweep */
 .manhwa-float::after {
   content: '';
   position: absolute;
@@ -1614,15 +1504,11 @@ body {
   pointer-events: none;
 }
 
-/* ── preview container ── */
-
 .manhwa-float__preview {
   position: absolute;
   inset: 0;
   z-index: 0;
 }
-
-/* ── images (before & after) ── */
 
 .manhwa-float__img {
   position: absolute;
@@ -1635,7 +1521,6 @@ body {
   user-select: none;
 }
 
-/* fallback bg while images load */
 .manhwa-float__img--before {
   background: linear-gradient(170deg, #2a2a2e, #101014);
 }
@@ -1644,7 +1529,6 @@ body {
   background: linear-gradient(150deg, #1a0533, #3b0764);
 }
 
-/* per-cover after fallback tints */
 .manhwa-float--1 .manhwa-float__img--after {
   background: linear-gradient(150deg, #1a0533, #7c3aed);
 }
@@ -1665,8 +1549,6 @@ body {
   background: linear-gradient(150deg, #022c22, #10b981);
 }
 
-/* ── before-wrap (clip-path animated) ── */
-
 .manhwa-float__before-wrap {
   position: absolute;
   inset: 0;
@@ -1676,7 +1558,6 @@ body {
   will-change: clip-path;
 }
 
-/* stagger delays per card */
 .manhwa-float--1 .manhwa-float__before-wrap,
 .manhwa-float--1 .manhwa-float__bar {
   animation-delay: 0s;
@@ -1701,8 +1582,6 @@ body {
 .manhwa-float--5 .manhwa-float__bar {
   animation-delay: -0.7s;
 }
-
-/* ── slider bar ── */
 
 .manhwa-float__bar {
   position: absolute;
@@ -1767,8 +1646,6 @@ body {
   border-left: 3px solid rgba(168, 85, 247, 0.75);
 }
 
-/* ── gradient + badge + bottom ── */
-
 .manhwa-float__gradient {
   position: absolute;
   inset: 0;
@@ -1825,8 +1702,6 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* ── cover positions & drift ── */
-
 .manhwa-float--1 {
   top: 5%;
   right: 8%;
@@ -1872,16 +1747,6 @@ body {
   animation: cover-drift-5 10s ease-in-out infinite alternate;
 }
 
-/* ── Before/After slider sweep ── */
-
-/*
-  Before layer uses clip-path: inset(0 R% 0 0)
-  R = 70%  →  before shows 30% (left)  →  bar at 30%  →  mostly AFTER visible
-  R = 30%  →  before shows 70% (left)  →  bar at 70%  →  mostly BEFORE visible
-
-  Flow: show polished → reveal raw → back to polished
-*/
-
 @keyframes preview-clip {
 
   0%,
@@ -1917,10 +1782,6 @@ body {
     transform: translateX(-20%);
   }
 }
-
-/* ============================================================
-   AUTH SIMPLE SHELL (Secondary Pages)
-   ============================================================ */
 
 .auth-simple {
   position: relative;
@@ -1970,10 +1831,6 @@ body {
   line-height: 1.5;
   color: var(--auth-text-muted);
 }
-
-/* ============================================================
-   ANIMATIONS
-   ============================================================ */
 
 @keyframes orb-drift-1 {
   0% {
@@ -2173,10 +2030,6 @@ body {
   }
 }
 
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-
 @media (max-width: 1024px) {
   .auth-shell__right {
     display: none;
@@ -2267,15 +2120,6 @@ body {
   }
 }
 
-/* ============================================================
-   KŌMA STUDIO — COMPONENT DESIGN SYSTEM
-   Extends auth.css with page-level & component styles
-   ============================================================ */
-
-/* ============================================================
-   PAGE SHELL (Settings, etc.)
-   ============================================================ */
-
 .koma-page {
   position: relative;
   min-height: 100vh;
@@ -2319,10 +2163,6 @@ body {
   max-width: 1080px;
 }
 
-/* ============================================================
-   BACK BUTTON
-   ============================================================ */
-
 .koma-back-btn {
   display: inline-flex;
   align-items: center;
@@ -2345,10 +2185,6 @@ body {
   background: rgba(168, 85, 247, 0.08);
   color: var(--auth-text);
 }
-
-/* ============================================================
-   KL CARD (Generic)
-   ============================================================ */
 
 .koma-card {
   border-radius: var(--auth-radius-lg);
@@ -2400,10 +2236,6 @@ body {
   font-size: 13px;
   color: var(--auth-text-muted);
 }
-
-/* ============================================================
-   INFO GRID (Settings tiles)
-   ============================================================ */
 
 .koma-info-grid {
   display: grid;
@@ -2490,10 +2322,6 @@ body {
   }
 }
 
-/* ============================================================
-   SECTIONS
-   ============================================================ */
-
 .koma-section {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -2528,10 +2356,6 @@ body {
   font-size: 13px;
   line-height: 1.65;
 }
-
-/* ============================================================
-   CHANNEL SELECTOR
-   ============================================================ */
 
 .koma-channel-selector {
   display: inline-flex;
@@ -2589,10 +2413,6 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-/* ============================================================
-   TOGGLE SWITCH
-   ============================================================ */
 
 .koma-toggle-row {
   display: flex;
@@ -2826,10 +2646,6 @@ body {
   color: rgba(232, 240, 255, 0.95);
 }
 
-/* ============================================================
-   RELEASE NOTES
-   ============================================================ */
-
 .koma-release-notes {
   margin: 0;
   padding: 16px;
@@ -2923,10 +2739,6 @@ body {
   border-radius: 999px;
 }
 
-/* ============================================================
-   PAGE HEADER
-   ============================================================ */
-
 .koma-page-header {
   display: flex;
   align-items: flex-start;
@@ -2972,10 +2784,6 @@ body {
   border: 1px solid rgba(168, 85, 247, 0.2);
   color: #c084fc;
 }
-
-/* ============================================================
-   PROVIDER SELECTOR
-   ============================================================ */
 
 .koma-provider-row {
   display: flex;
@@ -3028,19 +2836,11 @@ body {
   color: var(--auth-text-muted);
 }
 
-/* ============================================================
-   PLAN CARDS
-   ============================================================ */
-
 .koma-plans-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
-
-/* ============================================================
-   MODEL RANKINGS
-   ============================================================ */
 
 .koma-ranking-hero {
   margin-bottom: 20px;
@@ -3753,10 +3553,6 @@ body {
   }
 }
 
-/* ============================================================
-   SESSION TIMEOUT TOAST
-   ============================================================ */
-
 .koma-session-toast {
   position: relative;
   overflow: hidden;
@@ -3824,10 +3620,6 @@ body {
   outline: 2px solid rgba(252, 211, 77, 0.6);
   outline-offset: 2px;
 }
-
-/* ============================================================
-   UPDATE TOAST
-   ============================================================ */
 
 .koma-toast {
   position: fixed;
@@ -4006,10 +3798,6 @@ body {
   }
 }
 
-/* ============================================================
-   PROGRESS TOAST
-   ============================================================ */
-
 .koma-progress-toast {
   position: fixed;
   bottom: 24px;
@@ -4119,10 +3907,6 @@ body {
   font-size: 10px;
   color: rgba(186, 199, 247, 0.4);
 }
-
-/* ============================================================
-   UPDATE MODAL
-   ============================================================ */
 
 .koma-modal-backdrop {
   position: fixed;
@@ -4410,10 +4194,6 @@ body {
   gap: 10px;
 }
 
-/* ============================================================
-   UPDATER SYNC PANEL (source-only update model)
-   ============================================================ */
-
 .koma-sync__phase {
   margin: 0 0 10px;
   font-family: var(--auth-font-body);
@@ -4547,10 +4327,6 @@ body {
   font-size: 11px;
   color: rgba(148, 163, 184, 0.85);
 }
-
-/* ============================================================
-   SHORTCUT CENTER MODAL
-   ============================================================ */
 
 .koma-shortcuts-modal {
   max-width: min(920px, 96vw);
@@ -4742,10 +4518,6 @@ body {
 .koma-shortcuts-modal__body::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* ============================================================
-   BUG REPORT MODAL
-   ============================================================ */
 
 .koma-bug-report-modal {
   max-width: min(1120px, 96vw);
@@ -4980,10 +4752,6 @@ body {
   }
 }
 
-/* ============================================================
-   CAPTCHA ADDITIONS
-   ============================================================ */
-
 .auth-captcha__header {
   display: flex;
   align-items: center;
@@ -5008,10 +4776,6 @@ body {
   align-items: center;
   gap: 8px;
 }
-
-/* ============================================================
-   RESPONSIVE — COMPONENTS
-   ============================================================ */
 
 @media (max-width: 768px) {
   .koma-page {
@@ -5152,12 +4916,6 @@ body {
   }
 }
 
-/* ============================================================
-   KŌMA STUDIO — DASHBOARD DESIGN SYSTEM
-   Extends auth.css / components.css
-   ============================================================ */
-
-/* ── Layout ── */
 .koma-dash {
   position: relative;
   height: 100vh;
@@ -5202,7 +4960,6 @@ body {
   z-index: 3;
 }
 
-/* ── Mobile Backdrop ── */
 .koma-mobile-backdrop {
   display: none;
   position: fixed;
@@ -5223,7 +4980,6 @@ body {
   }
 }
 
-/* ── Sidebar ── */
 .koma-dash__sidebar {
   width: 280px;
   flex-shrink: 0;
@@ -5384,7 +5140,6 @@ body {
   color: transparent;
 }
 
-/* Version Badge — small pill on top-right of "Studio" */
 .koma-brand__studio-wrap {
   position: relative;
   display: inline;
@@ -5433,7 +5188,6 @@ body {
   text-transform: uppercase;
 }
 
-/* Usage card */
 .koma-usage-card {
   margin-top: 14px;
   padding: 12px;
@@ -5498,7 +5252,6 @@ body {
   color: rgba(186, 199, 247, 0.4);
 }
 
-/* Files panel */
 .koma-files {
   display: flex;
   flex-direction: column;
@@ -5547,7 +5300,6 @@ body {
   gap: 6px;
 }
 
-/* File item */
 .koma-fileitem {
   content-visibility: auto;
   contain-intrinsic-size: auto 84px;
@@ -5629,7 +5381,6 @@ body {
   gap: 1px;
 }
 
-/* Dropzone */
 .koma-dropzone {
   margin: 10px;
   padding: 14px 12px;
@@ -5682,7 +5433,6 @@ body {
   color: rgba(186, 199, 247, 0.72);
 }
 
-/* ── Main stage ── */
 .koma-dash__main {
   flex: 1;
   min-width: 0;
@@ -5690,7 +5440,6 @@ body {
   flex-direction: column;
 }
 
-/* ── Topbar ── */
 .koma-topbar {
   --koma-topbar-item-height: 24px;
   --koma-topbar-item-radius: 8px;
@@ -5709,7 +5458,6 @@ body {
   z-index: 20;
 }
 
-/* Mobile-only buttons */
 .koma-topbar__mobile-left {
   display: none;
   align-items: center;
@@ -5729,7 +5477,6 @@ body {
   display: none;
 }
 
-/* ── Nav Tabs ── */
 .koma-mode-tabs-shell {
   flex: 1 1 auto;
   min-width: 0;
@@ -5949,7 +5696,6 @@ body {
   }
 }
 
-/* ── Tooltip (shadcn-style) ── */
 .koma-shadcn-tooltip__root {
   position: relative;
   display: inline-flex;
@@ -6044,7 +5790,6 @@ body {
   }
 }
 
-/* ── Mobile Nav Dropdown ── */
 .koma-mobile-nav {
   display: none;
   position: absolute;
@@ -6445,7 +6190,6 @@ body {
   }
 }
 
-/* ── Buttons ── */
 .koma-btn {
   border: 0;
   cursor: pointer;
@@ -6505,7 +6249,6 @@ body {
   justify-content: center;
 }
 
-/* Icon buttons */
 .koma-iconbtn {
   width: 32px;
   height: 32px;
@@ -6556,7 +6299,6 @@ body {
   cursor: default;
 }
 
-/* Pill / Seg controls */
 .koma-pill {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -6622,7 +6364,6 @@ body {
   box-shadow: 0 6px 18px rgba(168, 85, 247, 0.1);
 }
 
-/* ── Sub-mode Toggle ── */
 .koma-submode-toggle {
   display: flex;
   gap: 4px;
@@ -6635,17 +6376,19 @@ body {
 
 .koma-submode-toggle__btn {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 5px;
+  padding: 7px 8px;
   border: none;
   border-radius: 9px;
   background: transparent;
   color: rgba(186, 199, 247, 0.5);
   font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
   cursor: pointer;
   transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
@@ -6662,7 +6405,6 @@ body {
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.12);
 }
 
-/* ── Pipeline Steps ── */
 .koma-pipeline-steps {
   display: flex;
   flex-direction: column;
@@ -6883,7 +6625,6 @@ body {
   gap: 8px;
 }
 
-/* ── Checklist ── */
 .koma-checklist {
   display: flex;
   flex-direction: column;
@@ -6906,7 +6647,6 @@ body {
   height: 14px;
 }
 
-/* User menu */
 .koma-user {
   position: relative;
   z-index: 180;
@@ -7003,7 +6743,6 @@ body {
   color: rgba(244, 63, 94, 1);
 }
 
-/* Alerts */
 .koma-alert {
   margin: 10px 14px 0;
   padding: 12px 14px;
@@ -7039,7 +6778,6 @@ body {
   margin-top: 1px;
 }
 
-/* Stage */
 .koma-stage {
   flex: 1;
   min-height: 0;
@@ -7186,7 +6924,6 @@ body {
   }
 }
 
-/* Preview cards */
 .koma-preview-card {
   width: fit-content;
   padding: 8px;
@@ -8090,9 +7827,6 @@ body {
   caret-color: transparent;
 }
 
-/* Keep pointer hit-testing on the editor itself so offsetX/offsetY stay in
-   the region's coordinate space; inline/block children would report the
-   fragment under the pointer instead. */
 .koma-render-inline-editor--canvas-selection > * {
   pointer-events: none;
 }
@@ -8683,7 +8417,6 @@ body {
   margin-top: 8px;
 }
 
-/* Compact horizontal field: [label | slider | value] on one line */
 .koma-effect-popover__field {
   display: grid;
   grid-template-columns: 52px 1fr 34px;
@@ -8691,7 +8424,6 @@ body {
   gap: 5px;
 }
 
-/* Fill-picker variant: no value column */
 .koma-effect-popover__field--fill {
   grid-template-columns: 52px 1fr;
 }
@@ -8718,14 +8450,12 @@ body {
   white-space: nowrap;
 }
 
-/* 2-column pair — places two fields side by side */
 .koma-effect-popover__field-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-/* Narrower label/value columns inside a pair */
 .koma-effect-popover__field-pair .koma-effect-popover__field {
   grid-template-columns: 34px 1fr 26px;
   gap: 4px;
@@ -9132,7 +8862,6 @@ body {
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.24);
 }
 
-/* Footer bar */
 .koma-footerbar {
   height: 32px;
   display: flex;
@@ -9361,8 +9090,6 @@ body {
 }
 
 .koma-footerbar__action {
-  /* border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 14, 28, 0.74); */
   color: rgba(208, 219, 255, 0.8);
 }
 
@@ -9450,7 +9177,6 @@ body {
   white-space: nowrap;
 }
 
-/* ── Tools panel ── */
 .koma-dash__tools {
   width: 310px;
   min-width: 0;
@@ -9535,7 +9261,6 @@ body {
   margin: 0 0 4px;
 }
 
-/* Card surface (nested panels in tools) */
 .koma-card-surface {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -9555,7 +9280,6 @@ body {
   margin-bottom: 10px;
 }
 
-/* Fields */
 .koma-field {
   margin-bottom: 10px;
 }
@@ -9587,7 +9311,6 @@ body {
   margin-bottom: 10px;
 }
 
-/* Inputs / Selects (reuse from components.css, extend here) */
 .koma-input,
 .koma-select {
   width: 100%;
@@ -9624,7 +9347,6 @@ body {
   padding: 0;
 }
 
-/* Toggle pills (grayscale / invert) */
 .koma-toggle-row-group {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -9659,7 +9381,6 @@ body {
   box-shadow: 0 6px 18px rgba(168, 85, 247, 0.1);
 }
 
-/* Notes */
 .koma-note {
   border-radius: 12px;
   padding: 10px 12px;
@@ -9700,7 +9421,6 @@ body {
   color: rgba(6, 182, 212, 0.7);
 }
 
-/* Sliders */
 .koma-slider {
   display: flex;
   flex-direction: column;
@@ -9842,7 +9562,6 @@ body {
   box-shadow: 0 6px 16px rgba(124, 58, 237, 0.18);
 }
 
-/* Tools footer */
 .koma-tools__footer {
   padding: 12px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -9867,7 +9586,6 @@ body {
   gap: 8px;
 }
 
-/* ── Password Strength ── */
 .koma-strength {
   overflow: hidden;
   border-radius: 14px;
@@ -9954,7 +9672,6 @@ body {
   color: rgba(255, 255, 255, 0.25);
 }
 
-/* ── Password Input ── */
 .koma-password {
   position: relative;
 }
@@ -9981,7 +9698,6 @@ body {
   color: rgba(241, 245, 249, 0.8);
 }
 
-/* ── Status Bar ── */
 .koma-statusbar {
   position: fixed;
   left: 12px;
@@ -10020,13 +9736,6 @@ body {
 .koma-statusbar__dot {
   fill: currentColor;
 }
-
-/* ═══════════════════════════════════════════════════════════
-   KŌMA Studio — Settings Page
-   Design System: Dark, glass morphism, purple/cyan
-   ═══════════════════════════════════════════════════════════ */
-
-/* ─── Page Shell ─────────────────────────────────────────── */
 
 .koma-stg {
   position: relative;
@@ -10105,8 +9814,6 @@ body {
   padding: 32px 24px 64px;
 }
 
-/* ─── Back Button ────────────────────────────────────────── */
-
 .koma-back-btn {
   display: inline-flex;
   align-items: center;
@@ -10135,8 +9842,6 @@ body {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Profile Header Card ───────────────────────────────── */
 
 .koma-stg-header {
   border-radius: var(--auth-radius-lg);
@@ -10223,8 +9928,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* ─── Quick Stats ────────────────────────────────────────── */
-
 .koma-stg-stats {
   display: flex;
   align-items: center;
@@ -10263,8 +9966,6 @@ body {
   background: rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
 }
-
-/* ─── Tab Navigation ─────────────────────────────────────── */
 
 .koma-stg-tabs {
   display: flex;
@@ -10331,8 +10032,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* ─── Tab Content Panel ──────────────────────────────────── */
-
 .koma-stg-body {
   position: relative;
 }
@@ -10352,8 +10051,6 @@ body {
     transform: translateY(0);
   }
 }
-
-/* ─── Section ────────────────────────────────────────────── */
 
 .koma-stg-section {
   border-radius: var(--auth-radius-lg);
@@ -10397,8 +10094,6 @@ body {
   margin: -6px 0 18px;
 }
 
-/* ─── Info Grid ──────────────────────────────────────────── */
-
 .koma-stg-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -10438,8 +10133,6 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
-
-/* ─── Chips / Badges ─────────────────────────────────────── */
 
 .koma-stg-chip {
   display: inline-flex;
@@ -10488,8 +10181,6 @@ body {
   background: rgba(245, 158, 11, 0.12);
 }
 
-/* ─── Status Dot ─────────────────────────────────────────── */
-
 .koma-stg-dot {
   width: 7px;
   height: 7px;
@@ -10525,8 +10216,6 @@ body {
   }
 }
 
-/* ─── Actions ────────────────────────────────────────────── */
-
 .koma-stg-actions {
   display: flex;
   flex-wrap: wrap;
@@ -10537,8 +10226,6 @@ body {
 .koma-stg-actions--row {
   margin-bottom: 16px;
 }
-
-/* ─── Buttons ────────────────────────────────────────────── */
 
 .koma-btn {
   display: inline-flex;
@@ -10655,14 +10342,10 @@ body {
   border-radius: 8px;
 }
 
-/* ─── Icon Button ────────────────────────────────────────── */
-
 .koma-iconbtn {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  /* border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02); */
   color: rgba(186, 199, 247, 0.6);
   display: flex;
   align-items: center;
@@ -10687,8 +10370,6 @@ body {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Alerts ─────────────────────────────────────────────── */
 
 .koma-stg-alert {
   display: flex;
@@ -10740,8 +10421,6 @@ body {
   background: rgba(8, 51, 68, 0.2);
   color: #67e8f9;
 }
-
-/* ─── Toggle Switch ──────────────────────────────────────── */
 
 .koma-toggle {
   position: relative;
@@ -10837,8 +10516,6 @@ body {
   line-height: 1.6;
 }
 
-/* ─── Usage Ring ─────────────────────────────────────────── */
-
 .koma-stg-usage {
   margin-bottom: 4px;
 }
@@ -10878,7 +10555,6 @@ body {
   filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.3));
 }
 
-/* Fallback solid gradient stroke */
 .koma-stg-ring__fill {
   stroke: var(--auth-purple);
 }
@@ -10935,8 +10611,6 @@ body {
   font-weight: 800;
   color: var(--auth-text);
 }
-
-/* ─── Countdown ──────────────────────────────────────────── */
 
 .koma-stg-countdown {
   display: flex;
@@ -11020,10 +10694,6 @@ body {
   opacity: 0.7;
 }
 
-/* ─── Plan Card ──────────────────────────────────────────── */
-
-/* ─── Presets — Filters ──────────────────────────────────── */
-
 .koma-stg-filters {
   display: flex;
   gap: 6px;
@@ -11056,8 +10726,6 @@ body {
   border-color: rgba(168, 85, 247, 0.25);
   color: #c084fc;
 }
-
-/* ─── Preset Form ────────────────────────────────────────── */
 
 .koma-stg-preset-form {
   border-radius: 14px;
@@ -11104,8 +10772,6 @@ body {
 .koma-stg-checkbox--preset-active {
   margin-top: 6px;
 }
-
-/* ─── Fields ─────────────────────────────────────────────── */
 
 .koma-stg-field {
   margin-bottom: 14px;
@@ -11171,8 +10837,6 @@ body {
   flex: 1;
 }
 
-/* ─── Checkbox ───────────────────────────────────────────── */
-
 .koma-stg-checkbox {
   display: flex;
   align-items: center;
@@ -11214,8 +10878,6 @@ body {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-
-/* ─── Preset List ────────────────────────────────────────── */
 
 .koma-stg-preset-list {
   display: flex;
@@ -11357,8 +11019,6 @@ body {
   white-space: nowrap;
 }
 
-/* ─── Empty State ────────────────────────────────────────── */
-
 .koma-stg-empty {
   display: flex;
   flex-direction: column;
@@ -11379,8 +11039,6 @@ body {
   color: var(--auth-text-muted);
   font-style: italic;
 }
-
-/* ─── Webhook ────────────────────────────────────────────── */
 
 .koma-stg-webhook {
   margin-top: 4px;
@@ -11410,8 +11068,6 @@ body {
   padding-top: 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
-
-/* ─── Fields ─────────────────────────────────────────────── */
 
 .koma-stg-field {
   margin-bottom: 16px;
@@ -11474,8 +11130,6 @@ body {
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
-/* ─── Events (checkboxes) ────────────────────────────────── */
-
 .koma-stg-events {
   display: flex;
   flex-direction: column;
@@ -11501,7 +11155,6 @@ body {
   background: rgba(168, 85, 247, 0.03);
 }
 
-/* sr-only: esconde o input nativo */
 .koma-stg-event>input[type='checkbox'] {
   position: absolute;
   opacity: 0;
@@ -11509,8 +11162,6 @@ body {
   height: 0;
   pointer-events: none;
 }
-
-/* ─── Custom checkbox ────────────────────────────────────── */
 
 .koma-stg-checkbox__box {
   width: 18px;
@@ -11531,7 +11182,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Checkmark (hidden by default) */
 .koma-stg-checkbox__box::after {
   content: '';
   width: 10px;
@@ -11543,7 +11193,6 @@ body {
   transition: opacity 0.15s ease;
 }
 
-/* Checked state */
 .koma-stg-event>input[type='checkbox']:checked+.koma-stg-checkbox__box {
   background: var(--auth-purple);
   border-color: var(--auth-purple);
@@ -11554,13 +11203,10 @@ body {
   opacity: 1;
 }
 
-/* Focus-visible on checkbox */
 .koma-stg-event>input[type='checkbox']:focus-visible+.koma-stg-checkbox__box {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Event text ─────────────────────────────────────────── */
 
 .koma-stg-event>div {
   display: flex;
@@ -11584,8 +11230,6 @@ body {
   line-height: 1.45;
 }
 
-/* ─── Footer toggle row ─────────────────────────────────── */
-
 .koma-stg-toggle-row {
   display: flex;
   align-items: center;
@@ -11601,8 +11245,6 @@ body {
   color: var(--auth-text);
   letter-spacing: 0.01em;
 }
-
-/* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 720px) {
   .koma-preset-toolbar__actions {
@@ -11663,7 +11305,6 @@ body {
   }
 }
 
-/* ── Scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -11698,7 +11339,6 @@ body {
   --mm-accent-ring: color-mix(in srgb, var(--color-crimson) 8%, transparent);
 }
 
-/* ── Responsive ── */
 @media (max-width: 1100px) {
   .koma-dash__tools {
     position: fixed;
@@ -11927,8 +11567,6 @@ body {
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  /* tokens de texto usados pelos componentes de dica do dashboard
-     (HealingToolHint etc.) — theme-aware dark/light */
   --color-text: var(--foreground);
   --color-text-muted: var(--muted-foreground);
   --color-accent: var(--accent);
@@ -11951,10 +11589,6 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
-
-/* ============================================================
-   KŌMA STUDIO — LIGHT THEME (comprehensive)
-   ============================================================ */
 
 [data-theme="light"] {
   --auth-bg: #f0f2f5;
@@ -12000,14 +11634,12 @@ body {
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* ── base ── */
 html[data-theme="light"],
 html[data-theme="light"] body,
 html[data-theme="light"] #root {
   background: var(--auth-bg);
 }
 
-/* ── auth shell / login ── */
 [data-theme="light"] .auth-shell {
   background: var(--auth-bg);
 }
@@ -12033,7 +11665,6 @@ html[data-theme="light"] #root {
   background: rgba(225, 29, 72, 0.05);
 }
 
-/* auth card */
 [data-theme="light"] .auth-card {
   background: var(--auth-card-bg);
   border-color: rgba(0, 0, 0, 0.08);
@@ -12054,7 +11685,6 @@ html[data-theme="light"] #root {
   animation-name: card-breathe-light;
 }
 
-/* auth locale switcher */
 [data-theme="light"] .auth-locale-switcher {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.7);
@@ -12074,7 +11704,6 @@ html[data-theme="light"] #root {
   background: #fff;
 }
 
-/* auth tabs */
 [data-theme="light"] .auth-tabs {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.06);
@@ -12088,7 +11717,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* auth form elements */
 [data-theme="light"] .auth-field__label {
   color: rgba(51, 65, 85, 0.7);
 }
@@ -12139,7 +11767,6 @@ html[data-theme="light"] #root {
   color: #7c3aed;
 }
 
-/* auth submit outline */
 [data-theme="light"] .auth-submit--outline {
   border-color: rgba(147, 51, 234, 0.2);
   color: rgba(51, 65, 85, 0.8);
@@ -12155,7 +11782,6 @@ html[data-theme="light"] #root {
   border-top-color: #fff;
 }
 
-/* auth alerts */
 [data-theme="light"] .auth-alert--error {
   border-color: rgba(225, 29, 72, 0.2);
   background: rgba(225, 29, 72, 0.06);
@@ -12180,24 +11806,20 @@ html[data-theme="light"] #root {
   color: #155e75;
 }
 
-/* auth divider */
 [data-theme="light"] .auth-divider__line {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
 }
 
-/* auth pills */
 [data-theme="light"] .auth-pill {
   border-color: rgba(147, 51, 234, 0.1);
   background: rgba(147, 51, 234, 0.04);
   color: rgba(51, 65, 85, 0.7);
 }
 
-/* auth switch / note */
 [data-theme="light"] .auth-note {
   color: rgba(51, 65, 85, 0.5);
 }
 
-/* auth stats / right content */
 [data-theme="light"] .auth-stats {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.5);
@@ -12214,7 +11836,6 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* auth genre tags */
 [data-theme="light"] .auth-genre--purple {
   color: #7c3aed;
 }
@@ -12235,7 +11856,6 @@ html[data-theme="light"] #root {
   color: #059669;
 }
 
-/* auth travel gate */
 [data-theme="light"] .auth-travel-gate {
   border-color: rgba(8, 145, 178, 0.15);
   background: linear-gradient(160deg, rgba(224, 242, 254, 0.5), rgba(255, 255, 255, 0.9) 58%), radial-gradient(circle at top right, rgba(8, 145, 178, 0.08), transparent 42%);
@@ -12264,18 +11884,15 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.86);
 }
 
-/* auth strength */
 [data-theme="light"] .auth-strength {
   border-color: var(--auth-input-border);
   background: var(--auth-input-bg);
 }
 
-/* auth simple shell */
 [data-theme="light"] .auth-simple {
   background: var(--auth-bg);
 }
 
-/* ── koma-page (generic pages) ── */
 [data-theme="light"] .koma-page {
   background: var(--auth-bg);
 }
@@ -12303,7 +11920,6 @@ html[data-theme="light"] #root {
   color: rgba(71, 85, 105, 0.78);
 }
 
-/* koma-back-btn (pages) */
 [data-theme="light"] .koma-back-btn {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.5);
@@ -12316,7 +11932,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* koma-card */
 [data-theme="light"] .koma-card {
   background: var(--auth-card-bg);
   border-color: rgba(0, 0, 0, 0.06);
@@ -12328,7 +11943,6 @@ html[data-theme="light"] #root {
   border-color: rgba(147, 51, 234, 0.12);
 }
 
-/* koma-info-tile */
 [data-theme="light"] .koma-info-tile {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.6);
@@ -12350,7 +11964,6 @@ html[data-theme="light"] #root {
   color: #e11d48;
 }
 
-/* koma-section */
 [data-theme="light"] .koma-section {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.6);
@@ -12360,7 +11973,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.68);
 }
 
-/* koma-channel-selector */
 [data-theme="light"] .koma-channel-selector {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.06);
@@ -12370,7 +11982,6 @@ html[data-theme="light"] #root {
   background: rgba(51, 65, 85, 0.2);
 }
 
-/* toggle (component variant) */
 [data-theme="light"] .koma-toggle__track {
   background: rgba(0, 0, 0, 0.12);
   border-color: rgba(0, 0, 0, 0.1);
@@ -12390,7 +12001,6 @@ html[data-theme="light"] #root {
   background: var(--auth-purple);
 }
 
-/* ── DASHBOARD ── */
 [data-theme="light"] .koma-dash {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -12406,7 +12016,6 @@ html[data-theme="light"] #root {
   background-image: radial-gradient(rgba(0, 0, 0, 0.018) 1px, transparent 1px);
 }
 
-/* sidebar */
 [data-theme="light"] .koma-dash__sidebar {
   background: rgba(255, 255, 255, 0.88);
   border-right-color: rgba(0, 0, 0, 0.06);
@@ -12436,13 +12045,11 @@ html[data-theme="light"] #root {
   background: rgba(255, 255, 255, 0.98);
 }
 
-/* brand */
 [data-theme="light"] .koma-brand__icon {
   background: rgba(147, 51, 234, 0.08);
   border-color: rgba(147, 51, 234, 0.12);
 }
 
-/* usage card */
 [data-theme="light"] .koma-usage-card {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.02);
@@ -12469,7 +12076,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.5);
 }
 
-/* files panel */
 [data-theme="light"] .koma-files__header {
   color: rgba(51, 65, 85, 0.5);
   border-top-color: rgba(0, 0, 0, 0.04);
@@ -12503,7 +12109,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.4);
 }
 
-/* dropzone */
 [data-theme="light"] .koma-dropzone {
   border-color: rgba(147, 51, 234, 0.15);
   background: rgba(147, 51, 234, 0.02);
@@ -12527,14 +12132,12 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.72);
 }
 
-/* topbar */
 [data-theme="light"] .koma-topbar {
   border-bottom-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px) saturate(1.2);
 }
 
-/* mode tabs */
 [data-theme="light"] .koma-mode-tabs__scrollbtn {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
@@ -12570,7 +12173,6 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* tooltips — always dark bg for contrast */
 [data-theme="light"] .koma-shadcn-tooltip {
   border-color: rgba(0, 0, 0, 0.12);
   background: rgba(15, 23, 42, 0.94);
@@ -12768,7 +12370,6 @@ html[data-theme="light"] #root {
   color: rgba(15, 23, 42, 0.96);
 }
 
-/* shared tools panel surfaces */
 [data-theme="light"] .koma-tools__header {
   border-bottom-color: rgba(15, 23, 42, 0.07);
   color: rgba(15, 23, 42, 0.82);
@@ -12892,7 +12493,6 @@ html[data-theme="light"] #root {
   color: rgba(15, 23, 42, 0.82);
 }
 
-/* mobile nav */
 [data-theme="light"] .koma-mobile-nav {
   background: rgba(255, 255, 255, 0.98);
   border-bottom-color: rgba(0, 0, 0, 0.08);
@@ -12958,7 +12558,6 @@ html[data-theme="light"] #root {
   color: rgba(15, 23, 42, 0.9);
 }
 
-/* topbar right / dividers */
 [data-theme="light"] .koma-divider {
   background: rgba(0, 0, 0, 0.07);
 }
@@ -12979,7 +12578,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.68);
 }
 
-/* buttons */
 [data-theme="light"] .koma-btn--ghost {
   background: rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(0, 0, 0, 0.07);
@@ -13021,7 +12619,6 @@ html[data-theme="light"] #root {
   color: #0f172a;
 }
 
-/* icon buttons */
 [data-theme="light"] .koma-iconbtn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13034,7 +12631,6 @@ html[data-theme="light"] #root {
   background: rgba(147, 51, 234, 0.04);
 }
 
-/* pill / seg controls */
 [data-theme="light"] .koma-pill {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13059,7 +12655,6 @@ html[data-theme="light"] #root {
   box-shadow: 0 4px 12px rgba(147, 51, 234, 0.06);
 }
 
-/* sub-mode toggle */
 [data-theme="light"] .koma-submode-toggle {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13079,7 +12674,6 @@ html[data-theme="light"] #root {
   box-shadow: 0 3px 10px rgba(147, 51, 234, 0.08);
 }
 
-/* pipeline steps */
 [data-theme="light"] .koma-pipeline-step {
   border-color: rgba(0, 0, 0, 0.04);
   background: rgba(0, 0, 0, 0.01);
@@ -13117,7 +12711,6 @@ html[data-theme="light"] #root {
   color: rgba(15, 23, 42, 0.72);
 }
 
-/* stage config */
 [data-theme="light"] .koma-stage-config {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.01);
@@ -13133,12 +12726,10 @@ html[data-theme="light"] #root {
   background: rgba(255, 255, 255, 0.7);
 }
 
-/* checklist */
 [data-theme="light"] .koma-checklist__item {
   color: rgba(51, 65, 85, 0.65);
 }
 
-/* user menu */
 [data-theme="light"] .koma-user__btn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13178,7 +12769,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* alerts */
 [data-theme="light"] .koma-alert {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.5);
@@ -13197,7 +12787,6 @@ html[data-theme="light"] #root {
   background: rgba(217, 119, 6, 0.04);
 }
 
-/* stage / empty */
 [data-theme="light"] .koma-stage {
   background: radial-gradient(ellipse at 35% 25%, rgba(147, 51, 234, 0.02), transparent 50%),
     radial-gradient(ellipse at 65% 75%, rgba(8, 145, 178, 0.015), transparent 50%);
@@ -13235,7 +12824,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.6);
 }
 
-/* preview cards */
 [data-theme="light"] .koma-preview-card {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.4);
@@ -13260,7 +12848,6 @@ html[data-theme="light"] #root {
   color: rgba(15, 23, 42, 0.82);
 }
 
-/* utils dropdown */
 [data-theme="light"] .koma-utils-dropdown {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -13281,7 +12868,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* download menu */
 [data-theme="light"] .koma-download-menu {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.98);
@@ -13306,7 +12892,6 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.015);
 }
 
-/* footerbar */
 [data-theme="light"] .koma-footerbar {
   border-top-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.6);
@@ -13410,7 +12995,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.8);
 }
 
-/* ── scrollbars ── */
 [data-theme="light"] .koma-stg__scroll,
 [data-theme="light"] .koma-dash__main,
 [data-theme="light"] .koma-stage {
@@ -13425,7 +13009,6 @@ html[data-theme="light"] #root {
   background: transparent !important;
 }
 
-/* ── settings page ── */
 [data-theme="light"] .koma-stg {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -13527,7 +13110,6 @@ html[data-theme="light"] #root {
   color: rgba(30, 41, 59, 0.84);
 }
 
-/* settings alerts */
 [data-theme="light"] .koma-stg-alert--success {
   background: rgba(5, 150, 105, 0.05);
   border-color: rgba(5, 150, 105, 0.12);
@@ -13548,7 +13130,6 @@ html[data-theme="light"] #root {
   border-color: rgba(8, 145, 178, 0.12);
 }
 
-/* settings chips */
 [data-theme="light"] .koma-stg-chip {
   background: rgba(0, 0, 0, 0.04);
   color: var(--auth-text-muted);
@@ -13564,7 +13145,6 @@ html[data-theme="light"] #root {
   color: var(--auth-cyan);
 }
 
-/* settings channels - dark theme (base) */
 .koma-stg-channels {
   display: flex;
   flex-direction: column;
@@ -13632,7 +13212,6 @@ html[data-theme="light"] #root {
   margin-top: 2px;
 }
 
-/* settings channels - light theme */
 [data-theme="light"] .koma-stg-channels .koma-stg-channel {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.015);
@@ -13656,7 +13235,6 @@ html[data-theme="light"] #root {
   color: rgba(71, 85, 105, 0.7);
 }
 
-/* ── toasts ── */
 [data-theme="light"] .koma-session-toast,
 [data-theme="light"] .koma-update-toast,
 [data-theme="light"] .koma-progress-toast {
@@ -13666,7 +13244,6 @@ html[data-theme="light"] #root {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
-/* ── modals ── */
 [data-theme="light"] .koma-modal-backdrop {
   background: rgba(0, 0, 0, 0.2);
 }
@@ -13743,7 +13320,6 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* error boundary */
 [data-theme="light"] .koma-error-boundary {
   background:
     radial-gradient(circle at 50% 0%, rgba(225, 29, 72, 0.06), transparent 55%),
@@ -13809,7 +13385,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* shortcut center */
 [data-theme="light"] .koma-sc-search__field {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
@@ -13857,7 +13432,6 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.02);
 }
 
-/* bug report */
 [data-theme="light"] .koma-bug-section__title {
   border-color: rgba(0, 0, 0, 0.03);
   color: rgba(147, 51, 234, 0.6);
@@ -13906,7 +13480,6 @@ html[data-theme="light"] #root {
   color: rgba(51, 65, 85, 0.3);
 }
 
-/* shortcuts modal */
 [data-theme="light"] .koma-shortcuts-modal__notice {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13924,7 +13497,6 @@ html[data-theme="light"] #root {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* ── ranking page ── */
 [data-theme="light"] .koma-ranking-tab {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.02);
@@ -13952,7 +13524,6 @@ html[data-theme="light"] #root {
   background: rgba(255, 255, 255, 0.8);
 }
 
-/* ── restricted / production ── */
 [data-theme="light"] .bg-neutral-950 {
   background-color: var(--auth-bg) !important;
 }
@@ -13974,7 +13545,6 @@ html[data-theme="light"] #root {
   color: var(--auth-text-muted) !important;
 }
 
-/* ── legal pages ── */
 [data-theme="light"] .koma-legal-page {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -14055,7 +13625,6 @@ html[data-theme="light"] #root {
   color: rgba(100, 116, 139, 0.72);
 }
 
-/* ── context menu ── */
 [data-theme="light"] .koma-ctx {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -14108,20 +13677,14 @@ html[data-theme="light"] #root {
   color: var(--auth-text);
 }
 
-/* ── generic dark-on-light text fix ──
-   Catch-all for hardcoded light text (rgba 186,199,247 / 241,245,249 / 226,232,240 / 255,255,255)
-   applied via muted-text utility classes. :where() keeps it at zero specificity on
-   the subject so an explicit `[data-theme="light"] .koma-x` color still wins. */
 [data-theme="light"] :where([class*="koma-"]) {
   color: inherit;
 }
 
-/* ── mobile backdrop ── */
 [data-theme="light"] .koma-mobile-backdrop {
   background: rgba(0, 0, 0, 0.25);
 }
 
-/* ── theme selector ── */
 .koma-stg-themes {
   display: flex;
   gap: 12px;
@@ -14702,82 +14265,58 @@ html[data-theme="light"] #root {
   }
 }
 
-/* ============================================================
-   PERFORMANCE: CSS Containment for Dashboard
-   Isolates rendering of heavy containers to prevent
-   layout/paint propagation across the entire DOM.
-   ============================================================ */
-
-/* Main dashboard layout containers */
 .koma-dash,
 .koma-dash__bg {
   contain: layout style;
 }
 
-/* Image file list sidebar */
 .koma-files__list {
   contain: layout style paint;
   content-visibility: auto;
   contain-intrinsic-size: 0 600px;
 }
 
-/* Individual file items */
 .koma-fileitem {
   contain: layout style;
 }
 
-/* Preview cards in stage grid */
 .koma-preview-card__img {
   contain: layout style paint;
 }
 
-/* Stage containers */
 .koma-stage__empty {
   contain: layout style;
 }
 
-/* AIO tools panels */
 .koma-aio-tools,
 .koma-aio-pipeline-grid,
 .koma-aio-pipeline-controls {
   contain: layout style;
 }
 
-/* Card surfaces */
 .koma-card-surface {
   contain: layout style;
 }
 
-/* Sidebar panels */
 .koma-sidebar {
   contain: layout style paint;
 }
 
-/* Right sidebar tools */
 .koma-tools__hint {
   contain: layout style;
 }
 
-/* Image thumbnails in sidebar */
 .koma-fileitem__thumb {
   contain: strict;
   content-visibility: auto;
   contain-intrinsic-size: 0 80px;
 }
 
-/* Off-screen panels should not consume rendering resources */
 .koma-card-surface:not(:hover):not(:focus-within) {
   content-visibility: auto;
   contain-intrinsic-size: 0 200px;
 }
 
-/* ============================================================
-   PERFORMANCE: GPU Compositing Hints
-   Promote frequently-animated elements to own compositing layer
-   to avoid repainting during scroll and animations.
-   ============================================================ */
-
-/* Fixed overlays with backdrop-filter - promote to own layer */
 .koma-toast,
 .koma-progress-toast,
 .koma-topbar,
@@ -14791,7 +14330,6 @@ html[data-theme="light"] #root {
   will-change: transform;
 }
 
-/* Scroll containers - GPU-accelerated scrolling */
 .koma-files__list,
 .koma-stage,
 .koma-dash__main,
@@ -14799,25 +14337,21 @@ html[data-theme="light"] #root {
   will-change: scroll-position;
 }
 
-/* Elements with backdrop-filter that animate */
 .koma-card-surface,
 .koma-fileitem {
   will-change: transform, opacity;
 }
 
-/* Reduce paint cost of heavy shadows on non-hovered state */
 .koma-card-surface:not(:hover),
 .koma-fileitem:not(:hover) {
   box-shadow: none;
 }
 
-/* Only apply expensive shadows on interaction */
 .koma-card-surface:hover,
 .koma-fileitem:hover {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* Optimize box-shadow on buttons - use simpler shadow */
 .koma-btn {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
@@ -14829,9 +14363,6 @@ html[data-theme="light"] #root {
 .koma-btn:active {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
-/* ============================================================
-   COMPARE REVIEW OVERLAY (render stage)
-   ============================================================ */
 
 .koma-compare-host {
   width: fit-content;
@@ -15433,7 +14964,6 @@ html[data-theme="light"] #root {
   color: rgba(241, 245, 255, 0.92);
 }
 
-/* Footer status details button + popout (classic skin base). */
 .koma-status-details-btn {
   display: inline-flex;
   align-items: center;
