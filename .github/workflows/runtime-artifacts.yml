@@ -1,76 +1,195 @@
-name: Runtime artifacts (linux/mac cpu)
+name: Runtime Engine Artifacts (Layer 1)
 
-# Builds the cpu runtime parts on linux and macOS, extract-and-smokes every
-# part (partitioning bugs detonate here, not on user machines) and, when a
-# draft runtime-v<version> release is provided, appends the parts to it via
-# GITHUB_TOKEN. The signing key never enters CI: manifests are finalized by
-# the local signing machine through publish-runtime-artifacts.mjs (GATE-1
-# hybrid).
 on:
   workflow_dispatch:
     inputs:
-      runtime_tag:
-        description: "Draft runtime-v<version> release to append parts to (empty = build + smoke only)"
-        required: false
-        default: ""
+      engine_version:
+        description: "Engine release version (e.g. 1.0.0)"
+        required: true
 
-env:
-  BUN_VERSION: "1.4.0"
+concurrency:
+  group: runtime-engine-${{ inputs.engine_version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
 
 jobs:
+  init-draft:
+    name: Ensure draft runtime-engine release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create or verify draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINE_TAG: runtime-engine-v1-${{ inputs.engine_version }}
+          ENGINE_VERSION: ${{ inputs.engine_version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$ENGINE_TAG" --json isDraft >/tmp/rel.json 2>/dev/null; then
+            if grep -q '"isDraft":false' /tmp/rel.json; then
+              echo "::error::Runtime engine release $ENGINE_TAG is already published."
+              exit 1
+            fi
+            echo "Draft release $ENGINE_TAG already exists."
+          else
+            gh release create "$ENGINE_TAG" \
+              --draft \
+              --prerelease \
+              --title "Runtime Engine v1 (${ENGINE_VERSION})" \
+              --notes "Relocatable Python 3.12 Layer-1 runtime engine artifacts (${ENGINE_VERSION})."
+          fi
+
   build:
+    name: Build (${{ matrix.id }})
+    needs: init-draft
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - id: win-base
+            os: windows-latest
+            profiles: "cpu,windows-directml,intel-openvino"
+            manifest: koma-runtime-win32-x64.json
+          - id: win-cuda
+            os: windows-latest
+            profiles: "nvidia-cuda"
+            manifest: koma-runtime-win32-x64.json
+          - id: win-cuda-legacy
+            os: windows-latest
+            profiles: "nvidia-cuda-legacy"
+            manifest: koma-runtime-win32-x64.json
+          - id: linux-base
+            os: ubuntu-22.04
+            profiles: "cpu,intel-openvino"
+            manifest: koma-runtime-linux-x64.json
+          - id: linux-cuda
+            os: ubuntu-22.04
+            profiles: "nvidia-cuda"
+            manifest: koma-runtime-linux-x64.json
+          - id: mac-arm64
+            os: macos-14
+            profiles: "cpu,apple-mps"
+            manifest: koma-runtime-darwin-arm64.json
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions:
-      contents: write
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: Install uv
         run: python -m pip install uv
-      - name: Install JS dependencies (workspace root)
-        run: bun install
-      - name: Build cpu runtime parts
-        working-directory: apps/electron
-        env:
-          MINI_BACKEND_ARTIFACT_PROFILES: cpu
-        run: node scripts/build-mini-backend-artifacts.mjs runtime-artifacts
-      - name: Extract and smoke every part
-        working-directory: apps/electron
-        run: node scripts/smoke-runtime-parts.mjs runtime-artifacts/mini-backend-artifacts
-      - name: Append parts to the draft runtime release
-        if: inputs.runtime_tag != ''
-        working-directory: apps/electron
+      - name: Build & smoke-test engine profiles (${{ matrix.profiles }})
+        run: >
+          node scripts/release/build-engine-base.mjs
+          --engine-version "${{ inputs.engine_version }}"
+          --profiles "${{ matrix.profiles }}"
+          --out release-artifacts/engine
+      - name: Attest engine shards with GitHub OIDC provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release-artifacts/engine/*.tar.zst
+      - name: Upload engine shards to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          RUNTIME_TAG: ${{ inputs.runtime_tag }}
+          ENGINE_TAG: runtime-engine-v1-${{ inputs.engine_version }}
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          for part in runtime-artifacts/mini-backend-artifacts/*.part-*.zip; do
-            name="$(basename "$part")"
-            # Runtime releases are immutable once published, but a re-dispatched
-            # job replacing its OWN draft asset is delete-before-reupload.
-            asset_id="$(gh release view "$RUNTIME_TAG" --json assets --jq ".assets[] | select(.name == \"$name\") | .id")"
-            if [ -n "$asset_id" ]; then
-              echo "replacing draft asset $name"
-              gh api "repos/{owner}/{repo}/releases/assets/$asset_id" -X DELETE
-            fi
-            gh release upload "$RUNTIME_TAG" "$part"
-          done
-          echo "appended parts to $RUNTIME_TAG"
-      - name: Export manifests for local signing
-        uses: actions/upload-artifact@v7
+          shards=(release-artifacts/engine/*.tar.zst)
+          if [ "${#shards[@]}" -eq 0 ]; then
+            echo "::error::No engine .tar.zst shards produced"
+            exit 1
+          fi
+          gh release upload "$ENGINE_TAG" "${shards[@]}" --clobber
+      - uses: actions/upload-artifact@v7
         with:
-          name: runtime-manifests-${{ matrix.os }}
-          path: apps/electron/runtime-artifacts/mini-backend-artifacts/*.json
+          name: partial-manifest-${{ matrix.id }}
+          path: release-artifacts/engine/${{ matrix.manifest }}
+          if-no-files-found: error
           retention-days: 7
+
+  merge-manifests:
+    name: Merge & upload koma-runtime manifests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: partial-manifest-*
+          path: partial-manifests
+      - name: Merge partial manifests & upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINE_TAG: runtime-engine-v1-${{ inputs.engine_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'EOF'
+          import { spawnSync } from "node:child_process";
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const root = path.resolve("partial-manifests");
+          const byName = new Map();
+
+          const walk = (dir) => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const abs = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(abs);
+              else if (entry.isFile() && /^koma-runtime-.*\.json$/.test(entry.name)) {
+                const list = byName.get(entry.name) ?? [];
+                list.push(abs);
+                byName.set(entry.name, list);
+              }
+            }
+          };
+          walk(root);
+
+          if (byName.size === 0) {
+            throw new Error("No partial koma-runtime-*.json manifests downloaded");
+          }
+
+          const mergedDir = path.resolve("merged-manifests");
+          fs.mkdirSync(mergedDir, { recursive: true });
+          const uploadPaths = [];
+
+          for (const [name, paths] of byName.entries()) {
+            let merged = null;
+            const profiles = {};
+            for (const filePath of paths.toSorted()) {
+              const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+              if (!merged) merged = parsed;
+              Object.assign(profiles, parsed.profiles ?? {});
+            }
+            const sortedProfiles = Object.fromEntries(
+              Object.entries(profiles).toSorted(([a], [b]) => a.localeCompare(b)),
+            );
+            merged.profiles = sortedProfiles;
+            const outPath = path.join(mergedDir, name);
+            fs.writeFileSync(outPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
+            uploadPaths.push(outPath);
+            console.log(`[merge] ${name}: ${Object.keys(sortedProfiles).join(", ")}`);
+          }
+
+          const up = spawnSync(
+            "gh",
+            ["release", "upload", process.env.ENGINE_TAG, ...uploadPaths, "--clobber"],
+            { stdio: "inherit" },
+          );
+          if (up.status !== 0) {
+            throw new Error(`gh release upload failed (${up.status})`);
+          }
+          EOF

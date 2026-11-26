@@ -1,10 +1,32 @@
-name: Release installers (Linux/macOS)
+name: Release Desktop (Tauri v2 Hybrid)
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Release build mode"
+        type: choice
+        default: "auto"
+        options:
+          - auto
+          - ota-only
+          - full
+      version:
+        description: "Version without leading v (defaults to apps/tauri/src-tauri/tauri.conf.json)"
+        required: false
+        default: ""
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
+  attestations: write
 
 env:
   BUN_VERSION: "1.4.0"
@@ -14,85 +36,209 @@ env:
   MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="
   KOMA_MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="
   KOMA_EMBEDDED_MINI_BACKEND: "0"
-  CSC_IDENTITY_AUTO_DISCOVERY: "false"
   APPIMAGE_EXTRACT_AND_RUN: "1"
 
 jobs:
-  electron:
-    name: Electron (${{ matrix.platform }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-            artifact: koma-electron-linux-x64
-            paths: |
-              apps/electron/release-desktop/ci/*.AppImage
-              apps/electron/release-desktop/ci/*.deb
-              apps/electron/release-desktop/ci/latest-linux.yml
-              apps/electron/release-desktop/ci/*.blockmap
-          - os: macos-14
-            platform: mac
-            artifact: koma-electron-macos-arm64
-            paths: |
-              apps/electron/release-desktop/ci/*.dmg
-              apps/electron/release-desktop/ci/*.zip
-              apps/electron/release-desktop/ci/latest-mac.yml
-              apps/electron/release-desktop/ci/*.blockmap
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    env:
-      NODE_OPTIONS: "--max-old-space-size=5120"
+  prepare:
+    name: Prepare release & detect build mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      is_beta: ${{ steps.meta.outputs.is_beta }}
+      prev_tag: ${{ steps.meta.outputs.prev_tag }}
+      prev_version: ${{ steps.meta.outputs.prev_version }}
+      build_native: ${{ steps.meta.outputs.build_native }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Resolve version, detect ABI/native changes, and ensure draft release
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'EOF'
+          import { spawnSync } from "node:child_process";
+          import fs from "node:fs";
+          import os from "node:os";
+          import path from "node:path";
+          import { extractReleaseNotes } from "./scripts/release/sign-and-publish.mjs";
+
+          const run = (cmd, args, { allowFail = false } = {}) => {
+            const res = spawnSync(cmd, args, { encoding: "utf8" });
+            if (res.status !== 0 && !allowFail) {
+              throw new Error(`${cmd} ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
+            }
+            return res;
+          };
+
+          const conf = JSON.parse(fs.readFileSync("apps/tauri/src-tauri/tauri.conf.json", "utf8"));
+          const confVersion = String(conf.version || "").trim();
+          const rawVersion = process.env.GITHUB_EVENT_NAME === "push"
+            ? String(process.env.GITHUB_REF_NAME || "").replace(/^v/, "").trim()
+            : (process.env.INPUT_VERSION || confVersion).trim().replace(/^v/, "");
+
+          if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/.test(rawVersion)) {
+            throw new Error(`Invalid release version: ${rawVersion}`);
+          }
+          if (rawVersion !== confVersion) {
+            throw new Error(`Tag/input version ${rawVersion} does not match apps/tauri/src-tauri/tauri.conf.json (${confVersion}).`);
+          }
+
+          const tag = `v${rawVersion}`;
+          const isBeta = /-beta\.\d+$/.test(rawVersion);
+          const mode = (process.env.INPUT_MODE || "auto").trim();
+
+          const releasesRes = run("gh", ["api", `repos/${process.env.GITHUB_REPOSITORY}/releases?per_page=30`]);
+          const releases = JSON.parse(releasesRes.stdout || "[]");
+          const prevRelease = releases.find(
+            (r) =>
+              !r.draft &&
+              r.tag_name !== tag &&
+              /^v\d+\.\d+\.\d+(-beta\.\d+)?$/.test(r.tag_name) &&
+              (isBeta || !r.prerelease),
+          );
+          const prevTag = prevRelease ? prevRelease.tag_name : "";
+          const prevVersion = prevTag ? prevTag.replace(/^v/, "") : "";
+
+          let buildNative = false;
+          if (mode === "full") {
+            buildNative = true;
+          } else if (mode === "ota-only") {
+            buildNative = false;
+          } else if (!prevTag) {
+            buildNative = true;
+          } else {
+            const diffRes = run("git", ["diff", "--name-only", `${prevTag}..HEAD`], { allowFail: true });
+            if (diffRes.status !== 0) {
+              buildNative = true;
+            } else {
+              const changed = (diffRes.stdout || "").split(/\r?\n/).filter(Boolean);
+              buildNative = changed.some(
+                (file) =>
+                  file === "apps/tauri/src-tauri/native-abi.json" ||
+                  file.startsWith("apps/tauri/src-tauri/"),
+              );
+            }
+          }
+
+          const existing = run("gh", ["release", "view", tag, "--json", "isDraft"], { allowFail: true });
+          if (existing.status === 0) {
+            const info = JSON.parse(existing.stdout);
+            if (!info.isDraft) {
+              throw new Error(`Release ${tag} is already published (not a draft).`);
+            }
+          } else {
+            const notes = extractReleaseNotes(rawVersion) || `KOMA Studio ${tag}`;
+            const notesFile = path.join(os.tmpdir(), `release-notes-${rawVersion}.md`);
+            fs.writeFileSync(notesFile, `${notes}\n`, "utf8");
+            const createArgs = [
+              "release",
+              "create",
+              tag,
+              "--draft",
+              "--title",
+              `KŌMA Studio ${tag}`,
+              "--notes-file",
+              notesFile,
+              "--target",
+              process.env.GITHUB_SHA,
+            ];
+            if (isBeta) {
+              createArgs.push("--prerelease");
+            }
+            run("gh", createArgs);
+          }
+
+          const outputLines = [
+            `version=${rawVersion}`,
+            `tag=${tag}`,
+            `is_beta=${isBeta}`,
+            `prev_tag=${prevTag}`,
+            `prev_version=${prevVersion}`,
+            `build_native=${buildNative}`,
+          ];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `${outputLines.join("\n")}\n`, "utf8");
+          console.log(`[prepare] tag=${tag} prev_tag=${prevTag || "(none)"} mode=${mode} build_native=${buildNative}`);
+          EOF
+
+  build-ota:
+    name: Build UI OTA & Backend Overlay
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-node@v7
         with:
-          python-version: "3.12"
-      - name: Install uv
-        run: python -m pip install uv
-      - name: Install JS dependencies (workspace root)
+          node-version: "24"
+      - name: Install JS dependencies
         run: bun install --frozen-lockfile
-      - name: Build embedded CPU runtime
-        working-directory: apps/electron
+      - name: Build Tauri frontend bundle
+        run: bun run --filter @koma/tauri build
+      - name: Pack UI OTA bundle & Backend Overlay
+        run: |
+          node scripts/release/build-ui-bundle.mjs --out release-artifacts
+          node scripts/release/build-backend-overlay.mjs --out release-artifacts
+      - name: Attest OTA archives with GitHub OIDC provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release-artifacts/koma-ui-*.tar.zst
+            release-artifacts/koma-backend-overlay-*.tar.zst
+      - name: Upload OTA assets to draft release
         env:
-          MINI_BACKEND_ACCELERATION_PROFILE: cpu
-        run: bun run build:mini
-      - name: Build application
-        working-directory: apps/electron
-        run: bun run build:app
-      - name: Build installers
-        working-directory: apps/electron
-        run: npx electron-builder --${{ matrix.platform }} --publish never --config.forceCodeSigning=false --config.directories.output=release-desktop/ci
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" \
+            release-artifacts/koma-ui-*.tar.zst \
+            release-artifacts/koma-ui-*.json \
+            release-artifacts/koma-backend-overlay-*.tar.zst \
+            release-artifacts/koma-backend-overlay-*.json \
+            --clobber
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.paths }}
+          name: koma-ota-artifacts
+          path: release-artifacts/*
           if-no-files-found: error
           retention-days: 14
 
-  tauri:
-    name: Tauri (${{ matrix.platform }})
+  build-native:
+    name: Native Tauri (${{ matrix.platform }})
+    needs: prepare
+    if: needs.prepare.outputs.build_native == 'true'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: windows-latest
+            platform: win
+            bundles: "msi nsis"
+            artifact: koma-tauri-windows-x64
+          - os: ubuntu-22.04
             platform: linux
-            script: release:linux
+            bundles: "appimage deb"
             artifact: koma-tauri-linux-x64
-            paths: |
-              apps/tauri/src-tauri/target/release/bundle/deb/*.deb
-              apps/tauri/src-tauri/target/release/bundle/appimage/*.AppImage
           - os: macos-14
             platform: mac
-            script: release:mac
+            bundles: "dmg app"
             artifact: koma-tauri-macos-arm64
-            paths: |
-              apps/tauri/src-tauri/target/release/bundle/dmg/*.dmg
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -100,6 +246,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
         run: |
@@ -109,16 +258,194 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/tauri/src-tauri -> target
-      - name: Install JS dependencies (workspace root)
+      - name: Install JS dependencies
         run: bun install --frozen-lockfile
-      - name: Build installers
+      - name: Sync bundled Python backend overlay resource
+        run: node scripts/release/build-backend-overlay.mjs --sync-tauri-resource
+      - name: Build Tauri installers
         working-directory: apps/tauri
+        shell: bash
         env:
           KOMA_TAURI_SKIP_UPDATER_ARTIFACTS: "1"
-        run: bun run ${{ matrix.script }}
+        run: |
+          set -euo pipefail
+          node scripts/with-signing-key.mjs tauri build --bundles ${{ matrix.bundles }}
+          node scripts/rename-tauri-installers.mjs
+      - name: Stage native installers & generate Zstd binary deltas
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PREV_TAG: ${{ needs.prepare.outputs.prev_tag }}
+          PREV_VERSION: ${{ needs.prepare.outputs.prev_version }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'EOF'
+          import { spawnSync } from "node:child_process";
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const bundleDir = path.resolve("apps/tauri/src-tauri/target/release/bundle");
+          const binOut = path.resolve("release-upload-bin");
+          const metaOut = path.resolve("release-upload-meta");
+          const prevDir = path.resolve("prev-release-bin");
+          fs.mkdirSync(binOut, { recursive: true });
+          fs.mkdirSync(metaOut, { recursive: true });
+          fs.mkdirSync(prevDir, { recursive: true });
+
+          const copyMatches = (subDir, predicate) => {
+            const dir = path.join(bundleDir, subDir);
+            if (!fs.existsSync(dir)) return [];
+            const copied = [];
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              if (!entry.isFile() || !predicate(entry.name)) continue;
+              const dest = path.join(binOut, entry.name);
+              fs.copyFileSync(path.join(dir, entry.name), dest);
+              copied.push(dest);
+            }
+            return copied;
+          };
+
+          const version = process.env.VERSION;
+          const prevTag = (process.env.PREV_TAG || "").trim();
+          const prevVersion = (process.env.PREV_VERSION || "").trim();
+          const platform = process.env.PLATFORM;
+          const deltaCandidates = [];
+
+          if (platform === "win") {
+            const nsis = copyMatches("nsis", (n) => n.endsWith("-setup-tauri.exe"));
+            const msi = copyMatches("msi", (n) => n.endsWith("-tauri.msi"));
+            if (nsis[0]) {
+              deltaCandidates.push({
+                pattern: "*-setup-tauri.exe",
+                targetPath: nsis[0],
+                targetKey: "windows-x86_64",
+                patchName: `koma-delta-${prevVersion}-to-${version}-windows-x86_64-nsis.exe.zst`,
+                extraKeys: ["windows-x86_64-nsis"],
+              });
+            }
+            if (msi[0]) {
+              deltaCandidates.push({
+                pattern: "*-tauri.msi",
+                targetPath: msi[0],
+                targetKey: "windows-x86_64-msi",
+                patchName: `koma-delta-${prevVersion}-to-${version}-windows-x86_64-msi.msi.zst`,
+                extraKeys: [],
+              });
+            }
+          } else if (platform === "linux") {
+            const appImages = copyMatches("appimage", (n) => n.endsWith(".AppImage"));
+            copyMatches("deb", (n) => n.endsWith(".deb"));
+            if (appImages[0]) {
+              deltaCandidates.push({
+                pattern: "*.AppImage",
+                targetPath: appImages[0],
+                targetKey: "linux-x86_64",
+                patchName: `koma-delta-${prevVersion}-to-${version}-linux-x86_64.AppImage.zst`,
+                extraKeys: [],
+              });
+            }
+          } else if (platform === "mac") {
+            copyMatches("dmg", (n) => n.endsWith(".dmg"));
+            const macDir = path.join(bundleDir, "macos");
+            const appEntry = fs.existsSync(macDir)
+              ? fs.readdirSync(macDir, { withFileTypes: true }).find((e) => e.isDirectory() && e.name.endsWith(".app"))
+              : null;
+            if (!appEntry) {
+              throw new Error(`No .app bundle found in ${macDir}`);
+            }
+            const tarName = `KOMA-Studio_${version}_aarch64.app.tar.gz`;
+            const tarDest = path.join(binOut, tarName);
+            const tarRes = spawnSync("tar", ["-czf", tarDest, "-C", macDir, appEntry.name], { stdio: "inherit" });
+            if (tarRes.status !== 0) {
+              throw new Error(`tar failed for ${appEntry.name}`);
+            }
+            deltaCandidates.push({
+              pattern: "*.app.tar.gz",
+              targetPath: tarDest,
+              targetKey: "darwin-aarch64",
+              patchName: `koma-delta-${prevVersion}-to-${version}-darwin-aarch64.app.tar.gz.zst`,
+              extraKeys: [],
+            });
+          }
+
+          if (prevTag && prevVersion) {
+            for (const cand of deltaCandidates) {
+              for (const f of fs.readdirSync(prevDir)) {
+                fs.rmSync(path.join(prevDir, f), { recursive: true, force: true });
+              }
+              const dl = spawnSync(
+                "gh",
+                ["release", "download", prevTag, "--dir", prevDir, "--pattern", cand.pattern],
+                { stdio: "inherit" },
+              );
+              const downloaded = dl.status === 0
+                ? fs.readdirSync(prevDir).map((n) => path.join(prevDir, n)).find((p) => fs.statSync(p).isFile())
+                : null;
+              if (!downloaded) {
+                console.log(`[delta] no baseline matching ${cand.pattern} in ${prevTag}; skipping`);
+                continue;
+              }
+              const patchOut = path.join(binOut, cand.patchName);
+              const metaFile = path.join(metaOut, `native-delta-${cand.targetKey}.json`);
+              const deltaRes = spawnSync(
+                "node",
+                [
+                  "scripts/release/build-delta.mjs",
+                  "--base",
+                  downloaded,
+                  "--target",
+                  cand.targetPath,
+                  "--out",
+                  patchOut,
+                  "--meta-out",
+                  metaFile,
+                  "--target-key",
+                  cand.targetKey,
+                  "--from-version",
+                  prevVersion,
+                ],
+                { stdio: "inherit" },
+              );
+              if (deltaRes.status !== 0) {
+                console.warn(`[delta] failed generating patch for ${cand.targetKey}; continuing without delta`);
+                continue;
+              }
+              if (fs.existsSync(metaFile) && cand.extraKeys.length > 0) {
+                const parsed = JSON.parse(fs.readFileSync(metaFile, "utf8"));
+                for (const extraKey of cand.extraKeys) {
+                  fs.writeFileSync(
+                    path.join(metaOut, `native-delta-${extraKey}.json`),
+                    `${JSON.stringify({ ...parsed, targetKey: extraKey }, null, 2)}\n`,
+                    "utf8",
+                  );
+                }
+              }
+            }
+          }
+          EOF
+      - name: Attest native installers & delta patches
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release-upload-bin/*
+      - name: Upload native installers & delta metadata to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(release-upload-bin/* release-upload-meta/*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No native assets staged for upload"
+            exit 1
+          fi
+          gh release upload "$TAG" "${assets[@]}" --clobber
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.paths }}
+          path: release-upload-bin/*
           if-no-files-found: error
           retention-days: 14

@@ -147,6 +147,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/tauri/src-tauri -> target
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Sync bundled Python backend overlay resource
+        run: node scripts/release/build-backend-overlay.mjs --sync-tauri-resource
       - name: Clippy
         run: cargo clippy --manifest-path apps/tauri/src-tauri/Cargo.toml --all-targets -- -D warnings
       - name: Unit tests
