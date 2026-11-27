@@ -1,9 +1,3 @@
-"""HuggingFace file resolution and resumable downloads.
-
-Synchronous on purpose: every caller runs on the download worker thread
-(core.download_jobs), never on the event loop.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -14,7 +8,7 @@ import logging
 import random
 import time
 from collections.abc import Mapping, Sequence
-from http.client import HTTPException, HTTPResponse
+from http.client import HTTPException, HTTPResponse, IncompleteRead
 from pathlib import Path
 from typing import Literal, Protocol, cast
 from urllib.error import HTTPError, URLError
@@ -26,14 +20,11 @@ _HF_RESOLVE_ROOT = "https://huggingface.co"
 _USER_AGENT = "koma-studio-mini-backend/1.0"
 _RETRYABLE_HTTP_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
 _CHUNK_SIZE = 1024 * 1024
-# urlopen installs this timeout on the socket itself, so it bounds the connect
-# AND every subsequent read — a stalled transfer fails instead of hanging.
 _SOCKET_TIMEOUT_SECONDS = 60.0
 _MAX_BACKOFF_SECONDS = 4.0
 _MAX_RETRY_AFTER_SECONDS = 120.0
 _CANCEL_POLL_SECONDS = 0.25
 
-# Backoff jitter only; not security-sensitive.
 _jitter = random.Random()  # noqa: S311
 
 logger = logging.getLogger(__name__)
@@ -41,74 +32,49 @@ logger = logging.getLogger(__name__)
 type DownloadPhase = Literal["downloading", "verifying"]
 
 
-# --------------------------------------------------------------------- errors
-
-
 class HFDownloadError(RuntimeError):
-    """Base for every failure raised by this module."""
+    ...
 
 
 class HFResolveError(HFDownloadError):
-    """The HuggingFace API/probe could not locate the requested file."""
+    ...
 
 
 class NetworkDownloadError(HFDownloadError):
-    """Transport failed after retries were exhausted."""
+    ...
 
 
 class DiskWriteError(HFDownloadError):
-    """The local filesystem rejected the download (ENOSPC, permissions...)."""
-
     def __init__(self, message: str, *, os_errno: int | None) -> None:
         super().__init__(message)
         self.os_errno = os_errno
 
 
 class DownloadSizeExceededError(HFDownloadError):
-    """Transfer exceeded the caller-declared maximum size (CWE-400 guard)."""
+    ...
 
 
 class RateLimitedError(HFDownloadError):
-    """Remote server answered HTTP 429 and retries were exhausted."""
-
     def __init__(self, message: str, http_status: int = 429) -> None:
         super().__init__(message)
         self.http_status = http_status
 
 
 class ChecksumMismatchError(HFDownloadError):
-    """Downloaded file does not match the expected SHA-256."""
-
     def __init__(self, message: str, *, expected: str, got: str) -> None:
         super().__init__(message)
         self.expected = expected
         self.got = got
 
-class DownloadCancelled(Exception):  # noqa: N818 - established wire/API name
-    """Raised when the owning download job requests cancellation."""
-
-
-# ----------------------------------------------------------- progress bridge
+class DownloadCancelled(Exception):  # noqa: N818
+    ...
 
 
 class DownloadProgressBridge(Protocol):
-    """Progress/cancellation channel between the job and this module.
-
-    Duck-typed so core.download_jobs implements it without an import cycle;
-    the active bridge travels in a ContextVar set by the worker thread.
-    """
-
     def report_download(self, file_key: str, delta_bytes: int) -> None:
-        """``delta_bytes`` may be negative when a resume is discarded."""
         ...
 
     def declare_total(self, total_bytes: int) -> None:
-        """Declare the whole bundle size before the first byte is transferred.
-
-        The declared total is authoritative and immutable: it makes the
-        percentage monotonic across a multi-asset install and it is the only
-        denominator the UI ever needs.
-        """
         ...
 
     def report_phase(self, phase: DownloadPhase) -> None: ...
@@ -138,13 +104,7 @@ def report_bridge_file(
         report_fn(filename, completed, total)
 
 
-# ------------------------------------------------------------------- helpers
-
-
 def _open(request: Request) -> HTTPResponse:
-    # Every URL here is assembled from the fixed https HuggingFace host with
-    # quoted path segments, so the scheme check Bandit wants (S310) holds by
-    # construction. The cast pins typeshed's `Any` return to the real type.
     return cast(
         HTTPResponse, urlopen(request, timeout=_SOCKET_TIMEOUT_SECONDS)  # noqa: S310
     )
@@ -172,7 +132,6 @@ def sha256_file(path: Path) -> str:
 
 
 def fetch_hf_siblings(repo: str, revision: str = "main") -> list[dict[str, object]]:
-    """Return raw sibling dicts (rfilename/lfs) for repo compatibility tests."""
     api_url = (
         f"{_HF_API_ROOT}/{quote(repo, safe='/')}/revision/{quote(revision, safe='')}"
     )
@@ -182,7 +141,7 @@ def fetch_hf_siblings(repo: str, revision: str = "main") -> list[dict[str, objec
     try:
         with _open(request) as response:
             raw = response.read().decode("utf-8")
-    except OSError as exc:  # HTTPError, URLError and socket timeouts are all OSError
+    except OSError as exc:
         raise HFResolveError(
             f"Failed to query the HuggingFace API for '{repo}': {exc}"
         ) from exc
@@ -204,7 +163,6 @@ def _probe_hf_resolve_url(url: str) -> bool:
         with _open(head):
             return True
     except HTTPError as exc:
-        # Some hosts block HEAD; fall through to a 1-byte ranged GET.
         if exc.code not in {405, 501}:
             return False
     except OSError:
@@ -221,11 +179,6 @@ def _probe_hf_resolve_url(url: str) -> bool:
 def resolve_hf_file(
     repo: str, candidate_paths: Sequence[str], revision: str = "main"
 ) -> tuple[str, str, str]:
-    """Return (resolved_path, sha256, download_url) for the best candidate.
-
-    sha256 is "" when the file is small/non-LFS (no remote digest; local-only
-    validation), mirroring the historical contract consumed by callers.
-    """
     candidates = [item.strip() for item in candidate_paths if item.strip()]
     api_error: HFResolveError | None = None
     siblings: list[dict[str, object]] = []
@@ -263,13 +216,11 @@ def resolve_hf_file(
                     sha = _normalize_sha(lfs_oid if isinstance(lfs_oid, str) else None)
 
             if not sha:
-                # Small non-LFS files carry no remote digest; local-only validation.
                 sha = ""
 
             url = _build_hf_resolve_url(repo, revision, resolved_target)
             return resolved_target, sha, url
 
-    # API unavailable or file not listed: probe direct per-file URLs.
     for target in candidates:
         url = _build_hf_resolve_url(repo, revision, target)
         if _probe_hf_resolve_url(url):
@@ -283,15 +234,11 @@ def resolve_hf_file(
     raise HFResolveError(f"No file found in repo '{repo}' for candidates: {tried}")
 
 
-# ----------------------------------------------------------------- download
-
-
 def _is_retryable(exc: OSError | HTTPException) -> bool:
     if isinstance(exc, HTTPError):
         return exc.code in _RETRYABLE_HTTP_STATUS
-    if isinstance(exc, HTTPException):  # IncompleteRead, RemoteDisconnected...
+    if isinstance(exc, HTTPException):
         return True
-    # Retrying a full disk only burns time; everything else on the wire is transient.
     return exc.errno != errno.ENOSPC
 
 
@@ -335,16 +282,6 @@ def _sleep_cancellable(delay: float, bridge: DownloadProgressBridge | None) -> N
 
 
 def _response_total(response, *, requested_offset: int) -> int | None:
-    """Total remote size disclosed by the response we already hold.
-
-    * 206 -> the total is the part after "/" in ``Content-Range``
-    * 200 -> ``Content-Length``
-    * 416 -> the total is the part after "/" in ``Content-Range`` (``bytes */N``)
-
-    A HEAD probe cannot be used for this: ModelScope answers HEAD with
-    ``200 OK`` and no ``Content-Length`` at all, which is what left every
-    install without a total (and therefore without a percentage).
-    """
     headers = getattr(response, "headers", None)
     if headers is None:
         return None
@@ -360,12 +297,6 @@ def _response_total(response, *, requested_offset: int) -> int | None:
 
 
 def _response_start(response, *, requested_offset: int) -> int:
-    """Offset the response body starts at.
-
-    Some hosts answer a ranged GET with ``200`` and still send
-    ``Content-Range``, so the status code alone cannot decide whether the
-    transfer resumes or restarts.
-    """
     if requested_offset <= 0:
         return 0
     headers = getattr(response, "headers", None)
@@ -387,12 +318,6 @@ def _download_once(
     bridge: DownloadProgressBridge | None,
     max_bytes: int | None = None,
 ) -> tuple[int | None, bool]:
-    """Transfer one file.
-
-    Returns ``(remote_total, range_satisfied)``. ``range_satisfied`` is True
-    when the server answered 416 — the local partial is already at or beyond
-    the end of the remote file — and the caller decides whether to promote it.
-    """
     headers = {"User-Agent": _USER_AGENT}
     if existing_bytes > 0:
         headers["Range"] = f"bytes={existing_bytes}-"
@@ -421,9 +346,6 @@ def _download_once(
                 if bridge is not None:
                     bridge.raise_if_cancelled()
                 if max_bytes is not None and start + written + len(chunk) > max_bytes:
-                    # Enforce the declared ceiling while streaming: a remote
-                    # that ignores Content-Length (or file:///dev/zero) must
-                    # never fill the volume before the post-hoc size check.
                     raise DownloadSizeExceededError(
                         f"Download exceeded the declared size limit of {max_bytes} bytes: {url}"
                     )
@@ -431,6 +353,8 @@ def _download_once(
                 written += len(chunk)
                 if bridge is not None:
                     bridge.report_download(url, len(chunk))
+        if total_size is not None and start + written < total_size:
+            raise IncompleteRead(b"", total_size - start - written)
     return total_size, False
 
 
@@ -442,14 +366,6 @@ def download_file(
     expected_sha256: str | None = None,
     max_bytes: int | None = None,
 ) -> None:
-    """Download with resume support; the ``.part`` file survives retries,
-    cancellation and even the final failure so a later job continues from it.
-
-    ``expected_size`` and ``expected_sha256`` are the declared facts about the
-    asset. A mismatch is rejected instead of being silently resized.
-    ``max_bytes`` bounds the bytes written even when the remote lies about (or
-    omits) its length.
-    """
     temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -465,7 +381,6 @@ def download_file(
         existing_bytes = temp_path.stat().st_size if temp_path.exists() else 0
         if bridge is not None:
             bridge.raise_if_cancelled()
-            # A .part left by a previous job is real progress; count it exactly once.
             if not resume_reported:
                 bridge.report_download(url, existing_bytes)
                 resume_reported = True
@@ -486,18 +401,16 @@ def download_file(
                 _sleep_cancellable(delay, bridge)
                 continue
             if not retryable:
-                # e.g. HTTP 404 — the partial is junk, nothing to resume from.
                 temp_path.unlink(missing_ok=True)
             raise _translate_failure(exc, url) from exc
 
         if range_satisfied:
-            # 416: the remote file ends at or before our offset.
             if total_size is not None and total_size == existing_bytes:
-                break  # the partial is already the complete file
+                break
             temp_path.unlink(missing_ok=True)
             if bridge is not None and existing_bytes > 0:
                 bridge.report_download(url, -existing_bytes)
-            continue  # the remote shrank — download it again from scratch
+            continue
         break
 
     if expected_size is not None and total_size is not None and total_size != expected_size:
@@ -577,7 +490,6 @@ def ensure_file_from_hf(
                 }
             target_path.unlink(missing_ok=True)
         else:
-            # No remote/configured SHA: assume the local file is already valid.
             _credit_cached_file_bytes(target_path)
             return {
                 "path": selected_path,
