@@ -1,6 +1,3 @@
-/* ============================================================
-   KŌMA STUDIO — DESIGN SYSTEM
-   ============================================================ */
 
 :root[data-theme-family='noir'] {
   font-family: var(--auth-font-body);
@@ -31,10 +28,6 @@
 :root[data-theme-family='noir'] {
   color: var(--auth-text);
 }
-
-/* ============================================================
-   AUTH SHELL — MAIN LAYOUT
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-shell {
   position: relative;
@@ -104,10 +97,6 @@
   padding: 40px;
 }
 
-/* ============================================================
-   GRADIENT ORBS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-orb {
   position: absolute;
   border-radius: 9999px;
@@ -143,10 +132,6 @@
   animation: orb-drift-3 30s ease-in-out infinite alternate;
 }
 
-/* ============================================================
-   SFX DECORATIVE TEXT
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-sfx {
   position: absolute;
   z-index: 2;
@@ -173,10 +158,6 @@
   transform: rotate(8deg);
   animation: sfx-drift 16s ease-in-out infinite alternate-reverse;
 }
-
-/* ============================================================
-   AUTH CARD
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-card {
   width: min(100%, 470px);
@@ -239,10 +220,6 @@
   color: #fff;
   background: #0b1020;
 }
-
-/* ============================================================
-   BRAND HEADER
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-brand {
   display: flex;
@@ -360,10 +337,6 @@
   color: var(--auth-text-muted);
 }
 
-/* ============================================================
-   AUTH TABS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -414,10 +387,6 @@
 :root[data-theme-family='noir'] .auth-tab--active .auth-tab__icon {
   opacity: 1;
 }
-
-/* ============================================================
-   FORM ELEMENTS
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-form {
   display: flex;
@@ -499,10 +468,6 @@
     0 0 24px rgba(168, 85, 247, 0.06);
 }
 
-/* ============================================================
-   CHECKBOX
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-check {
   display: inline-flex;
   align-items: center;
@@ -543,10 +508,6 @@
   transform: rotate(45deg);
 }
 
-/* ============================================================
-   LINKS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-link {
   border: 0;
   background: transparent;
@@ -562,10 +523,6 @@
 :root[data-theme-family='noir'] .auth-link:hover {
   color: color-mix(in srgb, var(--noir-crimson) 65%, #fff);
 }
-
-/* ============================================================
-   SUBMIT BUTTON
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-submit {
   position: relative;
@@ -661,10 +618,6 @@
   flex-shrink: 0;
 }
 
-/* ============================================================
-   ALERTS / FEEDBACK
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-alert {
   border-radius: 12px;
   border: 1px solid transparent;
@@ -717,10 +670,6 @@
   gap: 12px;
 }
 
-/* ============================================================
-   EMAIL DISPLAY (VerifyEmail)
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-email-display {
   display: flex;
   align-items: center;
@@ -747,10 +696,6 @@
   color: var(--auth-emerald);
 }
 
-/* ============================================================
-   DIVIDER
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-divider {
   margin: 22px 0 16px;
   display: flex;
@@ -776,10 +721,6 @@
   white-space: nowrap;
 }
 
-/* ============================================================
-   PILLS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -804,10 +745,6 @@
   opacity: 0.5;
   flex-shrink: 0;
 }
-
-/* ============================================================
-   SWITCH / NOTE
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-switch {
   margin: 20px 0 0;
@@ -926,20 +863,12 @@
   margin-top: 0;
 }
 
-/* ============================================================
-   FOCUS VISIBILITY
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-link:focus-visible,
 :root[data-theme-family='noir'] .auth-submit:focus-visible,
 :root[data-theme-family='noir'] .auth-tab:focus-visible {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ============================================================
-   PASSWORD STRENGTH
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-strength {
   border-radius: 12px;
@@ -990,10 +919,6 @@
   color: rgba(186, 199, 247, 0.35);
 }
 
-/* ============================================================
-   CAPTCHA
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-captcha {
   margin-top: 2px;
   border-radius: 12px;
@@ -1017,10 +942,6 @@
   font-size: 12px;
 }
 
-/* ============================================================
-   RIGHT PANEL — CONTENT
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-right-content {
   position: relative;
   z-index: 2;
@@ -1031,10 +952,6 @@
   max-width: 480px;
   text-align: center;
 }
-
-/* ============================================================
-   QUOTE
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-quote {
   position: relative;
@@ -1065,10 +982,6 @@
   line-height: 1;
   pointer-events: none;
 }
-
-/* ============================================================
-   STATS
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-stats {
   display: flex;
@@ -1113,10 +1026,6 @@
   height: 32px;
   background: rgba(255, 255, 255, 0.08);
 }
-
-/* ============================================================
-   TOOLKIT — ORGANIZED FEATURE TAGS
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-toolkit {
   display: flex;
@@ -1223,10 +1132,6 @@
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
 }
 
-/* ============================================================
-   COMMUNITY
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-community {
   display: flex;
   flex-direction: column;
@@ -1287,10 +1192,6 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* ============================================================
-   FLOATING MANHWA COVERS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .manhwa-float {
   position: absolute;
   border-radius: 12px;
@@ -1305,7 +1206,6 @@
   transition: transform 0.4s ease;
 }
 
-/* Shine sweep */
 :root[data-theme-family='noir'] .manhwa-float::after {
   content: '';
   position: absolute;
@@ -1323,15 +1223,11 @@
   pointer-events: none;
 }
 
-/* ── preview container ── */
-
 :root[data-theme-family='noir'] .manhwa-float__preview {
   position: absolute;
   inset: 0;
   z-index: 0;
 }
-
-/* ── images (before & after) ── */
 
 :root[data-theme-family='noir'] .manhwa-float__img {
   position: absolute;
@@ -1344,7 +1240,6 @@
   user-select: none;
 }
 
-/* fallback bg while images load */
 :root[data-theme-family='noir'] .manhwa-float__img--before {
   background: linear-gradient(170deg, #2a2a2e, #101014);
 }
@@ -1353,7 +1248,6 @@
   background: linear-gradient(150deg, #1a0533, #3b0764);
 }
 
-/* per-cover after fallback tints */
 :root[data-theme-family='noir'] .manhwa-float--1 .manhwa-float__img--after {
   background: linear-gradient(150deg, #1a0533, #7c3aed);
 }
@@ -1374,8 +1268,6 @@
   background: linear-gradient(150deg, #022c22, #10b981);
 }
 
-/* ── before-wrap (clip-path animated) ── */
-
 :root[data-theme-family='noir'] .manhwa-float__before-wrap {
   position: absolute;
   inset: 0;
@@ -1385,7 +1277,6 @@
   will-change: clip-path;
 }
 
-/* stagger delays per card */
 :root[data-theme-family='noir'] .manhwa-float--1 .manhwa-float__before-wrap,
 :root[data-theme-family='noir'] .manhwa-float--1 .manhwa-float__bar {
   animation-delay: 0s;
@@ -1410,8 +1301,6 @@
 :root[data-theme-family='noir'] .manhwa-float--5 .manhwa-float__bar {
   animation-delay: -0.7s;
 }
-
-/* ── slider bar ── */
 
 :root[data-theme-family='noir'] .manhwa-float__bar {
   position: absolute;
@@ -1476,8 +1365,6 @@
   border-left: 3px solid rgba(168, 85, 247, 0.75);
 }
 
-/* ── gradient + badge + bottom ── */
-
 :root[data-theme-family='noir'] .manhwa-float__gradient {
   position: absolute;
   inset: 0;
@@ -1534,8 +1421,6 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* ── cover positions & drift ── */
-
 :root[data-theme-family='noir'] .manhwa-float--1 {
   top: 5%;
   right: 8%;
@@ -1581,16 +1466,6 @@
   animation: cover-drift-5 10s ease-in-out infinite alternate;
 }
 
-/* ── Before/After slider sweep ── */
-
-/*
-  Before layer uses clip-path: inset(0 R% 0 0)
-  R = 70%  →  before shows 30% (left)  →  bar at 30%  →  mostly AFTER visible
-  R = 30%  →  before shows 70% (left)  →  bar at 70%  →  mostly BEFORE visible
-
-  Flow: show polished → reveal raw → back to polished
-*/
-
 @keyframes preview-clip {
 
   0%,
@@ -1626,10 +1501,6 @@
     transform: translateX(-20%);
   }
 }
-
-/* ============================================================
-   AUTH SIMPLE SHELL (Secondary Pages)
-   ============================================================ */
 
 :root[data-theme-family='noir'] .auth-simple {
   position: relative;
@@ -1679,10 +1550,6 @@
   line-height: 1.5;
   color: var(--auth-text-muted);
 }
-
-/* ============================================================
-   ANIMATIONS
-   ============================================================ */
 
 @keyframes orb-drift-1 {
   0% {
@@ -1794,10 +1661,6 @@
   }
 }
 
-/* ── Animated background overlay (auth decorative panel) ──
-   Sits behind the z-10 content (manhwa-floats, halftone, orbs, SFX)
-   but above the raw panel background, so the motion reads through the
-   decoration while staying subtle. */
 :root[data-theme-family='noir'] .koma-bg-video {
   position: absolute;
   inset: 0;
@@ -1885,10 +1748,6 @@
     transform: rotate(-5deg) translateY(-8px);
   }
 }
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
 
 @media (max-width: 1024px) {
   :root[data-theme-family='noir'] .auth-shell__right {
@@ -1980,15 +1839,6 @@
   }
 }
 
-/* ============================================================
-   KŌMA STUDIO — COMPONENT DESIGN SYSTEM
-   Extends auth.css with page-level & component styles
-   ============================================================ */
-
-/* ============================================================
-   PAGE SHELL (Settings, Subscription, etc.)
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-page {
   position: relative;
   min-height: 100vh;
@@ -2032,10 +1882,6 @@
   max-width: 1080px;
 }
 
-/* ============================================================
-   BACK BUTTON
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-back-btn {
   display: inline-flex;
   align-items: center;
@@ -2058,10 +1904,6 @@
   background: rgba(168, 85, 247, 0.08);
   color: var(--auth-text);
 }
-
-/* ============================================================
-   KL CARD (Generic)
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-card {
   border-radius: var(--auth-radius-lg);
@@ -2113,10 +1955,6 @@
   font-size: 13px;
   color: var(--auth-text-muted);
 }
-
-/* ============================================================
-   INFO GRID (Settings tiles)
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-info-grid {
   display: grid;
@@ -2203,10 +2041,6 @@
   }
 }
 
-/* ============================================================
-   SECTIONS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-section {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -2241,10 +2075,6 @@
   font-size: 13px;
   line-height: 1.65;
 }
-
-/* ============================================================
-   CHANNEL SELECTOR
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-channel-selector {
   display: inline-flex;
@@ -2302,10 +2132,6 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-/* ============================================================
-   TOGGLE SWITCH
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-toggle-row {
   display: flex;
@@ -2574,10 +2400,6 @@
   line-height: 1.6;
 }
 
-/* ============================================================
-   RELEASE NOTES
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-release-notes {
   margin: 0;
   padding: 16px;
@@ -2671,10 +2493,6 @@
   border-radius: 999px;
 }
 
-/* ============================================================
-   PAGE HEADER (Subscription)
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-page-header {
   display: flex;
   align-items: flex-start;
@@ -2720,10 +2538,6 @@
   border: 1px solid rgba(168, 85, 247, 0.2);
   color: #c084fc;
 }
-
-/* ============================================================
-   PROVIDER SELECTOR
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-provider-row {
   display: flex;
@@ -2775,10 +2589,6 @@
   text-transform: uppercase;
   color: var(--auth-text-muted);
 }
-
-/* ============================================================
-   PLAN CARDS
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-plans-grid {
   display: grid;
@@ -2862,10 +2672,6 @@
   color: var(--auth-text);
   margin-bottom: 18px;
 }
-
-/* ============================================================
-   MODEL RANKINGS
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-ranking-hero {
   margin-bottom: 20px;
@@ -3704,10 +3510,6 @@
   display: none;
 }
 
-/* ============================================================
-   SESSION TIMEOUT TOAST
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-session-toast {
   position: relative;
   overflow: hidden;
@@ -3775,10 +3577,6 @@
   outline: 2px solid rgba(252, 211, 77, 0.6);
   outline-offset: 2px;
 }
-
-/* ============================================================
-   UPDATE TOAST
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-toast {
   position: fixed;
@@ -3927,10 +3725,6 @@
   }
 }
 
-/* ============================================================
-   PROGRESS TOAST
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-progress-toast {
   position: fixed;
   bottom: 24px;
@@ -4040,10 +3834,6 @@
   font-size: 10px;
   color: rgba(186, 199, 247, 0.4);
 }
-
-/* ============================================================
-   UPDATE MODAL
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-modal-backdrop {
   position: fixed;
@@ -4331,10 +4121,6 @@
   gap: 10px;
 }
 
-/* ============================================================
-   SHORTCUT CENTER MODAL
-   ============================================================ */
-
 :root[data-theme-family='noir'] .koma-shortcuts-modal {
   max-width: min(920px, 96vw);
   max-height: min(90vh, 920px);
@@ -4525,10 +4311,6 @@
 :root[data-theme-family='noir'] .koma-shortcuts-modal__body::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* ============================================================
-   BUG REPORT MODAL
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-bug-report-modal {
   max-width: min(1120px, 96vw);
@@ -4763,10 +4545,6 @@
   }
 }
 
-/* ============================================================
-   CAPTCHA ADDITIONS
-   ============================================================ */
-
 :root[data-theme-family='noir'] .auth-captcha__header {
   display: flex;
   align-items: center;
@@ -4791,10 +4569,6 @@
   align-items: center;
   gap: 8px;
 }
-
-/* ============================================================
-   RESPONSIVE — COMPONENTS
-   ============================================================ */
 
 @media (max-width: 768px) {
   :root[data-theme-family='noir'] .koma-page {
@@ -4943,12 +4717,6 @@
   }
 }
 
-/* ============================================================
-   KŌMA STUDIO — DASHBOARD DESIGN SYSTEM
-   Extends auth.css / components.css
-   ============================================================ */
-
-/* ── Layout ── */
 :root[data-theme-family='noir'] .koma-dash {
   position: relative;
   height: 100vh;
@@ -4993,7 +4761,6 @@
   z-index: 3;
 }
 
-/* ── Mobile Backdrop ── */
 :root[data-theme-family='noir'] .koma-mobile-backdrop {
   display: none;
   position: fixed;
@@ -5014,7 +4781,6 @@
   }
 }
 
-/* ── Sidebar ── */
 :root[data-theme-family='noir'] .koma-dash__sidebar {
   width: 280px;
   flex-shrink: 0;
@@ -5175,7 +4941,6 @@
   color: transparent;
 }
 
-/* Version Badge — small pill on top-right of "Studio" */
 :root[data-theme-family='noir'] .koma-brand__studio-wrap {
   position: relative;
   display: inline;
@@ -5224,7 +4989,6 @@
   text-transform: uppercase;
 }
 
-/* Usage card */
 :root[data-theme-family='noir'] .koma-usage-card {
   margin-top: 14px;
   padding: 12px;
@@ -5289,7 +5053,6 @@
   color: rgba(186, 199, 247, 0.4);
 }
 
-/* Files panel */
 :root[data-theme-family='noir'] .koma-files {
   display: flex;
   flex-direction: column;
@@ -5338,7 +5101,6 @@
   gap: 6px;
 }
 
-/* File item */
 :root[data-theme-family='noir'] .koma-fileitem {
   display: flex;
   align-items: center;
@@ -5417,7 +5179,6 @@
   gap: 1px;
 }
 
-/* Dropzone */
 :root[data-theme-family='noir'] .koma-dropzone {
   margin: 10px;
   padding: 14px 12px;
@@ -5470,7 +5231,6 @@
   color: rgba(186, 199, 247, 0.72);
 }
 
-/* ── Main stage ── */
 :root[data-theme-family='noir'] .koma-dash__main {
   flex: 1;
   min-width: 0;
@@ -5478,7 +5238,6 @@
   flex-direction: column;
 }
 
-/* ── Topbar ── */
 :root[data-theme-family='noir'] .koma-topbar {
   --koma-topbar-item-height: 24px;
   --koma-topbar-item-radius: 8px;
@@ -5497,7 +5256,6 @@
   z-index: 20;
 }
 
-/* Mobile-only buttons */
 :root[data-theme-family='noir'] .koma-topbar__mobile-left {
   display: none;
   align-items: center;
@@ -5517,7 +5275,6 @@
   display: none;
 }
 
-/* ── Nav Tabs ── */
 :root[data-theme-family='noir'] .koma-mode-tabs-shell {
   flex: 1 1 auto;
   min-width: 0;
@@ -5737,7 +5494,6 @@
   }
 }
 
-/* ── Tooltip (shadcn-style) ── */
 :root[data-theme-family='noir'] .koma-shadcn-tooltip__root {
   position: relative;
   display: inline-flex;
@@ -5832,7 +5588,6 @@
   }
 }
 
-/* ── Mobile Nav Dropdown ── */
 :root[data-theme-family='noir'] .koma-mobile-nav {
   display: none;
   position: absolute;
@@ -6233,7 +5988,6 @@
   }
 }
 
-/* ── Buttons ── */
 :root[data-theme-family='noir'] .koma-btn {
   border: 0;
   cursor: pointer;
@@ -6293,7 +6047,6 @@
   justify-content: center;
 }
 
-/* Icon buttons */
 :root[data-theme-family='noir'] .koma-iconbtn {
   width: 32px;
   height: 32px;
@@ -6344,7 +6097,6 @@
   cursor: default;
 }
 
-/* Pill / Seg controls */
 :root[data-theme-family='noir'] .koma-pill {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -6410,7 +6162,6 @@
   box-shadow: 0 6px 18px rgba(168, 85, 247, 0.1);
 }
 
-/* ── Sub-mode Toggle ── */
 :root[data-theme-family='noir'] .koma-submode-toggle {
   display: flex;
   gap: 4px;
@@ -6450,7 +6201,6 @@
   box-shadow: 0 4px 16px rgba(168, 85, 247, 0.12);
 }
 
-/* ── Pipeline Steps ── */
 :root[data-theme-family='noir'] .koma-pipeline-steps {
   display: flex;
   flex-direction: column;
@@ -6671,7 +6421,6 @@
   gap: 8px;
 }
 
-/* ── Checklist ── */
 :root[data-theme-family='noir'] .koma-checklist {
   display: flex;
   flex-direction: column;
@@ -6694,7 +6443,6 @@
   height: 14px;
 }
 
-/* User menu */
 :root[data-theme-family='noir'] .koma-user {
   position: relative;
   z-index: 180;
@@ -6791,7 +6539,6 @@
   color: rgba(244, 63, 94, 1);
 }
 
-/* Alerts */
 :root[data-theme-family='noir'] .koma-alert {
   margin: 10px 14px 0;
   padding: 12px 14px;
@@ -6827,7 +6574,6 @@
   margin-top: 1px;
 }
 
-/* Stage */
 :root[data-theme-family='noir'] .koma-stage {
   flex: 1;
   overflow: auto;
@@ -6974,7 +6720,6 @@
   }
 }
 
-/* Preview cards */
 :root[data-theme-family='noir'] .koma-preview-card {
   width: fit-content;
   padding: 8px;
@@ -7857,7 +7602,6 @@
   background: color-mix(in srgb, var(--color-crimson, #ff2e63) 32%, transparent);
 }
 
-
 :root[data-theme-family='noir'] .koma-render-dock {
   position: absolute;
   z-index: 12;
@@ -8386,7 +8130,6 @@
   margin-top: 8px;
 }
 
-/* Compact horizontal field: [label | slider | value] on one line */
 :root[data-theme-family='noir'] .koma-effect-popover__field {
   display: grid;
   grid-template-columns: 52px 1fr 34px;
@@ -8394,7 +8137,6 @@
   gap: 5px;
 }
 
-/* Fill-picker variant: no value column */
 :root[data-theme-family='noir'] .koma-effect-popover__field--fill {
   grid-template-columns: 52px 1fr;
 }
@@ -8422,14 +8164,12 @@
   white-space: nowrap;
 }
 
-/* 2-column pair — places two fields side by side */
 :root[data-theme-family='noir'] .koma-effect-popover__field-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-/* Narrower label/value columns inside a pair */
 :root[data-theme-family='noir'] .koma-effect-popover__field-pair .koma-effect-popover__field {
   grid-template-columns: 34px 1fr 26px;
   gap: 4px;
@@ -8584,7 +8324,6 @@
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.24);
 }
 
-/* Footer bar */
 :root[data-theme-family='noir'] .koma-footerbar {
   height: 32px;
   display: flex;
@@ -8813,8 +8552,6 @@
 }
 
 :root[data-theme-family='noir'] .koma-footerbar__action {
-  /* border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 14, 28, 0.74); */
   color: rgba(208, 219, 255, 0.8);
 }
 
@@ -8886,26 +8623,6 @@
   color: var(--auth-purple);
 }
 
-:root[data-theme-family='noir'] .koma-footerbar__meta .aio-stage-timing__toggle {
-  font: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: inherit;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-:root[data-theme-family='noir'] .koma-footerbar__meta .aio-stage-timing__body {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-left: 8px;
-  white-space: nowrap;
-  color: var(--n-pair-dim, rgba(240, 236, 226, 0.7));
-}
-
-/* ── Tools panel ── */
 :root[data-theme-family='noir'] .koma-dash__tools {
   width: 310px;
   min-width: 0;
@@ -9005,7 +8722,6 @@
   margin: 0 0 4px;
 }
 
-/* Card surface (nested panels in tools) */
 :root[data-theme-family='noir'] .koma-card-surface {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -9025,7 +8741,6 @@
   margin-bottom: 10px;
 }
 
-/* Fields */
 :root[data-theme-family='noir'] .koma-field {
   margin-bottom: 10px;
 }
@@ -9057,7 +8772,6 @@
   margin-bottom: 10px;
 }
 
-/* Inputs / Selects (reuse from components.css, extend here) */
 :root[data-theme-family='noir'] .koma-input,
 :root[data-theme-family='noir'] .koma-select {
   width: 100%;
@@ -9094,7 +8808,6 @@
   padding: 0;
 }
 
-/* Toggle pills (grayscale / invert) */
 :root[data-theme-family='noir'] .koma-toggle-row-group {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -9129,7 +8842,6 @@
   box-shadow: 0 6px 18px rgba(168, 85, 247, 0.1);
 }
 
-/* Notes */
 :root[data-theme-family='noir'] .koma-note {
   border-radius: 12px;
   padding: 10px 12px;
@@ -9170,7 +8882,6 @@
   color: rgba(6, 182, 212, 0.7);
 }
 
-/* Sliders */
 :root[data-theme-family='noir'] .koma-slider {
   display: flex;
   flex-direction: column;
@@ -9312,7 +9023,6 @@
   box-shadow: 0 6px 16px rgba(124, 58, 237, 0.18);
 }
 
-/* Tools footer */
 :root[data-theme-family='noir'] .koma-tools__footer {
   padding: 12px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -9337,7 +9047,6 @@
   gap: 8px;
 }
 
-/* ── Password Strength ── */
 :root[data-theme-family='noir'] .koma-strength {
   overflow: hidden;
   border-radius: 14px;
@@ -9424,7 +9133,6 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
-/* ── Password Input ── */
 :root[data-theme-family='noir'] .koma-password {
   position: relative;
 }
@@ -9451,7 +9159,6 @@
   color: rgba(241, 245, 249, 0.8);
 }
 
-/* ── Status Bar ── */
 :root[data-theme-family='noir'] .koma-statusbar {
   position: fixed;
   left: 12px;
@@ -9490,13 +9197,6 @@
 :root[data-theme-family='noir'] .koma-statusbar__dot {
   fill: currentColor;
 }
-
-/* ═══════════════════════════════════════════════════════════
-   KŌMA Studio — Settings Page
-   Design System: Dark premium, glass morphism, purple/cyan
-   ═══════════════════════════════════════════════════════════ */
-
-/* ─── Page Shell ─────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg {
   position: relative;
@@ -9575,8 +9275,6 @@
   padding: 32px 24px 64px;
 }
 
-/* ─── Back Button ────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-back-btn {
   display: inline-flex;
   align-items: center;
@@ -9605,8 +9303,6 @@
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Profile Header Card ───────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-header {
   border-radius: var(--auth-radius-lg);
@@ -9693,8 +9389,6 @@
   text-overflow: ellipsis;
 }
 
-/* ─── Quick Stats ────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-stats {
   display: flex;
   align-items: center;
@@ -9733,8 +9427,6 @@
   background: rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
 }
-
-/* ─── Tab Navigation ─────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-tabs {
   display: flex;
@@ -9801,8 +9493,6 @@
   text-overflow: ellipsis;
 }
 
-/* ─── Tab Content Panel ──────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-body {
   position: relative;
 }
@@ -9822,8 +9512,6 @@
     transform: translateY(0);
   }
 }
-
-/* ─── Section ────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-section {
   border-radius: var(--auth-radius-lg);
@@ -9867,8 +9555,6 @@
   margin: -6px 0 18px;
 }
 
-/* ─── Info Grid ──────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -9908,8 +9594,6 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
-
-/* ─── Chips / Badges ─────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-chip {
   display: inline-flex;
@@ -9958,8 +9642,6 @@
   background: rgba(245, 158, 11, 0.12);
 }
 
-/* ─── Status Dot ─────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-dot {
   width: 7px;
   height: 7px;
@@ -9995,8 +9677,6 @@
   }
 }
 
-/* ─── Actions ────────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-actions {
   display: flex;
   flex-wrap: wrap;
@@ -10007,8 +9687,6 @@
 :root[data-theme-family='noir'] .koma-stg-actions--row {
   margin-bottom: 16px;
 }
-
-/* ─── Buttons ────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-btn {
   display: inline-flex;
@@ -10125,14 +9803,10 @@
   border-radius: 8px;
 }
 
-/* ─── Icon Button ────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-iconbtn {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  /* border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02); */
   color: rgba(186, 199, 247, 0.6);
   display: flex;
   align-items: center;
@@ -10157,8 +9831,6 @@
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Alerts ─────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-alert {
   display: flex;
@@ -10210,8 +9882,6 @@
   background: rgba(8, 51, 68, 0.2);
   color: #67e8f9;
 }
-
-/* ─── Toggle Switch ──────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-toggle {
   position: relative;
@@ -10307,8 +9977,6 @@
   line-height: 1.6;
 }
 
-/* ─── Usage Ring ─────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-usage {
   margin-bottom: 4px;
 }
@@ -10348,7 +10016,6 @@
   filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.3));
 }
 
-/* Fallback solid gradient stroke */
 :root[data-theme-family='noir'] .koma-stg-ring__fill {
   stroke: var(--auth-purple);
 }
@@ -10405,8 +10072,6 @@
   font-weight: 800;
   color: var(--auth-text);
 }
-
-/* ─── Countdown ──────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-countdown {
   display: flex;
@@ -10490,8 +10155,6 @@
   opacity: 0.7;
 }
 
-/* ─── Plan Card ──────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-plan {
   padding: 4px 0 0;
 }
@@ -10540,8 +10203,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Presets — Filters ──────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-filters {
   display: flex;
   gap: 6px;
@@ -10574,8 +10235,6 @@
   border-color: rgba(168, 85, 247, 0.25);
   color: #c084fc;
 }
-
-/* ─── Preset Form ────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-preset-form {
   border-radius: 14px;
@@ -10622,8 +10281,6 @@
 :root[data-theme-family='noir'] .koma-stg-checkbox--preset-active {
   margin-top: 6px;
 }
-
-/* ─── Fields ─────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-field {
   margin-bottom: 14px;
@@ -10689,8 +10346,6 @@
   flex: 1;
 }
 
-/* ─── Checkbox ───────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-checkbox {
   display: flex;
   align-items: center;
@@ -10732,8 +10387,6 @@
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-
-/* ─── Preset List ────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-preset-list {
   display: flex;
@@ -10875,8 +10528,6 @@
   white-space: nowrap;
 }
 
-/* ─── Empty State ────────────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-empty {
   display: flex;
   flex-direction: column;
@@ -10897,8 +10548,6 @@
   color: var(--auth-text-muted);
   font-style: italic;
 }
-
-/* ─── Webhook ────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-webhook {
   margin-top: 4px;
@@ -10928,8 +10577,6 @@
   padding-top: 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
-
-/* ─── Fields ─────────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-field {
   margin-bottom: 16px;
@@ -10992,8 +10639,6 @@
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
-/* ─── Events (checkboxes) ────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-events {
   display: flex;
   flex-direction: column;
@@ -11019,7 +10664,6 @@
   background: rgba(168, 85, 247, 0.03);
 }
 
-/* sr-only: esconde o input nativo */
 :root[data-theme-family='noir'] .koma-stg-event>input[type='checkbox'] {
   position: absolute;
   opacity: 0;
@@ -11027,8 +10671,6 @@
   height: 0;
   pointer-events: none;
 }
-
-/* ─── Custom checkbox ────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-checkbox__box {
   width: 18px;
@@ -11049,7 +10691,6 @@
   flex-shrink: 0;
 }
 
-/* Checkmark (hidden by default) */
 :root[data-theme-family='noir'] .koma-stg-checkbox__box::after {
   content: '';
   width: 10px;
@@ -11061,7 +10702,6 @@
   transition: opacity 0.15s ease;
 }
 
-/* Checked state */
 :root[data-theme-family='noir'] .koma-stg-event>input[type='checkbox']:checked+.koma-stg-checkbox__box {
   background: var(--auth-purple);
   border-color: var(--auth-purple);
@@ -11072,13 +10712,10 @@
   opacity: 1;
 }
 
-/* Focus-visible on checkbox */
 :root[data-theme-family='noir'] .koma-stg-event>input[type='checkbox']:focus-visible+.koma-stg-checkbox__box {
   outline: 2px solid rgba(168, 85, 247, 0.7);
   outline-offset: 2px;
 }
-
-/* ─── Event text ─────────────────────────────────────────── */
 
 :root[data-theme-family='noir'] .koma-stg-event>div {
   display: flex;
@@ -11102,8 +10739,6 @@
   line-height: 1.45;
 }
 
-/* ─── Footer toggle row ─────────────────────────────────── */
-
 :root[data-theme-family='noir'] .koma-stg-toggle-row {
   display: flex;
   align-items: center;
@@ -11119,8 +10754,6 @@
   color: var(--auth-text);
   letter-spacing: 0.01em;
 }
-
-/* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 720px) {
   :root[data-theme-family='noir'] .koma-preset-toolbar__actions {
@@ -11181,7 +10814,6 @@
   }
 }
 
-/* ── Scrollbar ── */
 :root[data-theme-family='noir'] .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -11196,7 +10828,6 @@
   background: transparent;
 }
 
-/* ── Responsive ── */
 @media (max-width: 1100px) {
   :root[data-theme-family='noir'] .koma-dash__tools {
     position: fixed;
@@ -11405,15 +11036,12 @@
   }
 }
 
-
-/* ── base ── */
 :root[data-theme-family='noir'] html[data-theme="light"],
 :root[data-theme-family='noir'] html[data-theme="light"] body,
 :root[data-theme-family='noir'] html[data-theme="light"] #root {
   background: var(--auth-bg);
 }
 
-/* ── auth shell / login ── */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-shell {
   background: var(--auth-bg);
 }
@@ -11439,7 +11067,6 @@
   background: rgba(225, 29, 72, 0.05);
 }
 
-/* auth card */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-card {
   background: var(--auth-card-bg);
   border-color: rgba(0, 0, 0, 0.08);
@@ -11460,7 +11087,6 @@
   animation-name: card-breathe-light;
 }
 
-/* auth locale switcher */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-locale-switcher {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.7);
@@ -11480,7 +11106,6 @@
   background: #fff;
 }
 
-/* auth tabs */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-tabs {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.06);
@@ -11494,7 +11119,6 @@
   color: var(--auth-text);
 }
 
-/* auth form elements */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-field__label {
   color: rgba(51, 65, 85, 0.7);
 }
@@ -11545,7 +11169,6 @@
   color: #7c3aed;
 }
 
-/* auth submit outline */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-submit--outline {
   border-color: rgba(147, 51, 234, 0.2);
   color: rgba(51, 65, 85, 0.8);
@@ -11561,7 +11184,6 @@
   border-top-color: #fff;
 }
 
-/* auth alerts */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-alert--error {
   border-color: rgba(225, 29, 72, 0.2);
   background: rgba(225, 29, 72, 0.06);
@@ -11586,24 +11208,20 @@
   color: #155e75;
 }
 
-/* auth divider */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-divider__line {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
 }
 
-/* auth pills */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-pill {
   border-color: rgba(147, 51, 234, 0.1);
   background: rgba(147, 51, 234, 0.04);
   color: rgba(51, 65, 85, 0.7);
 }
 
-/* auth switch / note */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-note {
   color: rgba(51, 65, 85, 0.5);
 }
 
-/* auth stats / right content */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-stats {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.5);
@@ -11620,7 +11238,6 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* auth genre tags */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-genre--purple {
   color: #7c3aed;
 }
@@ -11641,7 +11258,6 @@
   color: #059669;
 }
 
-/* auth travel gate */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-travel-gate {
   border-color: rgba(8, 145, 178, 0.15);
   background: linear-gradient(160deg, rgba(224, 242, 254, 0.5), rgba(255, 255, 255, 0.9) 58%), radial-gradient(circle at top right, rgba(8, 145, 178, 0.08), transparent 42%);
@@ -11670,18 +11286,15 @@
   color: rgba(51, 65, 85, 0.86);
 }
 
-/* auth strength */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-strength {
   border-color: var(--auth-input-border);
   background: var(--auth-input-bg);
 }
 
-/* auth simple shell */
 :root[data-theme-family='noir'] [data-theme="light"] .auth-simple {
   background: var(--auth-bg);
 }
 
-/* ── koma-page (generic pages) ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-page {
   background: var(--auth-bg);
 }
@@ -11709,7 +11322,6 @@
   color: rgba(71, 85, 105, 0.78);
 }
 
-/* koma-back-btn (pages) */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-back-btn {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.5);
@@ -11722,7 +11334,6 @@
   color: var(--auth-text);
 }
 
-/* koma-card */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-card {
   background: var(--auth-card-bg);
   border-color: rgba(0, 0, 0, 0.06);
@@ -11734,7 +11345,6 @@
   border-color: rgba(147, 51, 234, 0.12);
 }
 
-/* koma-info-tile */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-info-tile {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.6);
@@ -11756,7 +11366,6 @@
   color: #e11d48;
 }
 
-/* koma-section */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-section {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.6);
@@ -11766,7 +11375,6 @@
   color: rgba(51, 65, 85, 0.68);
 }
 
-/* koma-channel-selector */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-channel-selector {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.06);
@@ -11776,7 +11384,6 @@
   background: rgba(51, 65, 85, 0.2);
 }
 
-/* toggle (component variant) */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-toggle__track {
   background: rgba(0, 0, 0, 0.12);
   border-color: rgba(0, 0, 0, 0.1);
@@ -11796,7 +11403,6 @@
   background: var(--auth-purple);
 }
 
-/* ── DASHBOARD ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-dash {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -11812,7 +11418,6 @@
   background-image: radial-gradient(rgba(0, 0, 0, 0.018) 1px, transparent 1px);
 }
 
-/* sidebar */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-dash__sidebar {
   background: rgba(255, 255, 255, 0.88);
   border-right-color: rgba(0, 0, 0, 0.06);
@@ -11842,13 +11447,11 @@
   background: rgba(255, 255, 255, 0.98);
 }
 
-/* brand */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-brand__icon {
   background: rgba(147, 51, 234, 0.08);
   border-color: rgba(147, 51, 234, 0.12);
 }
 
-/* usage card */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-usage-card {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.02);
@@ -11875,7 +11478,6 @@
   color: rgba(51, 65, 85, 0.5);
 }
 
-/* files panel */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-files__header {
   color: rgba(51, 65, 85, 0.5);
   border-top-color: rgba(0, 0, 0, 0.04);
@@ -11909,7 +11511,6 @@
   color: rgba(51, 65, 85, 0.4);
 }
 
-/* dropzone */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-dropzone {
   border-color: rgba(147, 51, 234, 0.15);
   background: rgba(147, 51, 234, 0.02);
@@ -11933,14 +11534,12 @@
   color: rgba(51, 65, 85, 0.72);
 }
 
-/* topbar */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-topbar {
   border-bottom-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px) saturate(1.2);
 }
 
-/* mode tabs */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-mode-tabs__scrollbtn {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
@@ -11976,7 +11575,6 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* tooltips — always dark bg for contrast */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-shadcn-tooltip {
   border-color: rgba(0, 0, 0, 0.12);
   background: rgba(15, 23, 42, 0.94);
@@ -12175,7 +11773,6 @@
   color: rgba(15, 23, 42, 0.96);
 }
 
-/* shared tools panel surfaces */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-tools__header {
   border-bottom-color: rgba(15, 23, 42, 0.07);
   color: rgba(15, 23, 42, 0.82);
@@ -12299,7 +11896,6 @@
   color: rgba(15, 23, 42, 0.82);
 }
 
-/* mobile nav */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-mobile-nav {
   background: rgba(255, 255, 255, 0.98);
   border-bottom-color: rgba(0, 0, 0, 0.08);
@@ -12365,7 +11961,6 @@
   color: rgba(15, 23, 42, 0.9);
 }
 
-/* topbar right / dividers */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-divider {
   background: rgba(0, 0, 0, 0.07);
 }
@@ -12386,7 +11981,6 @@
   color: rgba(51, 65, 85, 0.68);
 }
 
-/* buttons */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-btn--ghost {
   background: rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(0, 0, 0, 0.07);
@@ -12428,7 +12022,6 @@
   color: #0f172a;
 }
 
-/* icon buttons */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-iconbtn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -12441,7 +12034,6 @@
   background: rgba(147, 51, 234, 0.04);
 }
 
-/* pill / seg controls */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-pill {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -12466,7 +12058,6 @@
   box-shadow: 0 4px 12px rgba(147, 51, 234, 0.06);
 }
 
-/* sub-mode toggle */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-submode-toggle {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -12486,7 +12077,6 @@
   box-shadow: 0 3px 10px rgba(147, 51, 234, 0.08);
 }
 
-/* pipeline steps */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-pipeline-step {
   border-color: rgba(0, 0, 0, 0.04);
   background: rgba(0, 0, 0, 0.01);
@@ -12524,7 +12114,6 @@
   color: rgba(15, 23, 42, 0.72);
 }
 
-/* stage config */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stage-config {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.01);
@@ -12540,12 +12129,10 @@
   background: rgba(255, 255, 255, 0.7);
 }
 
-/* checklist */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-checklist__item {
   color: rgba(51, 65, 85, 0.65);
 }
 
-/* user menu */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-user__btn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -12585,7 +12172,6 @@
   color: var(--auth-text);
 }
 
-/* alerts */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-alert {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.5);
@@ -12604,7 +12190,6 @@
   background: rgba(217, 119, 6, 0.04);
 }
 
-/* stage / empty */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stage {
   background: radial-gradient(ellipse at 35% 25%, rgba(147, 51, 234, 0.02), transparent 50%),
     radial-gradient(ellipse at 65% 75%, rgba(8, 145, 178, 0.015), transparent 50%);
@@ -12642,7 +12227,6 @@
   color: rgba(51, 65, 85, 0.6);
 }
 
-/* preview cards */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-preview-card {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.4);
@@ -12667,7 +12251,6 @@
   color: rgba(15, 23, 42, 0.82);
 }
 
-/* utils dropdown */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-utils-dropdown {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -12688,7 +12271,6 @@
   color: var(--auth-text);
 }
 
-/* download menu */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-download-menu {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.98);
@@ -12713,7 +12295,6 @@
   background: rgba(0, 0, 0, 0.015);
 }
 
-/* footerbar */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-footerbar {
   border-top-color: rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.6);
@@ -12817,7 +12398,6 @@
   color: rgba(51, 65, 85, 0.8);
 }
 
-/* ── scrollbars ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stg__scroll,
 :root[data-theme-family='noir'] [data-theme="light"] .koma-dash__main,
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stage {
@@ -12832,7 +12412,6 @@
   background: transparent !important;
 }
 
-/* ── settings page ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stg {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -12934,7 +12513,6 @@
   color: rgba(30, 41, 59, 0.84);
 }
 
-/* settings alerts */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stg-alert--success {
   background: rgba(5, 150, 105, 0.05);
   border-color: rgba(5, 150, 105, 0.12);
@@ -12955,7 +12533,6 @@
   border-color: rgba(8, 145, 178, 0.12);
 }
 
-/* settings chips */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stg-chip {
   background: rgba(0, 0, 0, 0.04);
   color: var(--auth-text-muted);
@@ -12971,7 +12548,6 @@
   color: var(--auth-cyan);
 }
 
-/* settings channels - dark theme (base) */
 :root[data-theme-family='noir'] .koma-stg-channels {
   display: flex;
   flex-direction: column;
@@ -13039,7 +12615,6 @@
   margin-top: 2px;
 }
 
-/* settings channels - light theme */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-stg-channels .koma-stg-channel {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.015);
@@ -13063,7 +12638,6 @@
   color: rgba(71, 85, 105, 0.7);
 }
 
-/* ── toasts ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-session-toast,
 :root[data-theme-family='noir'] [data-theme="light"] .koma-update-toast,
 :root[data-theme-family='noir'] [data-theme="light"] .koma-progress-toast {
@@ -13073,7 +12647,6 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
-/* ── modals ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-modal-backdrop {
   background: rgba(0, 0, 0, 0.2);
 }
@@ -13150,7 +12723,6 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* shortcut center */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-sc-search__field {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
@@ -13198,7 +12770,6 @@
   background: rgba(0, 0, 0, 0.02);
 }
 
-/* bug report */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-bug-section__title {
   border-color: rgba(0, 0, 0, 0.03);
   color: rgba(147, 51, 234, 0.6);
@@ -13247,7 +12818,6 @@
   color: rgba(51, 65, 85, 0.3);
 }
 
-/* shortcuts modal */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-shortcuts-modal__notice {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -13265,7 +12835,6 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/* ── ranking page ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-ranking-tab {
   border-color: rgba(0, 0, 0, 0.05);
   background: rgba(0, 0, 0, 0.02);
@@ -13293,7 +12862,6 @@
   background: rgba(255, 255, 255, 0.8);
 }
 
-/* ── restricted / production ── */
 :root[data-theme-family='noir'] [data-theme="light"] .bg-neutral-950 {
   background-color: var(--auth-bg) !important;
 }
@@ -13315,7 +12883,6 @@
   color: var(--auth-text-muted) !important;
 }
 
-/* ── legal pages ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-legal-page {
   background: var(--auth-bg);
   color: var(--auth-text);
@@ -13396,7 +12963,6 @@
   color: rgba(100, 116, 139, 0.72);
 }
 
-/* ── context menu ── */
 :root[data-theme-family='noir'] .koma-ctx {
   border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
   border-left: 2px solid var(--color-crimson);
@@ -13610,20 +13176,14 @@
   color: var(--color-paper-faint);
 }
 
-/* ── generic dark-on-light text fix ──
-   Catch-all for hardcoded light text (rgba 186,199,247 / 241,245,249 / 226,232,240 / 255,255,255)
-   applied via muted-text utility classes. :where() keeps the subject at zero
-   specificity so an explicit noir light color override still wins. */
 :root[data-theme-family='noir'] [data-theme="light"] :where([class*="koma-"]) {
   color: inherit;
 }
 
-/* ── mobile backdrop ── */
 :root[data-theme-family='noir'] [data-theme="light"] .koma-mobile-backdrop {
   background: rgba(0, 0, 0, 0.25);
 }
 
-/* ── theme selector ── */
 :root[data-theme-family='noir'] .koma-stg-themes {
   display: flex;
   gap: 12px;
@@ -14162,82 +13722,58 @@
   }
 }
 
-/* ============================================================
-   PERFORMANCE: CSS Containment for Dashboard
-   Isolates rendering of heavy containers to prevent
-   layout/paint propagation across the entire DOM.
-   ============================================================ */
-
-/* Main dashboard layout containers */
 :root[data-theme-family='noir'] .koma-dash,
 :root[data-theme-family='noir'] .koma-dash__bg {
   contain: layout style;
 }
 
-/* Image file list sidebar */
 :root[data-theme-family='noir'] .koma-files__list {
   contain: layout style paint;
   content-visibility: auto;
   contain-intrinsic-size: 0 600px;
 }
 
-/* Individual file items */
 :root[data-theme-family='noir'] .koma-fileitem {
   contain: layout style;
 }
 
-/* Preview cards in stage grid */
 :root[data-theme-family='noir'] .koma-preview-card__img {
   contain: layout style paint;
 }
 
-/* Stage containers */
 :root[data-theme-family='noir'] .koma-stage__empty {
   contain: layout style;
 }
 
-/* AIO tools panels */
 :root[data-theme-family='noir'] .koma-aio-tools,
 :root[data-theme-family='noir'] .koma-aio-pipeline-grid,
 :root[data-theme-family='noir'] .koma-aio-pipeline-controls {
   contain: layout style;
 }
 
-/* Card surfaces */
 :root[data-theme-family='noir'] .koma-card-surface {
   contain: layout style;
 }
 
-/* Sidebar panels */
 :root[data-theme-family='noir'] .koma-sidebar {
   contain: layout style paint;
 }
 
-/* Right sidebar tools */
 :root[data-theme-family='noir'] .koma-tools__hint {
   contain: layout style;
 }
 
-/* Image thumbnails in sidebar */
 :root[data-theme-family='noir'] .koma-fileitem__thumb {
   contain: strict;
   content-visibility: auto;
   contain-intrinsic-size: 0 80px;
 }
 
-/* Off-screen panels should not consume rendering resources */
 :root[data-theme-family='noir'] .koma-card-surface:not(:hover):not(:focus-within) {
   content-visibility: auto;
   contain-intrinsic-size: 0 200px;
 }
 
-/* ============================================================
-   PERFORMANCE: GPU Compositing Hints
-   Promote frequently-animated elements to own compositing layer
-   to avoid repainting during scroll and animations.
-   ============================================================ */
-
-/* Fixed overlays with backdrop-filter - promote to own layer */
 :root[data-theme-family='noir'] .koma-toast,
 :root[data-theme-family='noir'] .koma-progress-toast,
 :root[data-theme-family='noir'] .koma-topbar,
@@ -14251,7 +13787,6 @@
   will-change: transform;
 }
 
-/* Scroll containers - GPU-accelerated scrolling */
 :root[data-theme-family='noir'] .koma-files__list,
 :root[data-theme-family='noir'] .koma-stage,
 :root[data-theme-family='noir'] .koma-dash__main,
@@ -14259,28 +13794,24 @@
   will-change: scroll-position;
 }
 
-/* Elements with backdrop-filter that animate */
 :root[data-theme-family='noir'] .koma-plan-card,
 :root[data-theme-family='noir'] .koma-card-surface,
 :root[data-theme-family='noir'] .koma-fileitem {
   will-change: transform, opacity;
 }
 
-/* Reduce paint cost of heavy shadows on non-hovered state */
 :root[data-theme-family='noir'] .koma-card-surface:not(:hover),
 :root[data-theme-family='noir'] .koma-fileitem:not(:hover),
 :root[data-theme-family='noir'] .koma-plan-card:not(:hover) {
   box-shadow: none;
 }
 
-/* Only apply expensive shadows on interaction */
 :root[data-theme-family='noir'] .koma-card-surface:hover,
 :root[data-theme-family='noir'] .koma-fileitem:hover,
 :root[data-theme-family='noir'] .koma-plan-card:hover {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* Optimize box-shadow on buttons - use simpler shadow */
 :root[data-theme-family='noir'] .koma-btn {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
@@ -14295,7 +13826,6 @@
 
 @layer components {
 
-  /* ── Manga panel cuts ── */
   :root[data-theme-family='noir'] .panel-cut {
     clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
   }
@@ -14310,7 +13840,6 @@
     border: 1px solid color-mix(in srgb, var(--color-paper) 9%, transparent);
   }
 
-  /* ── Riso halftone ── */
   :root[data-theme-family='noir'] .halftone {
     background-image: radial-gradient(color-mix(in srgb, var(--color-paper) 8%, transparent) 1px,
         transparent 1px);
@@ -14331,7 +13860,6 @@
     color: var(--color-crimson);
   }
 
-  /* ── Hanko stamp badge ── */
   :root[data-theme-family='noir'] .stamp {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -14343,7 +13871,6 @@
     padding: 4px 10px;
   }
 
-  /* ── Buttons: hard offset shadow via drop-shadow (survives clip-path!) ── */
   :root[data-theme-family='noir'] .btn-primary {
     clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
     display: inline-flex;
@@ -14405,7 +13932,6 @@
     border-color: color-mix(in srgb, var(--color-paper) 45%, transparent);
   }
 
-  /* ── Inputs ── */
   :root[data-theme-family='noir'] .input-koma {
     clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
     width: 100%;
@@ -14429,7 +13955,6 @@
     filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
   }
 
-  /* ── Editorial extras ── */
   :root[data-theme-family='noir'] .text-outline {
     color: transparent;
     -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-paper) 14%, transparent);
@@ -14456,7 +13981,6 @@
     animation: stamp-in 0.4s var(--ease-noir) both;
   }
 
-  /* ── Model Vault (V2) — hard hover + riso stripes + blink ── */
   :root[data-theme-family='noir'] .hard-hover {
     transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s;
   }
@@ -14491,7 +14015,6 @@
   }
 }
 
-/* ── Hard offset shadows (drop-shadow survives clip-path) ── */
 @utility shadow-hard-crimson {
   filter: drop-shadow(4px 4px 0 var(--color-crimson));
 }
@@ -14504,13 +14027,11 @@
   filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-paper) 25%, transparent));
 }
 
-/* ── Manga panel cut (both corners) — Editorial Manga Noir V2 ── */
 :root[data-theme-family='noir'] .panel-cut-both {
   clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px),
       calc(100% - 14px) 100%, 0 100%, 0 14px);
 }
 
-/* ── Form primitives — noir select / input / textarea ── */
 :root[data-theme-family='noir'] .noir-select,
 :root[data-theme-family='noir'] .noir-input,
 :root[data-theme-family='noir'] .noir-textarea {
@@ -14532,7 +14053,6 @@
   filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
 }
 
-/* ── Range thumb (noir) ── */
 :root[data-theme-family='noir'] .noir-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -14552,7 +14072,6 @@
   cursor: pointer;
 }
 
-/* ── Pulse ring (sharp, noir) ── */
 @keyframes noir-pulse-ring {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-crimson) 60%, transparent);
@@ -14571,9 +14090,6 @@
   animation: noir-pulse-ring 1.6s var(--ease-noir) infinite;
 }
 
-/* ══════════════════ V2 "Editorial Manga Noir" — form primitives ══════════════════ */
-
-/* ── Slider (square thumb rotates 45° on hover) ── */
 :root[data-theme-family='noir'] .noir-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -14618,7 +14134,6 @@
   outline: 1px solid var(--color-crimson);
 }
 
-/* ── Toggle (manga-panel cut switch) ── */
 :root[data-theme-family='noir'] .noir-toggle {
   display: inline-flex;
   align-items: center;
@@ -14670,7 +14185,6 @@
   outline-offset: 2px;
 }
 
-/* ── Icon button (toolbar) ── */
 :root[data-theme-family='noir'] .noir-icon-btn {
   display: grid;
   place-items: center;
@@ -14694,7 +14208,6 @@
   cursor: not-allowed;
 }
 
-/* ── Spinner (hard, noir — steps spin) ── */
 :root[data-theme-family='noir'] .noir-spinner {
   width: 12px;
   height: 12px;
@@ -14704,14 +14217,12 @@
   animation: noir-spin 0.7s linear infinite;
 }
 
-/* ── Progress fill (risograph diagonal stripes) ── */
 :root[data-theme-family='noir'] .noir-progress-fill {
   background: repeating-linear-gradient(-45deg,
       var(--color-crimson) 0 8px,
       #c91e4d 8px 16px);
 }
 
-/* ── Thin scrollbar for strip containers ── */
 :root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -14729,7 +14240,6 @@
   background: color-mix(in srgb, var(--color-crimson) 70%, transparent);
 }
 
-/* ── Guides "Editorial Manga Noir" primitives ── */
 :root[data-theme-family='noir'] .noir-kbd {
   display: inline-grid;
   place-items: center;
@@ -14784,7 +14294,6 @@
   }
 }
 
-/* ── Global film grain overlay ── */
 :root[data-theme-family='noir'] body::before {
   content: "";
   position: fixed;
@@ -14801,7 +14310,6 @@
   gap: 0.75rem;
 }
 
-/* Language pair + divider */
 :root[data-theme-family='noir'] .koma-aio-lang-row {
   display: flex;
   align-items: center;
@@ -14827,7 +14335,6 @@
   background: color-mix(in srgb, var(--color-paper) 8%, transparent);
 }
 
-/* Preset row */
 :root[data-theme-family='noir'] .koma-aio-lang-preset-row {
   display: flex;
   flex-direction: column;
@@ -14846,7 +14353,6 @@
 }
 
 :root[data-theme-family='noir'] .koma-aio-lang-preset-row__select {
-  /* .noir-select + .panel-cut-sm */
   width: 100%;
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -14905,9 +14411,7 @@
   color: var(--color-crimson);
 }
 
-/* Inline preset editor */
 :root[data-theme-family='noir'] .koma-aio-preset-editor {
-  /* .glass + .panel-cut-sm + gold rail */
   background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
   backdrop-filter: blur(14px);
   border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
@@ -14937,7 +14441,6 @@
   gap: 0.5rem;
 }
 
-/* Stage tab content shell */
 :root[data-theme-family='noir'] .koma-aio-stage-content {
   display: flex;
   flex-direction: column;
@@ -14945,7 +14448,6 @@
   padding-top: 0.25rem;
 }
 
-/* Translation extras (LLM panel) */
 :root[data-theme-family='noir'] .koma-aio-translation-extras {
   display: flex;
   flex-direction: column;
@@ -14953,7 +14455,6 @@
 }
 
 :root[data-theme-family='noir'] .koma-aio-llm-panel {
-  /* .glass + .panel-cut-sm + azure rail */
   background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
   backdrop-filter: blur(14px);
   border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
@@ -14977,7 +14478,6 @@
   gap: 0.5rem;
 }
 
-/* Render text-mode + font row */
 :root[data-theme-family='noir'] .koma-aio-text-mode {
   display: flex;
   flex-direction: column;
@@ -14990,7 +14490,6 @@
   gap: 0.5rem;
 }
 
-/* Region inspector */
 :root[data-theme-family='noir'] .koma-aio-region {
   display: flex;
   flex-direction: column;
@@ -15028,9 +14527,7 @@
   gap: 0.5rem;
 }
 
-/* Inline info / warning callouts */
 :root[data-theme-family='noir'] .koma-aio-info {
-  /* .glass + .panel-cut-sm + border-l-2 */
   background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
   backdrop-filter: blur(14px);
   border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
@@ -15055,7 +14552,6 @@
   color: var(--color-gold);
 }
 
-/* Section badge (enabled-count stamp) — reuses .stamp */
 :root[data-theme-family='noir'] .koma-aio-section__badge {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -15067,21 +14563,18 @@
   padding: 3px 10px;
 }
 
-/* Hints */
 :root[data-theme-family='noir'] .koma-aio-hint {
   font-family: var(--font-mono);
   font-size: 10px;
   color: color-mix(in srgb, var(--color-paper) 55%, transparent);
 }
 
-/* Timeline (manual mode) */
 :root[data-theme-family='noir'] .koma-aio-timeline {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
 }
 
-/* Pipeline grid + controls */
 :root[data-theme-family='noir'] .koma-aio-pipeline-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -15094,7 +14587,6 @@
   gap: 0.5rem;
 }
 
-/* Execute bar */
 :root[data-theme-family='noir'] .koma-aio-execute {
   position: sticky;
   bottom: 0;
@@ -15109,7 +14601,6 @@
 }
 
 :root[data-theme-family='noir'] .koma-aio-execute__btn {
-  /* .btn-primary + .panel-cut-sm */
   position: relative;
   flex: 1 1 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
@@ -15143,7 +14634,6 @@
 }
 
 :root[data-theme-family='noir'] .koma-aio-execute__btn--stop {
-  /* .btn-ghost + crimson override */
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
   display: inline-flex;
   align-items: center;
@@ -15169,7 +14659,6 @@
   animation: noir-pulse-ring 1.6s var(--ease-noir) infinite;
 }
 
-/* ── Range slider — Editorial Manga Noir (RenderTextPreview fine-tune) ── */
 :root[data-theme-family='noir'] .koma-noir-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 12px;
@@ -15188,7 +14677,6 @@
   cursor: pointer;
 }
 
-/* ── Effects row in the noir type dock: keep color popovers side-by-side ── */
 :root[data-theme-family='noir'] .koma-effects-row {
   scrollbar-width: thin;
 }
@@ -15202,7 +14690,6 @@
   width: 100%;
 }
 
-/* ── Scoped base for the noir auth surfaces ── */
 :root[data-theme-family='noir'] .koma-noir {
   position: relative;
   background: var(--color-ink);
@@ -15212,7 +14699,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Film grain global (SVG turbulence) */
 :root[data-theme-family='noir'] .koma-noir::before {
   content: "";
   position: fixed;
@@ -15243,13 +14729,6 @@
     transition: none !important;
   }
 }
-
-
-/* ============================================================
-   KOMA NOIR — overrides das classes ORIGINAIS da direita
-   Mantém markup/posição idênticos à V1; só troca as cores
-   (roxo/ciano/âmbar/rosa/esmeralda → crimson/gold/azure/mint).
-   ============================================================ */
 
 :root[data-theme-family='noir'] .koma-noir .manhwa-float {
   border-radius: 12px;
@@ -15320,7 +14799,6 @@
   color: color-mix(in srgb, var(--color-paper) 60%, transparent);
 }
 
-/* gêneros — remap para paleta noir */
 :root[data-theme-family='noir'] .koma-noir .auth-genre--purple {
   background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
@@ -15371,7 +14849,6 @@
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-mint) 30%, transparent);
 }
 
-/* avatares da comunidade — cores noir */
 :root[data-theme-family='noir'] .koma-noir .auth-avatar {
   border-color: var(--color-ink);
 }
@@ -15398,10 +14875,8 @@
   border-color: color-mix(in srgb, var(--color-paper) 30%, transparent);
 }
 
-/* ════════════════ CDN Workspaces — Editorial Manga Noir (Blogger / Imgur) ════════════════ */
 @layer components {
 
-  /* ── TipTap prose noir ─────────────────────────── */
   :root[data-theme-family='noir'] .noir-prose {
     min-height: 320px;
     padding: 18px;
@@ -15479,7 +14954,6 @@
     height: 0;
   }
 
-  /* ── Textarea HTML noir ────────────────────────── */
   :root[data-theme-family='noir'] .noir-code-area {
     width: 100%;
     min-height: 340px;
@@ -15500,7 +14974,6 @@
     outline: none;
   }
 
-  /* ── Dropzone risograph dash ───────────────────── */
   :root[data-theme-family='noir'] .noir-dropzone {
     position: relative;
     cursor: pointer;
@@ -15523,7 +14996,6 @@
     background: rgba(255, 46, 99, 0.08);
   }
 
-  /* ── Legal doc prose ───────────────────────────── */
   :root[data-theme-family='noir'] .noir-doc h2 {
     font-family: var(--font-display);
     font-weight: 900;
@@ -15578,7 +15050,6 @@
     transform: rotate(45deg);
   }
 
-  /* ── Color picker dark-theming (react-colorful / gcolor) ── */
   :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful {
     width: 100%;
   }
@@ -15843,19 +15314,14 @@
   }
 }
 
-/* ── CDN Press V2 — missing helper classes ── */
-
-/* ProseMirror wrapper class (TipTap attributes.class) */
 :root[data-theme-family='noir'] .koma-editor-prosemirror {
   height: 100%;
 }
 
-/* Status blink — uses keyframe already defined in App.css */
 :root[data-theme-family='noir'] .koma-blink {
   animation: koma-blink 1.1s steps(2, start) infinite;
 }
 
-/* Faint manga grid background used by the press hero */
 :root[data-theme-family='noir'] .manga-grid-bg {
   background-image:
     linear-gradient(to right,
@@ -15867,7 +15333,6 @@
   background-size: 26px 26px;
 }
 
-/* Thin dark scrollbar */
 :root[data-theme-family='noir'] .koma-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--color-crimson) transparent;
@@ -15887,7 +15352,6 @@
   background: transparent;
 }
 
-/* Subtle offset-bordered card */
 :root[data-theme-family='noir'] .offset-card {
   background: color-mix(in srgb, var(--color-ink) 55%, transparent);
   transition: border-color 0.16s ease, transform 0.16s var(--ease-noir);
@@ -15897,7 +15361,6 @@
   border-color: color-mix(in srgb, var(--color-paper) 28%, transparent);
 }
 
-/* Form control (noir) — input used across Blogger/Imgur V2 surfaces */
 :root[data-theme-family='noir'] .koma-control {
   width: 100%;
   font-family: var(--font-mono);
@@ -15925,8 +15388,6 @@
   container-type: inline-size;
 }
 
-/* Font specimen paper texture */
-
 :root[data-theme-family='noir'] .koma-resource-font-specimen {
   background-image:
     radial-gradient(circle at 12% 16%,
@@ -15947,8 +15408,6 @@
   pointer-events: none;
   border: 5px solid rgb(7 7 12 / 0.035);
 }
-
-/* Resource production marquee */
 
 :root[data-theme-family='noir'] .koma-resource-marquee {
   mask-image: linear-gradient(90deg,
@@ -15977,16 +15436,12 @@
   }
 }
 
-/* Better Japanese SFX rendering */
-
 :root[data-theme-family='noir'] :lang(ja),
 :root[data-theme-family='noir'] .koma-resource-shell [lang="ja"] {
   font-feature-settings:
     "palt" 1,
     "kern" 1;
 }
-
-/* Prevent large URLs and definitions from breaking cards */
 
 :root[data-theme-family='noir'] .koma-resource-shell p,
 :root[data-theme-family='noir'] .koma-resource-shell code,
@@ -15995,15 +15450,11 @@
   overflow-wrap: anywhere;
 }
 
-/* Container-query refinement */
-
 @container resource-nexus (max-width: 680px) {
   :root[data-theme-family='noir'] .koma-resource-font-specimen {
     min-height: 7.5rem;
   }
 }
-
-/* Print-friendly resource archive */
 
 @media print {
   :root[data-theme-family='noir'] .koma-resource-shell {
@@ -16017,8 +15468,6 @@
     display: none !important;
   }
 }
-
-/* Accessibility */
 
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme-family='noir'] .koma-resource-marquee__track {
@@ -16043,8 +15492,6 @@
 :root[data-theme-family='noir'] .koma-guide-step-copy>*:last-child {
   margin-bottom: 0;
 }
-
-/* Horizontal manga-production marquee */
 
 :root[data-theme-family='noir'] .koma-guide-marquee {
   mask-image: linear-gradient(90deg,
@@ -16073,8 +15520,6 @@
   }
 }
 
-/* Search modal keyboard labels */
-
 :root[data-theme-family='noir'] [role="dialog"] kbd {
   display: inline-grid;
   min-width: 1.55rem;
@@ -16093,14 +15538,10 @@
       0 100%);
 }
 
-/* Reader selection */
-
 :root[data-theme-family='noir'] .koma-guide-step-copy ::selection {
   background: var(--color-crimson);
   color: var(--color-ink);
 }
-
-/* Stable wrapping for long code and URLs */
 
 :root[data-theme-family='noir'] .koma-guide-step-copy p,
 :root[data-theme-family='noir'] .koma-guide-step-copy blockquote,
@@ -16108,15 +15549,11 @@
   overflow-wrap: anywhere;
 }
 
-/* Reader scrollbar */
-
 @media (min-width: 1024px) {
   :root[data-theme-family='noir'] .koma-guide-step-copy {
     min-height: 20rem;
   }
 }
-
-/* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme-family='noir'] .koma-guide-marquee__track {
@@ -16130,7 +15567,6 @@
   }
 }
 
-/* ═══ NOIR: Shortcuts Center (koma-sc-*) — re-skin do KomaModals.css ═══ */
 :root[data-theme-family='noir'] .koma-shortcuts-modal {
   max-width: min(920px, 96vw);
   border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
@@ -16178,7 +15614,6 @@
   color: var(--noir-paper);
 }
 
-/* ── Busca ── */
 :root[data-theme-family='noir'] .koma-sc-search__field {
   border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
   background: color-mix(in srgb, var(--noir-ink-3) 60%, transparent);
@@ -16208,7 +15643,6 @@
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* ── Seções ── */
 :root[data-theme-family='noir'] .koma-sc-section__title {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 10px;
@@ -16226,7 +15660,6 @@
   color: color-mix(in srgb, var(--noir-paper) 45%, transparent);
 }
 
-/* ── Itens ── */
 :root[data-theme-family='noir'] .koma-sc-item {
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--noir-paper) 2%, transparent);
@@ -16267,7 +15700,6 @@
   font-size: 9.5px;
 }
 
-/* ── Keycaps — losango noir com sombra dura ── */
 :root[data-theme-family='noir'] .koma-sc-keycap {
   border: 1px solid color-mix(in srgb, var(--noir-paper) 18%, transparent);
   border-radius: 2px;
@@ -16281,7 +15713,6 @@
   color: color-mix(in srgb, var(--noir-paper) 35%, transparent);
 }
 
-/* ── Ações (Gravar/Restaurar/Limpar) ── */
 :root[data-theme-family='noir'] .koma-sc-actions .koma-btn {
   border-radius: 0;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -16308,7 +15739,6 @@
   animation: koma-blink 1.1s steps(2, jump-none) infinite;
 }
 
-/* ── Erro/empty/footer ── */
 :root[data-theme-family='noir'] .koma-sc-error {
   border-left: 2px solid var(--noir-crimson);
   color: var(--noir-crimson);

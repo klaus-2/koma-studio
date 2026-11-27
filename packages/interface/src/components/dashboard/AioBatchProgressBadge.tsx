@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { Activity } from 'lucide-react';
 
 import { useI18n } from '../../i18n';
 import {
@@ -9,15 +10,13 @@ import {
 interface AioBatchProgressBadgeProps {
   readonly progress: AioBatchProgress;
   readonly className?: string;
+  readonly labelClassName?: string;
 }
 
-/**
- * Chapter/stage/ETA label shared by both dashboard footers. The exact
- * chapter name is kept in the title so the visible label stays short.
- */
 export default memo(function AioBatchProgressBadge({
   progress,
   className,
+  labelClassName,
 }: AioBatchProgressBadgeProps) {
   const { t } = useI18n();
   const eta = formatEta(progress.etaSeconds, {
@@ -42,7 +41,8 @@ export default memo(function AioBatchProgressBadge({
       className={className}
       title={progress.chapterLabel.length > 0 ? progress.chapterLabel : undefined}
     >
-      {label}
+      <Activity size={11} aria-hidden="true" className="shrink-0" />
+      <span className={labelClassName}>{label}</span>
     </span>
   );
 });

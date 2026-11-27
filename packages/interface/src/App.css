@@ -8923,6 +8923,25 @@ body {
   gap: 12px;
 }
 
+.koma-footerbar__stage {
+  max-width: 260px;
+  color: rgba(165, 243, 252, 0.92);
+  border-color: rgba(34, 211, 238, 0.24);
+}
+
+.koma-footerbar__stageLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.koma-footerbar__divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .koma-footerbar__workspace {
   display: inline-flex;
   align-items: center;
@@ -9161,20 +9180,65 @@ body {
   color: var(--auth-purple);
 }
 
-.koma-footerbar__meta .aio-stage-timing__toggle {
-  font: inherit;
-  background: none;
-  border: none;
-  padding: 0;
+.aio-stage-timing__trigger {
   cursor: pointer;
-  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: border-color 0.18s ease, color 0.18s ease;
 }
-.koma-footerbar__meta .aio-stage-timing__body {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-left: 8px;
-  white-space: nowrap;
+.aio-stage-timing__trigger:hover,
+.aio-stage-timing__trigger:focus-visible,
+.aio-stage-timing__trigger[aria-expanded='true'] {
+  border-color: rgba(34, 211, 238, 0.35);
+  color: rgba(207, 250, 254, 0.96);
+}
+.aio-stage-timing__panel {
+  border-radius: 10px;
+  border: 1px solid rgba(168, 85, 247, 0.26);
+  background: rgba(8, 11, 24, 0.96);
+  color: rgba(226, 232, 255, 0.95);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+.aio-stage-timing__kicker {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f5f3ff;
+}
+.aio-stage-timing__muted {
+  color: rgba(216, 226, 255, 0.7);
+}
+.aio-stage-timing__accent {
+  color: var(--auth-amber);
+}
+.aio-stage-timing__track {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.aio-stage-timing__fill {
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+}
+.aio-stage-timing__fill--hot {
+  background: linear-gradient(90deg, var(--auth-amber), var(--auth-rose));
+}
+.aio-stage-timing__divider {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.aio-stage-timing__action {
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(12, 15, 30, 0.78);
+  color: rgba(226, 232, 255, 0.86);
+}
+.aio-stage-timing__action:hover,
+.aio-stage-timing__action:focus-visible {
+  border-color: rgba(34, 211, 238, 0.35);
 }
 
 .koma-dash__tools {

@@ -75,7 +75,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     const toggle = screen.getByRole('button', {
-      name: 'dashboard.footer.timing.title ▸',
+      name: 'dashboard.footer.timing.title',
     });
     fireEvent.click(toggle);
 
@@ -86,7 +86,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
 
     expect(
@@ -98,7 +98,10 @@ describe('AioStageTimingPanel', () => {
     expect(
       screen.getByText(/dashboard\.footer\.timing\.bottleneck/).textContent,
     ).toContain('2.5s');
-    expect(screen.getByText(/detect 2\.5s/)).toBeTruthy();
+    expect(
+      screen.getByTestId('aio-stage-timing-row-detect').textContent,
+    ).toBe('detect2.5s');
+    expect(screen.getByRole('button', { name: 'dashboard.footer.timing.title' }).textContent).toContain('detect 2.5s');
     expect(
       screen.getByText('dashboard.footer.timing.providerLocal'),
     ).toBeTruthy();
@@ -109,7 +112,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     const toggle = screen.getByRole('button', {
-      name: 'dashboard.footer.timing.title ▸',
+      name: 'dashboard.footer.timing.title',
     });
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
@@ -118,7 +121,7 @@ describe('AioStageTimingPanel', () => {
     ).toBeTruthy();
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▾' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
     expect(
       screen.queryByText('dashboard.footer.timing.accumulated'),
@@ -129,7 +132,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
 
     expect(
@@ -164,7 +167,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
     fireEvent.click(
       screen.getByRole('button', {
@@ -196,7 +199,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
     fireEvent.click(
       screen.getByRole('button', {
@@ -234,7 +237,7 @@ describe('AioStageTimingPanel', () => {
     render(<AioStageTimingPanel className="timing" />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title' }),
     );
     fireEvent.click(
       screen.getByRole('button', {

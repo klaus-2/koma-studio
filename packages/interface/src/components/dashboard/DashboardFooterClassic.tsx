@@ -317,6 +317,26 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
         textClassName={`koma-footerbar__msg ${processing && aioFooterProcessingLabel ? 'koma-footerbar__msg--processing' : `koma-footerbar__msg--${statusMessageTone}`}`}
       />
       <div className="koma-footerbar__right">
+        {(processing || batchPauseActive) && (
+          <>
+            <FooterAioBatchBadge
+              className="koma-footerbar__workspace koma-footerbar__stage"
+              labelClassName="koma-footerbar__workspaceLabel koma-footerbar__stageLabel"
+            />
+            <AioBatchPausedBadge className="koma-footerbar__workspace koma-footerbar__workspace--saving koma-footerbar__workspaceLabel" />
+            {processing && (
+              <div className="koma-footerbar__progress">
+                <div
+                  className="koma-footerbar__progressBar"
+                  style={{ "--p": Math.round(progressStore) / 100 } as React.CSSProperties}
+                />
+                <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
+              </div>
+            )}
+            <AioStageTimingPanel />
+            <span aria-hidden="true" className="koma-footerbar__divider" />
+          </>
+        )}
         <TooltipProvider delayDuration={120}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -434,22 +454,6 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
           </button>
         )}
         {memoryStats && <FooterMemoryMeter {...memoryStats} />}
-        {processing && (
-          <div className="koma-footerbar__progress">
-            <div
-              className="koma-footerbar__progressBar"
-              style={{ "--p": Math.round(progressStore) / 100 } as React.CSSProperties}
-            />
-            <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
-          </div>
-        )}
-        {(processing || batchPauseActive) && (
-          <>
-            <FooterAioBatchBadge className="koma-footerbar__meta" />
-            <AioBatchPausedBadge className="koma-footerbar__meta" />
-            <AioStageTimingPanel className="koma-footerbar__meta" />
-          </>
-        )}
         <TooltipProvider delayDuration={120}>
           <div className="koma-footerbar__actions" aria-label={t('dashboard.footer.quickLinks')}>
             <Tooltip>
@@ -537,16 +541,15 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   );
 };
 
-// The AIO batch badge ticks at high frequency during a batch: the leaf
-// subscribes itself so those updates stop re-rendering the whole footer.
 interface FooterAioBatchBadgeProps {
   className?: string;
+  labelClassName?: string;
 }
 
-function FooterAioBatchBadge({ className }: FooterAioBatchBadgeProps) {
+function FooterAioBatchBadge({ className, labelClassName }: FooterAioBatchBadgeProps) {
   const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
   if (!aioBatchProgress) return null;
-  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} />;
+  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} labelClassName={labelClassName} />;
 }
 
 export default DashboardFooterClassic;

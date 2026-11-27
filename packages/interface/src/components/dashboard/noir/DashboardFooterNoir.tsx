@@ -231,6 +231,30 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
       </div>
 
       <div className="relative flex shrink-0 items-center gap-2">
+        {(processing || batchPauseActive) && (
+          <>
+            <FooterAioBatchBadge
+              className="panel-cut-sm flex max-w-[260px] items-center gap-1.5 border border-azure/40 bg-ink-3/60 px-2 py-1 text-azure"
+              labelClassName="truncate font-mono text-[10px] font-semibold uppercase tracking-wider"
+            />
+            <AioBatchPausedBadge className="panel-cut-sm border border-gold/40 bg-ink-3/60 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-gold" />
+            {processing && (
+              <>
+                <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
+                  <m.div
+                    className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
+                    initial={false}
+                    animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
+                </div>
+              </>
+            )}
+            <AioStageTimingPanel variant="noir" />
+            <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-paper/15" />
+          </>
+        )}
         <TooltipProvider delayDuration={120}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -303,26 +327,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
           </button>
         )}
         {memoryStats && <FooterMemoryMeter {...memoryStats} />}
-        {processing && (
-          <>
-            <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
-              <m.div
-                className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
-                initial={false}
-                animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              />
-              <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
-            </div>
-          </>
-        )}
-        {(processing || batchPauseActive) && (
-          <>
-            <FooterAioBatchBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
-            <AioBatchPausedBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
-            <AioStageTimingPanel className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
-          </>
-        )}
         <span aria-hidden className="mx-0.5 select-none font-mono text-[10px] text-paper-faint">/</span>
         <TooltipProvider delayDuration={120}>
           <div className="flex items-center gap-1" aria-label={t('dashboard.footer.quickLinks')}>
@@ -383,16 +387,15 @@ const FooterAction = React.forwardRef<HTMLButtonElement, {
 ));
 FooterAction.displayName = 'FooterAction';
 
-// The AIO batch badge ticks at high frequency during a batch: the leaf
-// subscribes itself so those updates stop re-rendering the whole footer.
 interface FooterAioBatchBadgeProps {
   className?: string;
+  labelClassName?: string;
 }
 
-function FooterAioBatchBadge({ className }: FooterAioBatchBadgeProps) {
+function FooterAioBatchBadge({ className, labelClassName }: FooterAioBatchBadgeProps) {
   const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
   if (!aioBatchProgress) return null;
-  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} />;
+  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} labelClassName={labelClassName} />;
 }
 
 export default DashboardFooterNoir;
