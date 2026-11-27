@@ -4723,6 +4723,15 @@ export const zhMessages: TranslationCatalog = {
     'AIO AI 已完成（处理 {processed} 页，跳过 {skipped} 页）。',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI 完成但存在失败（处理 {processed} 页，跳过 {skipped} 页，失败 {failed} 页）。',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI 模式',
+  'dashboard.aio.ai.toggleHintOff':
+    '由图像编辑 AI 一步完成 OCR、翻译、去字与嵌字。',
+  'dashboard.aio.ai.toggleHintDirect':
+    '已停用全部 6 个传统步骤 — 由 AI 处理整页。',
+  'dashboard.aio.ai.toggleHintHybrid':
+    '仅启用文本检测 — OCR、翻译、去字与渲染由 AI 完成。',
+  'dashboard.aio.ai.toggleHintScript':
+    '启用检测、OCR 与翻译 — 分割、去字与渲染由 AI 完成。',
   'dashboard.imageEdit.guide.title': '哪些模型适用于 AI Clean 与 AIO AI？',
   'dashboard.imageEdit.guide.worksAioAiTitle': '推荐用于 AIO AI + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': '指令式图像编辑模型',

@@ -5439,6 +5439,15 @@ export const enMessages = {
     'AIO AI finished ({processed} processed, {skipped} skipped).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI finished with issues ({processed} processed, {skipped} skipped, {failed} failed).',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI Mode',
+  'dashboard.aio.ai.toggleHintOff':
+    'Let image-edit AI handle OCR, translation, cleaning, and typesetting in one pass.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'All 6 traditional stages disabled — AI handles the entire page.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'Only Detect active — OCR, translate, clean, and render are handled by AI.',
+  'dashboard.aio.ai.toggleHintScript':
+    'Detect, OCR, and Translate active — segment, clean, and render are handled by AI.',
   'dashboard.imageEdit.guide.title': 'Which models work for AI Clean & AIO AI?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'Recommended for AIO AI + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'Instruction-based image editors',

@@ -1,5 +1,5 @@
 import { m } from "framer-motion";
-import { Paintbrush, Sparkles, Wand2 } from "lucide-react";
+import { Paintbrush, Sparkles } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 import type { SubMode } from "../../../types/dashboard.types";
@@ -14,7 +14,6 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
   const options = [
     { key: "auto" as const, Icon: Sparkles, label: t("dashboard.aio.autoScope"), title: t("dashboard.aio.autoScopeTitle") },
     { key: "manual" as const, Icon: Paintbrush, label: t("dashboard.aio.manualScope"), title: t("dashboard.aio.manualScopeTitle") },
-    { key: "ai" as const, Icon: Wand2, label: t("dashboard.aio.aiScope"), title: t("dashboard.aio.aiScopeTitle") },
   ];
 
   return (

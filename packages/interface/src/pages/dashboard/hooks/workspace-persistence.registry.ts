@@ -1,17 +1,3 @@
-/**
- * Workspace persistence: one live capture builder and one ordered restore
- * plan.
- *
- * Capture reads every domain store plus the auth user id and produces the
- * state the signature builders stringify. Key insertion order is part of the
- * signature contract and is pinned by workspace-persistence.registry.test.ts.
- *
- * Restore applies a restored document through an ordered plan. Call order:
- * release object URLs FIRST, setActiveId before setImages, healing/running
- * resets in place, restore-token increment LAST among field writes,
- * processing/progress terminal. Document and asset codecs stay in
- * dashboardWorkspace.serialization.ts.
- */
 import { loadValidatedPresetState } from '../stores/aio-pipeline-storage';
 import type {
   DashboardWorkspaceCaptureState,
@@ -68,18 +54,9 @@ import {
   resolveRestoredCustomLlmProfilesMode,
 } from './llm-providers.restore';
 
-/* ── Store state type aliases (type-level queries, no casts) ── */
-
 type AioPipelineStoreState = ReturnType<typeof useAioPipelineStore.getState>;
 type TypographerStoreState = ReturnType<typeof useTypographerStore.getState>;
 
-/* ── Unified domain-store subscription list ── */
-
-/**
- * The domain stores whose changes drive both the capture mirror and the
- * history/autosave change signal. Order is part of the pre-existing
- * subscription order.
- */
 export const WORKSPACE_PERSISTENCE_STORES: ReadonlyArray<{
   subscribe: (listener: () => void) => () => void;
 }> = [
@@ -96,12 +73,8 @@ export const WORKSPACE_PERSISTENCE_STORES: ReadonlyArray<{
   useEnhanceStore,
   useUtilityStore,
   useLlmProvidersStore,
-  // Hydration completion must fire the signal too: setWorkspaceHydrated(true)
-  // re-seeds history through this subscription.
   useWorkspacePersistenceStore,
 ];
-
-/* ── Capture ── */
 
 export const buildWorkspaceCaptureState = (
   authUserId: string | null,
@@ -156,7 +129,6 @@ export const buildWorkspaceCaptureState = (
       imageSnapshotIndexById: aioStore.aioImageSnapshotIndexById,
       autoHistoryAvailable: aioStore.aioAutoHistoryAvailable,
       autoProcessedImageById: aioStore.aioAutoProcessedImageById,
-      // v2 does not charge manual quota (unified-contract field used by v1)
       manualQuotaChargedByImage: {},
       manualProgressByImage: aioStore.aioManualProgressByImage,
       manualImageEditsByImage:
@@ -225,14 +197,6 @@ export const buildWorkspaceCaptureState = (
   };
 };
 
-/**
- * Rebuilds restored pipeline snapshots into the runtime shape/order the
- * stores declare (AioDownloadEntry: fileName, blob, sourceImageId). Restore
- * emits document order (fileName, sourceImageId, blob), and whole-object key
- * order is signature-visible. The terminal cast mirrors the restored-aio cast
- * in serialization.ts (the restore-state type declares asset refs where the
- * runtime value is a resolved Blob).
- */
 const toRuntimeOrderedRestoredSnapshots = (
   restored: DashboardWorkspaceRestoreState,
 ): DashboardWorkspaceCaptureState['aio']['pipelineSnapshots'] =>
@@ -248,14 +212,9 @@ const toRuntimeOrderedRestoredSnapshots = (
     })),
   })) as DashboardWorkspaceCaptureState['aio']['pipelineSnapshots'];
 
-/* ── Restore apply ── */
-
 export interface WorkspaceRestoreContext {
-  /** MUST run first — releases the object URLs the restore is about to replace. */
   readonly releaseWorkspaceObjectUrls: () => void;
-  /** Localized fallback when the document statusMessage is empty. */
   readonly statusMessageFallback: string;
-  /** Localized footer workspace status detail for this restore. */
   readonly statusDetail: string;
 }
 
@@ -267,10 +226,6 @@ export interface WorkspaceRestoreStep {
   ) => void;
 }
 
-/**
- * Ordered restore plan. All `as` casts below are forced by the frozen document
- * types in packages/types/src/workspace.ts (for example view.mode: string).
- */
 export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
     id: 'release-object-urls',
@@ -281,15 +236,18 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
     id: 'view-and-active-image',
     run: (restored) => {
-      // Organize no longer has a tab; legacy documents land on AIO.
       const restoredMode =
         restored.document.view.mode === 'organize'
           ? 'aio'
           : (restored.document.view.mode as ToolMode);
       useUiShellStore.getState().setMode(restoredMode);
-      useUiShellStore.getState().setSubMode(restored.document.view.subMode as SubMode);
-      // Legacy quirk preserved as-is: setActiveId runs before setViewMode and
-      // before setImages.
+      const rawSubMode = restored.document.view.subMode;
+      if (rawSubMode === 'ai') {
+        useUiShellStore.getState().setSubMode('auto');
+        useAioPipelineStore.getState().setAioAiEnabled(true);
+      } else {
+        useUiShellStore.getState().setSubMode(rawSubMode as SubMode);
+      }
       useImageCollectionStore.getState().setActiveId(restored.document.view.activeImageId);
       useUiShellStore.getState().setViewMode(restored.document.view.viewMode as ViewMode);
       const restoredZoom = restored.document.view.zoom;
@@ -531,7 +489,6 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
     id: 'terminal-status',
     run: (_restored, ctx) => {
-      // Restore-token increment stays LAST among the field writes.
       useWorkspacePersistenceStore.getState().setWorkspaceRestoreToken((prev) => prev + 1);
       useWorkspacePersistenceStore.getState().setWorkspaceStatus('idle');
       useWorkspacePersistenceStore.getState().setWorkspaceStatusDetail(
@@ -543,11 +500,6 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   },
 ];
 
-/**
- * Applies a restored workspace document to every store through the ordered
- * registry plan. Uses getState() accessor writes (zustand setters are stable
- * identities), so the hook-level collaborators are the only context.
- */
 export const applyRestoredWorkspaceToStores = (
   restored: DashboardWorkspaceRestoreState,
   ctx: WorkspaceRestoreContext,

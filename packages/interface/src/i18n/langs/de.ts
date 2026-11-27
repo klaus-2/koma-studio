@@ -5282,6 +5282,15 @@ export const deMessages: TranslationCatalog = {
     'AIO KI abgeschlossen ({processed} verarbeitet, {skipped} übersprungen).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO KI mit Fehlern beendet ({processed} verarbeitet, {skipped} übersprungen, {failed} fehlgeschlagen).',
+  'dashboard.aio.ai.toggleLabel': 'AIO KI-Modus',
+  'dashboard.aio.ai.toggleHintOff':
+    'Lässt Bildbearbeitungs-KI OCR, Übersetzung, Bereinigung und Typesetting in einem Schritt erledigen.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'Alle 6 klassischen Schritte deaktiviert — die KI bearbeitet die gesamte Seite.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'Nur Erkennen aktiv — OCR, Übersetzung, Bereinigung und Rendern übernimmt die KI.',
+  'dashboard.aio.ai.toggleHintScript':
+    'Erkennen, OCR und Übersetzen aktiv — Segmentieren, Bereinigen und Rendern übernimmt die KI.',
   'dashboard.imageEdit.guide.title': 'Welche Modelle funktionieren für AI Clean & AIO KI?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'Empfohlen für AIO KI + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'Instruktionsbasierte Bildeditoren',

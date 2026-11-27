@@ -288,10 +288,6 @@ export const buildModeCoachmarkSteps = (
     return steps;
   }
 
-  if (mode === 'aio' && subMode === 'ai') {
-    return [];
-  }
-
   if (mode === 'aio' && subMode === 'manual') {
     const steps: ModeGuideStep[] = [common.stageStep];
     if (!isCompactViewport) {

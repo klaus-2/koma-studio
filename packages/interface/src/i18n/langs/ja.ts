@@ -5187,6 +5187,15 @@ export const jaMessages: TranslationCatalog = {
     'AIO AI 完了 ({processed}件処理, {skipped}件スキップ)。',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI 一部エラーで完了 ({processed}件処理, {skipped}件スキップ, {failed}件失敗)。',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI モード',
+  'dashboard.aio.ai.toggleHintOff':
+    '画像編集AIでOCR・翻訳・消去・写植を1パスでまとめて処理します。',
+  'dashboard.aio.ai.toggleHintDirect':
+    '従来の6工程をすべて無効化 — ページ全体をAIが処理します。',
+  'dashboard.aio.ai.toggleHintHybrid':
+    '検出のみ有効 — OCR・翻訳・消去・描画はAIが担当します。',
+  'dashboard.aio.ai.toggleHintScript':
+    '検出・OCR・翻訳が有効 — セグメント・消去・描画はAIが担当します。',
   'dashboard.imageEdit.guide.title': 'AI Clean・AIO AIで使えるモデルの見分け方',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'AIO AI + AI Clean 推奨モデル',
   'dashboard.imageEdit.guide.worksCleanTitle': '指示ベース画像編集モデル',

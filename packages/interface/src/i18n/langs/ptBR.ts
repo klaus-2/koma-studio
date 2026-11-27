@@ -5415,6 +5415,15 @@ export const ptBrMessages: TranslationCatalog = {
     'AIO IA concluído ({processed} processadas, {skipped} ignoradas).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO IA concluído com falhas ({processed} processadas, {skipped} ignoradas, {failed} com erro).',
+  'dashboard.aio.ai.toggleLabel': 'Modo AIO IA',
+  'dashboard.aio.ai.toggleHintOff':
+    'Deixe a IA fazer OCR, tradução, limpeza e typesetter em uma única etapa.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'Todas as 6 etapas desativadas — a IA processa a página inteira.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'Somente Detectar ativo — OCR, tradução, limpeza e render feitos pela IA.',
+  'dashboard.aio.ai.toggleHintScript':
+    'Detectar, OCR e Traduzir ativos — segmentar, limpar e render feitos pela IA.',
   'dashboard.imageEdit.guide.title': 'Quais modelos funcionam no AI Clean e AIO IA?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'Recomendados para AIO IA + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'Editores de imagem por instrução',

@@ -31,6 +31,7 @@ import {
   SkipBack,
   SkipForward,
   Trash2,
+  Wand2,
   Zap,
 } from 'lucide-react';
 import { AioSection } from '../../AioSection';
@@ -67,7 +68,9 @@ import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { resolveAioEffectiveStageState } from '../lib/aio-ai-stage-state';
 import AioAiConfigPanel from './AioAiConfigPanel';
+import AioAiModeToggleCard from './AioAiModeToggleCard';
 import type {
   useAioManualExecution,
   useAioModelSelection,
@@ -255,12 +258,6 @@ export default memo(function AioRightPanel({
     activeStageTab,
   ]);
 
-  useEffect(() => {
-    setVisitedStageTabs((prev) =>
-      prev.includes(activeStageTab) ? prev : [...prev, activeStageTab],
-    );
-  }, [activeStageTab]);
-
   const handleSelectStageTab = useCallback(
     (nextTab: StageTabKey) => {
       startTransition(() => {
@@ -275,26 +272,33 @@ export default memo(function AioRightPanel({
 
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const cleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
+  const aioAiEnabled = useAioPipelineStore((s) => s.aioAiEnabled);
+  const setAioAiEnabled = useAioPipelineStore((s) => s.setAioAiEnabled);
+  const aioAiExecutionMode = useAioPipelineStore((s) => s.aioAiOptions.executionMode);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
+  const aioAiActive = subMode === 'auto' && aioAiEnabled;
+  const effectiveStageState = useMemo(
+    () => resolveAioEffectiveStageState({ aioSteps, aioAiActive, executionMode: aioAiExecutionMode, cleanViaAi }),
+    [aioAiActive, aioAiExecutionMode, aioSteps, cleanViaAi],
+  );
+  const visibleStageTabDefs = useMemo(
+    () => STAGE_TABS.filter((tab) => effectiveStageState.visibleStageTabs.includes(tab.key)),
+    [STAGE_TABS, effectiveStageState.visibleStageTabs],
+  );
+  const resolvedActiveStageTab: StageTabKey = visibleStageTabDefs.some((tab) => tab.key === activeStageTab)
+    ? activeStageTab
+    : (visibleStageTabDefs[0]?.key ?? activeStageTab);
+  useEffect(() => {
+    setVisitedStageTabs((prev) => (prev.includes(resolvedActiveStageTab) ? prev : [...prev, resolvedActiveStageTab]));
+  }, [resolvedActiveStageTab]);
   const handleToggleAioStep = useCallback(
     (stageKey: StageTabKey) => {
-      setAioSteps((prev) => {
-        if (stageKey === 'detectText') {
-          return { ...prev, detectText: true };
-        }
-        return { ...prev, [stageKey]: !prev[stageKey] };
-      });
+      if (aioAiActive) return;
+      setAioSteps((prev) => (stageKey === 'detectText' ? { ...prev, detectText: true } : { ...prev, [stageKey]: !prev[stageKey] }));
     },
-    [setAioSteps],
+    [aioAiActive, setAioSteps],
   );
-  const enabledStepsForTabs = useShallowStableObject({
-    detectText: aioSteps.detectText,
-    recognizeText: aioSteps.recognizeText,
-    getTranslations: aioSteps.getTranslations,
-    segmentText: aioSteps.segmentText,
-    cleanImage: aioSteps.cleanImage,
-    render: aioSteps.render,
-  });
+  const enabledStepsForTabs = useShallowStableObject(effectiveStageState.enabled);
   const aioLanguageOptions = useAioPipelineStore((s) => s.aioLanguageOptions);
   const aioPresetState = useAioPipelineStore((s) => s.aioPresetState);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
@@ -364,6 +368,7 @@ export default memo(function AioRightPanel({
     processAIO,
     processAioAi,
     subMode,
+    aioAiActive,
     processing,
     images,
     selectedCustomTranslationProfile,
@@ -376,7 +381,7 @@ export default memo(function AioRightPanel({
         title={t('dashboard.sections.pipeline')}
         badge={
           <span className="koma-aio-section__badge">
-            {subMode === 'ai' ? 'AIO IA' : `${enabledStepCount}/6`}
+            {aioAiActive ? t('dashboard.aio.aiScope') : `${enabledStepCount}/6`}
           </span>
         }
       >
@@ -385,28 +390,15 @@ export default memo(function AioRightPanel({
           onChange={handleAioSubModeChange}
         />
 
-        {subMode === 'ai' ? (
-          <AioAiConfigPanel
-            noir={noir}
-            cleanCustomProfiles={cleanCustomProfiles}
-            availableDetectStageOptions={availableDetectStageOptions}
-            availableOcrStageOptions={availableOcrStageOptions}
-            availableTranslationStageOptions={availableTranslationStageOptions}
-            formatAioStageOptionLabel={formatAioStageOptionLabel}
-            onOpenStageModelManager={(stage) => {
-              if (stage === 'getTranslations') {
-                openModelManagerForStage(stage);
-                return;
-              }
-              const currentKey =
-                useAioPipelineStore.getState().aioStageSelection[stage];
-              openModelManagerForStage(stage, {
-                focusedModelId: resolveLocalModelFocusForStage(stage, currentKey),
-              });
-            }}
-          />
-        ) : subMode === 'auto' ? (
+        {subMode === 'auto' ? (
           <>
+            <AioAiModeToggleCard
+              enabled={aioAiEnabled}
+              executionMode={aioAiExecutionMode}
+              disabled={processing}
+              noir={noir}
+              onToggle={() => setAioAiEnabled((prev) => !prev)}
+            />
             <div
               className="koma-aio-pipeline-grid"
               data-tour="dashboard-aio-pipeline"
@@ -415,16 +407,17 @@ export default memo(function AioRightPanel({
                 icon={ScanText}
                 label={t('dashboard.stage.detectText.short')}
                 subtitle={t('dashboard.aio.pipeline.detect.subtitle')}
-                enabled={aioSteps.detectText}
+                enabled={effectiveStageState.enabled.detectText}
                 stageKey="detectText"
                 onToggle={handleToggleAioStep}
-                disabled
+                disabled={effectiveStageState.disabled.detectText}
               />
               <AioPipelineChip
                 icon={Eye}
                 label={t('dashboard.stage.recognizeText.short')}
                 subtitle={t('dashboard.aio.pipeline.ocr.subtitle')}
-                enabled={aioSteps.recognizeText}
+                enabled={effectiveStageState.enabled.recognizeText}
+                disabled={effectiveStageState.disabled.recognizeText}
                 stageKey="recognizeText"
                 onToggle={handleToggleAioStep}
               />
@@ -432,7 +425,8 @@ export default memo(function AioRightPanel({
                 icon={Languages}
                 label={t('dashboard.stage.getTranslations.short')}
                 subtitle={t('dashboard.aio.pipeline.translate.subtitle')}
-                enabled={aioSteps.getTranslations}
+                enabled={effectiveStageState.enabled.getTranslations}
+                disabled={effectiveStageState.disabled.getTranslations}
                 stageKey="getTranslations"
                 onToggle={handleToggleAioStep}
               />
@@ -440,8 +434,8 @@ export default memo(function AioRightPanel({
                 icon={Replace}
                 label={t('dashboard.stage.segmentText.short')}
                 subtitle={t('dashboard.aio.pipeline.segment.subtitle')}
-                enabled={aioSteps.segmentText}
-                disabled={cleanViaAi}
+                enabled={effectiveStageState.enabled.segmentText}
+                disabled={effectiveStageState.disabled.segmentText}
                 stageKey="segmentText"
                 onToggle={handleToggleAioStep}
               />
@@ -449,7 +443,8 @@ export default memo(function AioRightPanel({
                 icon={Eraser}
                 label={t('dashboard.stage.cleanImage.short')}
                 subtitle={t('dashboard.aio.pipeline.clean.subtitle')}
-                enabled={aioSteps.cleanImage}
+                enabled={effectiveStageState.enabled.cleanImage}
+                disabled={effectiveStageState.disabled.cleanImage}
                 stageKey="cleanImage"
                 onToggle={handleToggleAioStep}
               />
@@ -457,7 +452,8 @@ export default memo(function AioRightPanel({
                 icon={Paintbrush}
                 label={t('dashboard.stage.render.short')}
                 subtitle={t('dashboard.aio.pipeline.render.subtitle')}
-                enabled={aioSteps.render}
+                enabled={effectiveStageState.enabled.render}
+                disabled={effectiveStageState.disabled.render}
                 stageKey="render"
                 onToggle={handleToggleAioStep}
               />
@@ -486,7 +482,7 @@ export default memo(function AioRightPanel({
               </button>
             </div>
 
-            <AioBatchModePanel />
+            {!aioAiActive && <AioBatchModePanel />}
 
             {activeAioPipelineSnapshot && (
               <p className="koma-aio-hint">
@@ -618,7 +614,7 @@ export default memo(function AioRightPanel({
             </select>
           </div>
         </AioSection>
-      ) : subMode !== 'ai' ? (
+      ) : (
         <AioSection icon={Languages} title={t('dashboard.sections.languages')}>
           <div className="koma-aio-lang-row">
             <select
@@ -650,134 +646,157 @@ export default memo(function AioRightPanel({
             </select>
           </div>
 
-          <div className="koma-aio-lang-divider" />
-          <div className="koma-aio-lang-preset-row">
-            <span className="koma-aio-lang-preset-row__label">
-              <Bookmark size={10} />
-              {t('settings.tabs.presets')}
-              <FieldInfoTooltip
-                content={translateOrFallback(locale,
-                  'dashboard.aio.presets.tooltip',
-                  'Presets save a per-language combination of models and stage choices. Use them to switch your AIO setup faster when changing source language or workflow.',
-                )}
-                ariaLabel={translateOrFallback(locale,
-                  'dashboard.aio.presets.tooltipAria',
-                  'What language presets are used for',
-                )}
-              />
-            </span>
-            <select
-              className={skin.langPresetSelect}
-              value={
-                aioPresetState.activePresetBySourceLanguage[
-                normalizedAioSourceLanguage
-                ] ?? ''
-              }
-              onChange={(e) => handlePresetSelectionChange(e.target.value)}
-              aria-label={t('dashboard.aio.presets.noneActive')}
-            >
-              <option value="">{t('dashboard.aio.presets.noneActive')}</option>
-              {presetsForCurrentLanguage.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                  {activePresetForCurrentLanguage?.id === preset.id
-                    ? ' ✓'
-                    : ''}
-                </option>
-              ))}
-            </select>
-            <div className="koma-aio-preset-bar__actions">
-              <button
-                type="button"
-                className="koma-aio-preset-action koma-aio-preset-action--primary"
-                onClick={handleSaveCurrentSelectionAsPreset}
-                title={t('dashboard.aio.presets.saveCurrent')}
-                aria-label={t('dashboard.aio.presets.saveCurrent')}
-              >
-                <Save size={12} />
-              </button>
-              <button
-                type="button"
-                className="koma-aio-preset-action koma-aio-preset-action--primary"
-                onClick={openCreatePresetEditor}
-                title={t('dashboard.aio.presets.new')}
-                aria-label={t('dashboard.aio.presets.new')}
-              >
-                <Plus size={12} />
-              </button>
-              <button
-                type="button"
-                className="koma-aio-preset-action"
-                onClick={openEditPresetEditor}
-                disabled={!activePresetForCurrentLanguage}
-                title={t('dashboard.aio.presets.edit')}
-                aria-label={t('dashboard.aio.presets.edit')}
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                type="button"
-                className="koma-aio-preset-action koma-aio-preset-action--danger"
-                onClick={handleDeleteActivePreset}
-                disabled={!activePresetForCurrentLanguage}
-                title={t('dashboard.aio.presets.delete')}
-                aria-label={t('dashboard.aio.presets.delete')}
-              >
-                <Trash2 size={12} />
-              </button>
-              <button
-                type="button"
-                className="koma-aio-preset-action"
-                onClick={openSettingsOnPresetsTab}
-                title={t('dashboard.aio.presets.openSettings')}
-                aria-label={t('dashboard.aio.presets.openSettings')}
-              >
-                <ExternalLink size={12} />
-              </button>
-            </div>
-          </div>
+          {!aioAiActive && (
+            <>
+              <div className="koma-aio-lang-divider" />
+              <div className="koma-aio-lang-preset-row">
+                <span className="koma-aio-lang-preset-row__label">
+                  <Bookmark size={10} />
+                  {t('settings.tabs.presets')}
+                  <FieldInfoTooltip
+                    content={translateOrFallback(locale,
+                      'dashboard.aio.presets.tooltip',
+                      'Presets save a per-language combination of models and stage choices. Use them to switch your AIO setup faster when changing source language or workflow.',
+                    )}
+                    ariaLabel={translateOrFallback(locale,
+                      'dashboard.aio.presets.tooltipAria',
+                      'What language presets are used for',
+                    )}
+                  />
+                </span>
+                <select
+                  className={skin.langPresetSelect}
+                  value={
+                    aioPresetState.activePresetBySourceLanguage[
+                    normalizedAioSourceLanguage
+                    ] ?? ''
+                  }
+                  onChange={(e) => handlePresetSelectionChange(e.target.value)}
+                  aria-label={t('dashboard.aio.presets.noneActive')}
+                >
+                  <option value="">{t('dashboard.aio.presets.noneActive')}</option>
+                  {presetsForCurrentLanguage.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                      {activePresetForCurrentLanguage?.id === preset.id
+                        ? ' ✓'
+                        : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="koma-aio-preset-bar__actions">
+                  <button
+                    type="button"
+                    className="koma-aio-preset-action koma-aio-preset-action--primary"
+                    onClick={handleSaveCurrentSelectionAsPreset}
+                    title={t('dashboard.aio.presets.saveCurrent')}
+                    aria-label={t('dashboard.aio.presets.saveCurrent')}
+                  >
+                    <Save size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="koma-aio-preset-action koma-aio-preset-action--primary"
+                    onClick={openCreatePresetEditor}
+                    title={t('dashboard.aio.presets.new')}
+                    aria-label={t('dashboard.aio.presets.new')}
+                  >
+                    <Plus size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="koma-aio-preset-action"
+                    onClick={openEditPresetEditor}
+                    disabled={!activePresetForCurrentLanguage}
+                    title={t('dashboard.aio.presets.edit')}
+                    aria-label={t('dashboard.aio.presets.edit')}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="koma-aio-preset-action koma-aio-preset-action--danger"
+                    onClick={handleDeleteActivePreset}
+                    disabled={!activePresetForCurrentLanguage}
+                    title={t('dashboard.aio.presets.delete')}
+                    aria-label={t('dashboard.aio.presets.delete')}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="koma-aio-preset-action"
+                    onClick={openSettingsOnPresetsTab}
+                    title={t('dashboard.aio.presets.openSettings')}
+                    aria-label={t('dashboard.aio.presets.openSettings')}
+                  >
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
+              </div>
 
-          {aioPresetEditorOpen && (
-            <AioPresetEditorForm
-              noir={noir}
-              presetEditorStageOptions={presetEditorStageOptions}
-              aioStageLabels={aioStageLabels}
-              formatAioStageOptionLabel={formatAioStageOptionLabel}
-              normalizedAioSourceLanguage={normalizedAioSourceLanguage}
-              onClose={closePresetEditor}
-              onSave={handleSavePresetEditor}
-            />
+              {aioPresetEditorOpen && (
+                <AioPresetEditorForm
+                  noir={noir}
+                  presetEditorStageOptions={presetEditorStageOptions}
+                  aioStageLabels={aioStageLabels}
+                  formatAioStageOptionLabel={formatAioStageOptionLabel}
+                  normalizedAioSourceLanguage={normalizedAioSourceLanguage}
+                  onClose={closePresetEditor}
+                  onSave={handleSavePresetEditor}
+                />
+              )}
+
+              <p className="koma-aio-hint">{t('dashboard.aio.config.langHint')}</p>
+            </>
           )}
-
-          <p className="koma-aio-hint">{t('dashboard.aio.config.langHint')}</p>
         </AioSection>
-      ) : null}
+      )}
 
-      {subMode !== 'ai' && (
+      {aioAiActive && (
+        <AioSection icon={Wand2} title={t('dashboard.aio.aiScope')} defaultOpen={true}>
+          <AioAiConfigPanel
+            noir={noir}
+            cleanCustomProfiles={cleanCustomProfiles}
+            availableDetectStageOptions={availableDetectStageOptions}
+            availableOcrStageOptions={availableOcrStageOptions}
+            availableTranslationStageOptions={availableTranslationStageOptions}
+            formatAioStageOptionLabel={formatAioStageOptionLabel}
+            onOpenStageModelManager={(stage) => {
+              if (stage === 'getTranslations') {
+                openModelManagerForStage(stage);
+                return;
+              }
+              openModelManagerForStage(stage, {
+                focusedModelId: resolveLocalModelFocusForStage(stage, useAioPipelineStore.getState().aioStageSelection[stage]),
+              });
+            }}
+          />
+        </AioSection>
+      )}
+
+      {visibleStageTabDefs.length > 0 && (
         <AioSection
           icon={Settings}
           title={t('dashboard.sections.modelsConfig')}
           data-tour="dashboard-aio-stage-config"
         >
         {aioOptionsLoading && (
-          <p className="koma-aio-hint">
-            {t('dashboard.aio.config.loadingCatalogs')}
-          </p>
+          <p className="koma-aio-hint">{t('dashboard.aio.config.loadingCatalogs')}</p>
         )}
 
         <AioStageTabBar
-          tabs={STAGE_TABS}
-          activeTab={activeStageTab}
+          tabs={visibleStageTabDefs}
+          activeTab={resolvedActiveStageTab}
           enabledSteps={enabledStepsForTabs}
           onSelect={handleSelectStageTab}
         />
 
         <div className="koma-aio-stage-content">
-          {visitedStageTabs.map((tabKey) => (
-            <Activity
-              key={tabKey}
-              mode={activeStageTab === tabKey ? 'visible' : 'hidden'}
-            >
+          {visitedStageTabs
+            .filter((tabKey) => visibleStageTabDefs.some((tab) => tab.key === tabKey))
+            .map((tabKey) => (
+              <Activity key={tabKey} mode={resolvedActiveStageTab === tabKey ? 'visible' : 'hidden'}>
               <AioStageConfigBody
                 activeStageTab={tabKey}
                 subMode={subMode}
@@ -844,11 +863,7 @@ export default memo(function AioRightPanel({
       <div
         className="koma-aio-execute"
         ref={executeBarRef}
-        data-auto-processing={
-          processing && (subMode === 'auto' || subMode === 'ai')
-            ? ''
-            : undefined
-        }
+        data-auto-processing={processing && subMode === 'auto' ? '' : undefined}
       >
         <button
           type="button"
@@ -897,7 +912,7 @@ export default memo(function AioRightPanel({
                   activeManualStageStatus === 'skipped'
                   ? t("dashboard.dashboardExecute.rerunStage")
                   : t("dashboard.dashboardExecute.runStage")
-                : subMode === 'ai'
+                : aioAiActive
                   ? t("dashboard.dashboardExecute.runAioAi")
                   : t("dashboard.dashboardExecute.runAio")}
             </>
@@ -912,7 +927,7 @@ export default memo(function AioRightPanel({
           cloudPreview={cloudPreview}
           processAIO={processAIO}
           processAioAi={processAioAi}
-          subMode={subMode}
+          aioAiActive={aioAiActive}
           anchorEl={executeBarRef.current}
         />
       </div>

@@ -5229,6 +5229,15 @@ export const esMessages: TranslationCatalog = {
     'AIO IA completado ({processed} procesadas, {skipped} omitidas).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO IA completado con errores ({processed} procesadas, {skipped} omitidas, {failed} fallidas).',
+  'dashboard.aio.ai.toggleLabel': 'Modo AIO IA',
+  'dashboard.aio.ai.toggleHintOff':
+    'Deja que la IA haga OCR, traducción, limpieza y rotulación en una sola pasada.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'Las 6 etapas tradicionales desactivadas — la IA procesa toda la página.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'Solo Detectar activo — OCR, traducción, limpieza y renderizado hechos por la IA.',
+  'dashboard.aio.ai.toggleHintScript':
+    'Detectar, OCR y Traducir activos — segmentar, limpiar y renderizar hechos por la IA.',
   'dashboard.imageEdit.guide.title': '¿Qué modelos funcionan en AI Clean y AIO IA?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'Recomendados para AIO IA + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'Editores de imagen por instrucción',

@@ -133,7 +133,7 @@ describe('resolveCloudPreviewGate', () => {
     expect(gate.required).toBe(false);
   });
 
-  it('captures imageEdit destination when subMode is ai or cleanViaAi is active', () => {
+  it('captures imageEdit destination when aioAiEnabled or cleanViaAi is active', () => {
     const cleanProfile: CustomLlmProfile = {
       id: 'clean-1',
       stage: 'clean',
@@ -152,7 +152,7 @@ describe('resolveCloudPreviewGate', () => {
       translationModelKey: null,
       customTranslationProfile: null,
       customOcrProfile: null,
-      subMode: 'ai',
+      aioAiEnabled: true,
       aioAiModelKey: 'custom_clean:clean-1',
       customAioAiProfile: cleanProfile,
     });

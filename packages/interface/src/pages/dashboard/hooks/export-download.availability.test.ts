@@ -23,9 +23,10 @@ const renderAvailability = () =>
   renderHook(() => useExportDownloadAvailability({ activeImage: page })).result.current;
 
 beforeEach(() => {
-  useUiShellStore.setState({ mode: 'aio' });
+  useUiShellStore.setState({ mode: 'aio', subMode: 'auto' });
   useImageCollectionStore.setState({ images: [page] });
   useAioPipelineStore.setState((state) => ({
+    aioAiEnabled: false,
     aioSteps: { ...state.aioSteps, cleanImage: false, render: false },
   }));
   useExportStore.setState({ downloadItems: [], lastActionScope: null });
@@ -67,6 +68,15 @@ describe('useExportDownloadAvailability AIO text output', () => {
     useRegionEditorStore.setState({
       aioDetectionsByImage: { 'img-1': [region({ recognizedText: 'abc' })] },
     });
+
+    expect(renderAvailability().hasDownloads).toBe(false);
+  });
+
+  it('does not treat unrendered AIO AI auto pages as downloadable without baked outputs', () => {
+    useAioPipelineStore.setState((state) => ({
+      aioAiEnabled: true,
+      aioSteps: { ...state.aioSteps, render: true },
+    }));
 
     expect(renderAvailability().hasDownloads).toBe(false);
   });

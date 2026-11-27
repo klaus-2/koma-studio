@@ -5075,6 +5075,15 @@ export const koMessages: TranslationCatalog = {
     'AIO AI 완료 ({processed}장 처리, {skipped}장 건너뜀).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI 일부 오류와 함께 완료 ({processed}장 처리, {skipped}장 건너뜀, {failed}장 실패).',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI 모드',
+  'dashboard.aio.ai.toggleHintOff':
+    '이미지 편집 AI가 OCR, 번역, 지우기, 식자를 한 번에 처리합니다.',
+  'dashboard.aio.ai.toggleHintDirect':
+    '기존 6단계 모두 비활성화 — AI가 전체 페이지를 직접 처리합니다.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    '탐지만 활성 — OCR, 번역, 지우기, 렌더링은 AI가 처리합니다.',
+  'dashboard.aio.ai.toggleHintScript':
+    '탐지·OCR·번역 활성 — 분할, 지우기, 렌더링은 AI가 처리합니다.',
   'dashboard.imageEdit.guide.title': 'AI Clean 및 AIO AI 지원 모델 안내',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'AIO AI + AI Clean 권장 모델',
   'dashboard.imageEdit.guide.worksCleanTitle': '지시 기반 이미지 편집 모델',

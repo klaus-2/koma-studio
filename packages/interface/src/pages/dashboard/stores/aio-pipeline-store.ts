@@ -42,6 +42,7 @@ const AIO_CLEAN_VIA_AI_STORAGE_KEY = 'koma-aio-clean-via-ai';
 const AIO_CLEAN_AI_MODEL_STORAGE_KEY = 'koma-aio-clean-ai-model';
 const AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-clean-ai-instructions';
 const AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY = 'koma-aio-clean-ai-model-config';
+const AIO_AI_ENABLED_STORAGE_KEY = 'koma-aio-ai-enabled';
 const AIO_AI_MODEL_STORAGE_KEY = 'koma-aio-ai-model';
 const AIO_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-ai-instructions';
 const AIO_AI_OPTIONS_STORAGE_KEY = 'koma-aio-ai-options';
@@ -210,6 +211,9 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioCleanAiModelConfig: sanitizeImageEditModelConfig(
       parseStoredJson(readAioStorage(AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY)),
     ),
+    aioAiEnabled: parseStoredAioBoolean(
+      readAioStorage(AIO_AI_ENABLED_STORAGE_KEY),
+    ),
     aioAiModelKey: parseStoredAioString(
       readAioStorage(AIO_AI_MODEL_STORAGE_KEY),
     ),
@@ -324,6 +328,18 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
         AIO_CLEAN_AI_MODEL_CONFIG_STORAGE_KEY,
         JSON.stringify(next),
       );
+    },
+
+    setAioAiEnabled: (update) => {
+      const previous = get().aioAiEnabled;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioAiEnabled: next });
+      writeAioStorage(AIO_AI_ENABLED_STORAGE_KEY, String(next));
     },
 
     setAioAiModelKey: (update) => {

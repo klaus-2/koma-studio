@@ -1,4 +1,3 @@
-import type { SubMode } from '@/types/dashboard.types';
 import type { CustomLlmProfile } from '@/utils/customLlm';
 import {
   isCloudOcrModelKey,
@@ -16,7 +15,7 @@ export interface CloudPreviewStageInput {
   readonly translationModelKey: string | null;
   readonly customTranslationProfile: CustomLlmProfile | null;
   readonly customOcrProfile: CustomLlmProfile | null;
-  readonly subMode?: SubMode;
+  readonly aioAiEnabled?: boolean;
   readonly cleanViaAi?: boolean;
   readonly cleanAiModelKey?: string | null;
   readonly customCleanProfile?: CustomLlmProfile | null;
@@ -196,7 +195,7 @@ export function resolveCloudPreviewGate(
   }
 
   const imageEdit =
-    input.subMode === 'ai'
+    input.aioAiEnabled === true
       ? buildImageEditDestination(input.aioAiModelKey, input.customAioAiProfile ?? null)
       : input.cleanViaAi
         ? buildImageEditDestination(input.cleanAiModelKey, input.customCleanProfile ?? null)

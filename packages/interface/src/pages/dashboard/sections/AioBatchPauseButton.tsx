@@ -18,7 +18,7 @@ export default memo(function AioBatchPauseButton({
   const isPaused = useAioBatchPauseStore((s) => s.isPaused);
   const pausePhase = useAioBatchPauseStore((s) => s.pausePhase);
 
-  if ((subMode !== 'auto' && subMode !== 'ai') || (!processing && pausePhase === 'idle')) {
+  if (subMode !== 'auto' || (!processing && pausePhase === 'idle')) {
     return null;
   }
 

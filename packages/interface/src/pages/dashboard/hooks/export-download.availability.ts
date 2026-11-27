@@ -15,6 +15,7 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
   const subMode = useUiShellStore((s) => s.subMode);
   const images = useImageCollectionStore((s) => s.images);
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
+  const aioAiEnabled = useAioPipelineStore((s) => s.aioAiEnabled);
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
@@ -31,7 +32,10 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
     mode !== 'blogger' &&
     mode !== 'imgur';
   const hasRenderableAioOutput =
-    mode === 'aio' && subMode !== 'ai' && aioSteps.render && images.length > 0;
+    mode === 'aio' &&
+    !(subMode === 'auto' && aioAiEnabled) &&
+    aioSteps.render &&
+    images.length > 0;
   const hasRenderableTypographerOutput =
     mode === 'typesetter' && images.length > 0;
   const hasAioTextOutput = useRegionEditorStore((s) =>

@@ -133,8 +133,7 @@ export function renderAioStageItemBody(
     (imageStageKey === 'detectText' ||
       imageStageKey === 'recognizeText' ||
       imageStageKey === 'getTranslations');
-  const isAioAiBaked =
-    Boolean(aioAiBakedImageIds?.[img.id]) || subMode === 'ai';
+  const isAioAiBaked = Boolean(aioAiBakedImageIds?.[img.id]);
   const shouldUseRenderPreview =
     isAioAiBaked ||
     (!isManualEarlyStage && aioSteps.render) ||

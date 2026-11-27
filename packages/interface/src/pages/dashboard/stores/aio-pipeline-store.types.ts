@@ -62,6 +62,7 @@ export interface AioEditableState {
   aioCleanAiModelKey: string;
   aioCleanAiInstructions: string;
   aioCleanAiModelConfig: ImageEditModelConfig;
+  aioAiEnabled: boolean;
   aioAiModelKey: string;
   aioAiInstructions: string;
   aioAiOptions: AioAiOptions;

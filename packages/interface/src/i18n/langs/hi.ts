@@ -5160,6 +5160,15 @@ export const hiMessages: TranslationCatalog = {
     'AIO AI पूर्ण ({processed} संसाधित, {skipped} छोड़े गए)।',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI त्रुटियों के साथ समाप्त ({processed} संसाधित, {skipped} छोड़े गए, {failed} विफल)।',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI मोड',
+  'dashboard.aio.ai.toggleHintOff':
+    'इमेज-एडिट AI से एक ही पास में OCR, अनुवाद, सफ़ाई और टाइपसेटिंग करवाएं।',
+  'dashboard.aio.ai.toggleHintDirect':
+    'सभी 6 पारंपरिक चरण बंद — AI पूरा पेज स्वयं प्रोसेस करता है।',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'केवल डिटेक्ट सक्रिय — OCR, अनुवाद, सफ़ाई और रेंडर AI करता है।',
+  'dashboard.aio.ai.toggleHintScript':
+    'डिटेक्ट, OCR और अनुवाद सक्रिय — सेगमेंट, सफ़ाई और रेंडर AI करता है।',
   'dashboard.imageEdit.guide.title': 'AI Clean और AIO AI में कौन से मॉडल काम करते हैं?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'AIO AI + AI Clean के लिए अनुशंसित',
   'dashboard.imageEdit.guide.worksCleanTitle': 'निर्देश-आधारित छवि संपादक',

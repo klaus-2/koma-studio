@@ -4,7 +4,6 @@
   gap: 12px;
 }
 
-.langRow,
 .twoCol {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

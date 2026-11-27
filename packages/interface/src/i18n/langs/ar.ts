@@ -5016,6 +5016,15 @@ export const arMessages: TranslationCatalog = {
     'اكتمل AIO AI ({processed} معالجة، {skipped} متخطّاة).',
   'dashboard.aio.ai.status.completedWithErrors':
     'انتهى AIO AI مع أخطاء ({processed} معالجة، {skipped} متخطّاة، {failed} فشلت).',
+  'dashboard.aio.ai.toggleLabel': 'وضع AIO AI',
+  'dashboard.aio.ai.toggleHintOff':
+    'اجعل الذكاء الاصطناعي يتولى OCR والترجمة والتنظيف والتنضيد في تمريرة واحدة.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'تم تعطيل جميع المراحل الست التقليدية — يتولى الذكاء الاصطناعي الصفحة كاملة.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'الكشف فقط نشط — يتولى الذكاء الاصطناعي OCR والترجمة والتنظيف والتركيب.',
+  'dashboard.aio.ai.toggleHintScript':
+    'الكشف وOCR والترجمة نشطة — يتولى الذكاء الاصطناعي التقطيع والتنظيف والتركيب.',
   'dashboard.imageEdit.guide.title': 'أي النماذج تعمل مع AI Clean و AIO AI؟',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'موصى بها لـ AIO AI + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'محررات صور موجّهة بالتعليمات',

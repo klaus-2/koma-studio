@@ -5233,6 +5233,15 @@ export const ruMessages: TranslationCatalog = {
     'AIO ИИ завершён ({processed} обработано, {skipped} пропущено).',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO ИИ завершён с ошибками ({processed} обработано, {skipped} пропущено, {failed} ошибок).',
+  'dashboard.aio.ai.toggleLabel': 'Режим AIO ИИ',
+  'dashboard.aio.ai.toggleHintOff':
+    'Доверьте ИИ OCR, перевод, очистку и тайпсеттинг за один проход.',
+  'dashboard.aio.ai.toggleHintDirect':
+    'Все 6 классических этапов отключены — ИИ обрабатывает всю страницу.',
+  'dashboard.aio.ai.toggleHintHybrid':
+    'Активно только обнаружение — OCR, перевод, очистку и рендер делает ИИ.',
+  'dashboard.aio.ai.toggleHintScript':
+    'Активны обнаружение, OCR и перевод — сегментацию, очистку и рендер делает ИИ.',
   'dashboard.imageEdit.guide.title': 'Какие модели подходят для AI Clean и AIO ИИ?',
   'dashboard.imageEdit.guide.worksAioAiTitle': 'Рекомендуются для AIO ИИ + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': 'Редакторы изображений по инструкциям',

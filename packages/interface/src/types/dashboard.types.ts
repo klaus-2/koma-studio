@@ -39,7 +39,7 @@ export type WebhookMetricValue = string | number | boolean | null | undefined;
 
 export type WebhookMetrics = Record<string, WebhookMetricValue>;
 
-export type SubMode = "auto" | "manual" | "ai";
+export type SubMode = "auto" | "manual";
 
 export type {
   AioAiExecutionMode,

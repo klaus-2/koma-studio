@@ -1,6 +1,5 @@
 import { memo } from 'react';
 
-import type { SubMode } from '../../../types/dashboard.types';
 import AioCloudPreviewDialog from '../../../components/dashboard/AioCloudPreviewDialog';
 import type { UseAioCloudPreviewStartResult } from '../hooks/use-aio-cloud-preview-start';
 
@@ -8,7 +7,7 @@ interface AioCloudPreviewMountProps {
   readonly cloudPreview: UseAioCloudPreviewStartResult;
   readonly processAIO: () => void;
   readonly processAioAi?: () => void;
-  readonly subMode?: SubMode;
+  readonly aioAiActive?: boolean;
   readonly anchorEl: HTMLElement | null;
 }
 
@@ -16,7 +15,7 @@ export const AioCloudPreviewMount = memo(function AioCloudPreviewMount({
   cloudPreview,
   processAIO,
   processAioAi,
-  subMode,
+  aioAiActive,
   anchorEl,
 }: AioCloudPreviewMountProps) {
   if (cloudPreview.previewGate === null) {
@@ -34,7 +33,7 @@ export const AioCloudPreviewMount = memo(function AioCloudPreviewMount({
       neighborContextEnabled={cloudPreview.neighborContextEnabled}
       onConfirm={() => {
         cloudPreview.clearPreviewGate();
-        if (subMode === 'ai' && processAioAi) {
+        if (aioAiActive && processAioAi) {
           processAioAi();
           return;
         }

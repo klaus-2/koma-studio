@@ -1,4 +1,4 @@
-import { Paintbrush, Sparkles, Wand2 } from "lucide-react";
+import { Paintbrush, Sparkles } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { memo } from "react";
 import type { SubMode } from "../../types/dashboard.types";
@@ -33,17 +33,6 @@ export default memo(function SubModeToggleClassic({ value, onChange }: SubModeTo
       >
         <Paintbrush size={12} />
         <span>{t('dashboard.aio.manualScope')}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === "ai"}
-        className={`koma-submode-toggle__btn${value === "ai" ? " koma-submode-toggle__btn--active" : ""}`}
-        onClick={() => onChange("ai")}
-        title={t('dashboard.aio.aiScopeTitle')}
-      >
-        <Wand2 size={12} />
-        <span>{t('dashboard.aio.aiScope')}</span>
       </button>
     </div>
   );

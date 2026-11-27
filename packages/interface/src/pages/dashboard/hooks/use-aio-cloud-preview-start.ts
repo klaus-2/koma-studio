@@ -18,6 +18,7 @@ export interface UseAioCloudPreviewStartArgs {
   readonly processAIO: () => void;
   readonly processAioAi?: () => void;
   readonly subMode?: SubMode;
+  readonly aioAiActive?: boolean;
   readonly processing: boolean;
   readonly images: ReadonlyArray<LoadedImage>;
   readonly selectedCustomTranslationProfile: CustomLlmProfile | null;
@@ -40,12 +41,15 @@ export function useAioCloudPreviewStart({
   processAIO,
   processAioAi,
   subMode: explicitSubMode,
+  aioAiActive: explicitAioAiActive,
   images,
   processing,
   selectedCustomTranslationProfile,
 }: UseAioCloudPreviewStartArgs): UseAioCloudPreviewStartResult {
   const storeSubMode = useUiShellStore((s) => s.subMode);
   const subMode = explicitSubMode ?? storeSubMode;
+  const aioAiEnabled = useAioPipelineStore((s) => s.aioAiEnabled);
+  const aioAiActive = explicitAioAiActive ?? (subMode === 'auto' && aioAiEnabled);
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const aioCleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
@@ -94,19 +98,17 @@ export function useAioCloudPreviewStart({
     const gate = resolveCloudPreviewGate({
       customOcrProfile,
       aioSteps: {
-        recognizeText:
-          subMode === 'ai'
-            ? aioAiExecutionMode === 'script_guided'
-            : aioSteps.recognizeText,
-        getTranslations:
-          subMode === 'ai'
-            ? aioAiExecutionMode === 'script_guided'
-            : aioSteps.getTranslations,
+        recognizeText: aioAiActive
+          ? aioAiExecutionMode === 'script_guided'
+          : aioSteps.recognizeText,
+        getTranslations: aioAiActive
+          ? aioAiExecutionMode === 'script_guided'
+          : aioSteps.getTranslations,
       },
       ocrModelKey: aioStageSelection.recognizeText,
       translationModelKey: aioStageSelection.getTranslations,
       customTranslationProfile: selectedCustomTranslationProfile,
-      subMode,
+      aioAiEnabled: aioAiActive,
       cleanViaAi: aioCleanViaAi,
       cleanAiModelKey: aioCleanAiModelKey,
       customCleanProfile: findCleanProfile(aioCleanAiModelKey),
@@ -120,13 +122,14 @@ export function useAioCloudPreviewStart({
     ].filter(
       (provider): provider is string => typeof provider === 'string',
     );
-    const startExecution = subMode === 'ai' ? (processAioAi ?? processAIO) : processAIO;
+    const startExecution = aioAiActive ? (processAioAi ?? processAIO) : processAIO;
     if (!gate.required || isCloudPreviewSuppressed(providers)) {
       startExecution();
       return;
     }
     setPreviewGate(gate);
   }, [
+    aioAiActive,
     aioAiExecutionMode,
     aioAiModelKey,
     aioCleanAiModelKey,
@@ -138,7 +141,6 @@ export function useAioCloudPreviewStart({
     processAIO,
     processAioAi,
     selectedCustomTranslationProfile,
-    subMode,
   ]);
 
   const previewTextRegions = useMemo(() => {

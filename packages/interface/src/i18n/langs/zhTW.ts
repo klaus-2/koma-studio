@@ -4738,6 +4738,15 @@ export const zhMessages: TranslationCatalog = {
     'AIO AI 已完成（處理 {processed} 頁，跳過 {skipped} 頁）。',
   'dashboard.aio.ai.status.completedWithErrors':
     'AIO AI 完成但部分失敗（處理 {processed} 頁，跳過 {skipped} 頁，失敗 {failed} 頁）。',
+  'dashboard.aio.ai.toggleLabel': 'AIO AI 模式',
+  'dashboard.aio.ai.toggleHintOff':
+    '由影像編輯 AI 一步完成 OCR、翻譯、去字與嵌字。',
+  'dashboard.aio.ai.toggleHintDirect':
+    '已停用全部 6 個傳統步驟 — 由 AI 處理整頁。',
+  'dashboard.aio.ai.toggleHintHybrid':
+    '僅啟用文字偵測 — OCR、翻譯、去字與繪製由 AI 完成。',
+  'dashboard.aio.ai.toggleHintScript':
+    '啟用偵測、OCR 與翻譯 — 分割、去字與繪製由 AI 完成。',
   'dashboard.imageEdit.guide.title': '哪些模型適用於 AI Clean 與 AIO AI？',
   'dashboard.imageEdit.guide.worksAioAiTitle': '推薦用於 AIO AI + AI Clean',
   'dashboard.imageEdit.guide.worksCleanTitle': '指令式影像編輯模型',

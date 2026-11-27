@@ -27,11 +27,13 @@ const { GPU_STAGES_STORAGE_KEY } = await import(
 const AIO_CLEAN_VIA_AI_STORAGE_KEY = 'koma-aio-clean-via-ai';
 const AIO_CLEAN_AI_MODEL_STORAGE_KEY = 'koma-aio-clean-ai-model';
 const AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-clean-ai-instructions';
+const AIO_AI_ENABLED_STORAGE_KEY = 'koma-aio-ai-enabled';
 
 describe('useAioPipelineStore', () => {
   beforeEach(() => {
     storageMap.clear();
     useAioPipelineStore.setState({
+      aioAiEnabled: false,
       aioGpuStages: {
         detectText: true,
         recognizeText: true,
@@ -251,5 +253,26 @@ describe('useAioPipelineStore', () => {
       slicingMode: 'custom',
       segmentHeight: 1600,
     });
+  });
+
+  it('commits, persists, skips unchanged writes for, and restores aioAiEnabled', async () => {
+    expect(useAioPipelineStore.getState().aioAiEnabled).toBe(false);
+
+    useAioPipelineStore.getState().setAioAiEnabled(false);
+    expect(storageMap.has(AIO_AI_ENABLED_STORAGE_KEY)).toBe(false);
+
+    useAioPipelineStore.getState().setAioAiEnabled(true);
+    expect(useAioPipelineStore.getState().aioAiEnabled).toBe(true);
+    expect(storageMap.get(AIO_AI_ENABLED_STORAGE_KEY)).toBe('true');
+
+    vi.resetModules();
+    const { useAioPipelineStore: freshStore } = await import(
+      '@/pages/dashboard/stores/aio-pipeline-store'
+    );
+    expect(freshStore.getState().aioAiEnabled).toBe(true);
+
+    freshStore.getState().setAioAiEnabled(false);
+    expect(freshStore.getState().aioAiEnabled).toBe(false);
+    expect(storageMap.get(AIO_AI_ENABLED_STORAGE_KEY)).toBe('false');
   });
 });

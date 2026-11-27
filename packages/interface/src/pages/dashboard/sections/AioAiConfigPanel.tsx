@@ -115,11 +115,6 @@ export default function AioAiConfigPanel({
   const { t } = useI18n();
   const skin = aioPanelClasses(noir);
 
-  const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
-  const setAioSrcLang = useAioPipelineStore((s) => s.setAioSrcLang);
-  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const setAioTgtLang = useAioPipelineStore((s) => s.setAioTgtLang);
-  const aioLanguageOptions = useAioPipelineStore((s) => s.aioLanguageOptions);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
 
   const aioAiModelKey = useAioPipelineStore((s) => s.aioAiModelKey);
@@ -195,39 +190,6 @@ export default function AioAiConfigPanel({
 
   return (
     <div className={`${styles.panel} ${noir ? styles.noir : ''}`}>
-      <div className={styles.langRow}>
-        <div className="koma-field">
-          <span className={skin.label}>{t('dashboard.aio.config.sourceLanguage')}</span>
-          <select
-            value={aioSrcLang}
-            onChange={(e) => setAioSrcLang(e.target.value)}
-            className={skin.select}
-            aria-label={t('dashboard.aio.config.sourceLanguage')}
-          >
-            {aioLanguageOptions.source.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.label)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="koma-field">
-          <span className={skin.label}>{t('dashboard.aio.config.targetLanguage')}</span>
-          <select
-            value={aioTgtLang}
-            onChange={(e) => setAioTgtLang(e.target.value)}
-            className={skin.select}
-            aria-label={t('dashboard.aio.config.targetLanguage')}
-          >
-            {aioLanguageOptions.target.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.label)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div className="koma-field">
         <div className={styles.labelRow}>
           <span className={skin.label}>
