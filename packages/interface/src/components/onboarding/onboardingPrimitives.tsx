@@ -1,147 +1,216 @@
-import type { ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 
-export interface OnboardingCardProps {
-  children: ReactNode;
-  active?: boolean;
-  tone?: 'default' | 'accent' | 'info' | 'warn' | 'success';
-  className?: string;
-}
+import { InkToggle } from '../../pages/settings/noir/primitives';
+import { useOnbSkin, type OnbTone } from './onboardingSkin';
+
+export const cx = (...parts: (string | false | null | undefined)[]): string =>
+  parts.filter(Boolean).join(' ');
 
 export const useIsNoirFamily = (): boolean =>
   useThemeStore((s) => s.family) === 'noir';
 
-export function OnboardingSectionCard({
+export function OnbSection({
+  icon,
+  title,
+  desc,
+  actions,
   children,
-  active = false,
-  tone = 'default',
-  className = '',
-}: OnboardingCardProps) {
+  className,
+  titleId: titleIdProp,
+}: {
+  icon?: ReactNode;
+  title: string;
+  desc?: string;
+  actions?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  titleId?: string;
+}) {
+  const skin = useOnbSkin();
+  const generatedId = useId();
+  const titleId = titleIdProp ?? generatedId;
   return (
-    <div
-      data-active={active ? 'true' : undefined}
-      data-tone={tone}
-      className={`koma-onb-card ${active ? 'koma-onb-card--active' : ''} koma-onb-card--${tone} ${className}`.trim()}
-    >
+    <section aria-labelledby={titleId} className={cx(skin.section, className)}>
+      <header className={cx('flex flex-wrap items-start justify-between gap-3', children ? 'mb-4' : '')}>
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {icon ? <span aria-hidden="true" className={skin.sectionIcon}>{icon}</span> : null}
+          <div className="min-w-0">
+            <h3 id={titleId} className={skin.sectionTitle}>{title}</h3>
+            {desc ? <p className={skin.sectionDesc}>{desc}</p> : null}
+          </div>
+        </div>
+        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+export function OnbBadge({ tone = 'neutral', children }: { tone?: OnbTone; children: ReactNode }) {
+  const skin = useOnbSkin();
+  return <span className={skin.badge(tone)}>{children}</span>;
+}
+
+export function OnbNotice({
+  tone = 'info',
+  role,
+  children,
+}: {
+  tone?: OnbTone;
+  role?: 'status' | 'alert';
+  children: ReactNode;
+}) {
+  const skin = useOnbSkin();
+  return (
+    <div role={role} className={skin.notice(tone)}>
       {children}
     </div>
   );
 }
 
-export interface OnboardingBadgeProps {
-  children: ReactNode;
-  tone?: 'neutral' | 'accent' | 'info' | 'warn' | 'success';
-}
-
-export function OnboardingBadge({
+export function OnbField({
+  label,
+  htmlFor,
+  labelId,
+  hint,
   children,
-  tone = 'neutral',
-}: OnboardingBadgeProps) {
+}: {
+  label: string;
+  htmlFor?: string;
+  labelId?: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  const skin = useOnbSkin();
+  const marker = skin.noir ? <span aria-hidden="true" className="text-crimson">// </span> : null;
   return (
-    <span className={`koma-onb-badge koma-onb-badge--${tone}`}>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={skin.label}>{marker}{label}</label>
+      ) : (
+        <span id={labelId} className={skin.label}>{marker}{label}</span>
+      )}
+      {hint ? <p className={skin.hint}>{hint}</p> : null}
       {children}
-    </span>
+    </div>
   );
 }
 
-export interface OnboardingToggleRowProps {
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-export function OnboardingToggleRow({
-  title,
-  description,
-  checked,
-  onChange,
-}: OnboardingToggleRowProps) {
-  return (
-    <label className="koma-onb-toggleRow">
-      <div className="koma-onb-toggleRow__copy">
-        <span className="koma-onb-toggleRow__title">{title}</span>
-        <span className="koma-onb-toggleRow__desc">{description}</span>
-      </div>
-      <span className={`koma-onb-switch ${checked ? 'koma-onb-switch--on' : ''}`}>
-        <input
-          type="checkbox"
-          className="koma-onb-switch__input"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="koma-onb-switch__track">
-          <span className="koma-onb-switch__thumb" />
-        </span>
-      </span>
-    </label>
-  );
-}
-
-export interface OnboardingSelectOption {
-  readonly value: string;
+export interface OnbOption<T extends string | number> {
+  readonly value: T;
   readonly label: string;
+  readonly icon?: ReactNode;
 }
 
-export interface OnboardingSelectProps {
-  id: string;
-  value: string;
-  options: readonly OnboardingSelectOption[];
-  onChange: (value: string) => void;
-  ariaLabel?: string;
-}
-
-export function OnboardingSelect({
+export function OnbSelect({
   id,
   value,
   options,
   onChange,
-  ariaLabel,
-}: OnboardingSelectProps) {
+}: {
+  id: string;
+  value: string;
+  options: readonly OnbOption<string>[];
+  onChange: (value: string) => void;
+}) {
+  const skin = useOnbSkin();
   return (
-    <div className="koma-onb-selectWrap">
-      <select
-        id={id}
-        aria-label={ariaLabel}
-        className="koma-onb-select"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
+    <div className="relative">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cx(skin.select, 'pr-8')}>
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
-      <ChevronDown size={14} className="koma-onb-selectWrap__icon" aria-hidden="true" />
+      <ChevronDown
+        size={14}
+        aria-hidden="true"
+        className={cx(
+          'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2',
+          skin.noir ? 'text-paper/45' : 'koma-onb-c-chevron',
+        )}
+      />
     </div>
   );
 }
 
-export interface OnboardingMeterBarProps {
-  label: string;
-  value: number;
-  tone?: 'accent' | 'info' | 'warn' | 'success';
+export function OnbCheckbox({
+  checked,
+  indeterminate = false,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const skin = useOnbSkin();
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      className={skin.checkbox}
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  );
 }
 
-export function OnboardingMeterBar({
-  label,
-  value,
-  tone = 'accent',
-}: OnboardingMeterBarProps) {
+export function OnbToggleRow({
+  title,
+  desc,
+  checked,
+  onChange,
+}: {
+  title: string;
+  desc?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const skin = useOnbSkin();
+  return (
+    <label className={cx(skin.row, 'cursor-pointer')}>
+      <span className="min-w-0">
+        <span className={skin.rowTitle}>{title}</span>
+        {desc ? <span className={skin.rowDesc}>{desc}</span> : null}
+      </span>
+      {skin.noir ? (
+        <InkToggle checked={checked} onChange={onChange} />
+      ) : (
+        <span className={cx('koma-toggle', checked && 'koma-toggle--on')}>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-checked={checked}
+            className="koma-toggle__input"
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+          />
+          <span className="koma-toggle__track"><span className="koma-toggle__thumb" /></span>
+        </span>
+      )}
+    </label>
+  );
+}
+
+export function OnbMeter({ label, value, tone }: { label: string; value: number; tone: OnbTone }) {
+  const skin = useOnbSkin();
   const clamped = Math.max(0, Math.min(100, value));
   return (
-    <div className="koma-onb-meter">
-      <div className="koma-onb-meter__head">
-        <span>{label}</span>
-        <span className="koma-onb-mono">{clamped}%</span>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <span className={skin.label}>{label}</span>
+        <span className={skin.mono}>{clamped}</span>
       </div>
-      <div className="koma-onb-meter__track" aria-hidden="true">
-        <div
-          className={`koma-onb-meter__fill koma-onb-meter__fill--${tone}`}
-          style={{ width: `${clamped}%` }}
-        />
+      <div className={skin.track} aria-hidden="true">
+        <div className={cx(skin.fill, `koma-onb-meter--${tone}`)} style={{ width: `${clamped}%` }} />
       </div>
     </div>
   );

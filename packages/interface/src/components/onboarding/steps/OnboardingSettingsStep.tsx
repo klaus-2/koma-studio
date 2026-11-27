@@ -1,13 +1,5 @@
-import { useState } from 'react';
-import {
-  Activity,
-  Bookmark,
-  Cpu,
-  ExternalLink,
-  Plug,
-  Settings,
-  Type,
-} from 'lucide-react';
+import { useId, useState } from 'react';
+import { Activity, Bookmark, Cpu, ExternalLink, Plug, Settings, SlidersHorizontal, Type } from 'lucide-react';
 
 import { useCustomCursor } from '../../../hooks/useCustomCursor';
 import { useToolTips } from '../../../hooks/useToolTips';
@@ -18,138 +10,125 @@ import {
   saveWorkspaceAutosaveSettings,
   type WorkspaceAutosaveSettings,
 } from '../../../utils/workspaceAutosaveSettings';
-import {
-  OnboardingBadge,
-  OnboardingSectionCard,
-  OnboardingToggleRow,
-} from '../onboardingPrimitives';
+import { OnbBadge, OnbField, OnbSection, OnbToggleRow, cx } from '../onboardingPrimitives';
+import { useOnbSkin } from '../onboardingSkin';
 
 export interface OnboardingSettingsStepProps {
   onOpenSettingsTab: (tab: SettingsTab) => void;
 }
 
-export function OnboardingSettingsStep({
-  onOpenSettingsTab,
-}: OnboardingSettingsStepProps) {
-  const { t } = useI18n();
-  const { enabled: toolTipsEnabled, setEnabled: setToolTipsEnabled } = useToolTips();
-  const { enabled: customCursorEnabled, setEnabled: setCustomCursorEnabled } =
-    useCustomCursor();
-  const [autosave, setAutosave] = useState<WorkspaceAutosaveSettings>(() =>
-    loadWorkspaceAutosaveSettings(),
-  );
+const SETTINGS_TABS: readonly { id: SettingsTab; Icon: typeof Settings; key: string }[] = [
+  { id: 'general', Icon: Settings, key: 'general' },
+  { id: 'presets', Icon: Bookmark, key: 'presets' },
+  { id: 'typographer', Icon: Type, key: 'typographer' },
+  { id: 'integrations', Icon: Plug, key: 'integrations' },
+  { id: 'runtime', Icon: Cpu, key: 'runtime' },
+  { id: 'performance', Icon: Activity, key: 'performance' },
+];
 
-  const handleAutosaveToggle = (enabled: boolean): void => {
-    const saved = saveWorkspaceAutosaveSettings({
-      ...autosave,
-      enabled,
-    });
+export function OnboardingSettingsStep({ onOpenSettingsTab }: OnboardingSettingsStepProps) {
+  const { t } = useI18n();
+  const skin = useOnbSkin();
+  const intervalId = useId();
+  const intervalHintId = useId();
+  const { enabled: toolTips, setEnabled: setToolTips } = useToolTips();
+  const { enabled: cursor, setEnabled: setCursor } = useCustomCursor();
+  const [autosave, setAutosave] = useState<WorkspaceAutosaveSettings>(() => loadWorkspaceAutosaveSettings());
+  const [intervalDraft, setIntervalDraft] = useState(() => String(autosave.intervalSeconds));
+
+  const persist = (next: WorkspaceAutosaveSettings): void => {
+    const saved = saveWorkspaceAutosaveSettings(next);
     setAutosave(saved);
+    setIntervalDraft(String(saved.intervalSeconds));
   };
 
-  const tabs: readonly {
-    id: SettingsTab;
-    Icon: typeof Settings;
-    titleKey: string;
-    descKey: string;
-  }[] = [
-    {
-      id: 'general',
-      Icon: Settings,
-      titleKey: 'onboarding.settings.tabs.generalTitle',
-      descKey: 'onboarding.settings.tabs.generalDesc',
-    },
-    {
-      id: 'presets',
-      Icon: Bookmark,
-      titleKey: 'onboarding.settings.tabs.presetsTitle',
-      descKey: 'onboarding.settings.tabs.presetsDesc',
-    },
-    {
-      id: 'typographer',
-      Icon: Type,
-      titleKey: 'onboarding.settings.tabs.typographerTitle',
-      descKey: 'onboarding.settings.tabs.typographerDesc',
-    },
-    {
-      id: 'integrations',
-      Icon: Plug,
-      titleKey: 'onboarding.settings.tabs.integrationsTitle',
-      descKey: 'onboarding.settings.tabs.integrationsDesc',
-    },
-    {
-      id: 'runtime',
-      Icon: Cpu,
-      titleKey: 'onboarding.settings.tabs.runtimeTitle',
-      descKey: 'onboarding.settings.tabs.runtimeDesc',
-    },
-    {
-      id: 'performance',
-      Icon: Activity,
-      titleKey: 'onboarding.settings.tabs.performanceTitle',
-      descKey: 'onboarding.settings.tabs.performanceDesc',
-    },
-  ];
+  const commitInterval = (): void => {
+    const parsed = Number(intervalDraft);
+    if (!Number.isFinite(parsed) || intervalDraft.trim() === '') {
+      setIntervalDraft(String(autosave.intervalSeconds));
+      return;
+    }
+    persist({ ...autosave, intervalSeconds: parsed });
+  };
 
   return (
-    <div className="koma-onb-stepStack">
-      <OnboardingSectionCard tone="accent">
-        <div className="koma-onb-cardHead">
-          <span className="koma-onb-iconTile" aria-hidden="true">
-            <Settings size={14} />
-          </span>
-          <h3 className="koma-onb-cardTitle">{t('onboarding.settings.quickPrefsTitle')}</h3>
-          <OnboardingBadge tone="info">{t('onboarding.settings.liveSyncBadge')}</OnboardingBadge>
-        </div>
-        <div className="koma-onb-toggleStack">
-          <OnboardingToggleRow
+    <div className="flex flex-col gap-4">
+      <OnbSection
+        icon={<SlidersHorizontal size={14} />}
+        title={t('onboarding.settings.quickPrefsTitle')}
+        desc={t('onboarding.settings.quickPrefsDesc')}
+        actions={<OnbBadge tone="success">{t('onboarding.settings.liveSyncBadge')}</OnbBadge>}
+      >
+        <div className="flex flex-col gap-2">
+          <OnbToggleRow
             title={t('settings.tooltips.enableTitle')}
-            description={t('settings.tooltips.enableDesc')}
-            checked={toolTipsEnabled}
-            onChange={setToolTipsEnabled}
+            desc={t('settings.tooltips.enableDesc')}
+            checked={toolTips}
+            onChange={setToolTips}
           />
-          <OnboardingToggleRow
+          <OnbToggleRow
             title={t('settings.customCursor.enableTitle')}
-            description={t('settings.customCursor.enableDesc')}
-            checked={customCursorEnabled}
-            onChange={setCustomCursorEnabled}
+            desc={t('settings.customCursor.enableDesc')}
+            checked={cursor}
+            onChange={setCursor}
           />
-          <OnboardingToggleRow
+          <OnbToggleRow
             title={t('onboarding.settings.autosaveTitle')}
-            description={t('onboarding.settings.autosaveDesc', {
-              seconds: autosave.intervalSeconds,
-            })}
+            desc={t('onboarding.settings.autosaveDesc', { seconds: autosave.intervalSeconds })}
             checked={autosave.enabled}
-            onChange={handleAutosaveToggle}
+            onChange={(enabled) => persist({ ...autosave, enabled })}
           />
+          {autosave.enabled ? (
+            <div className="sm:max-w-xs">
+              <OnbField label={t('onboarding.settings.autosaveIntervalLabel')} htmlFor={intervalId}>
+                <input
+                  id={intervalId}
+                  type="number"
+                  inputMode="numeric"
+                  min={15}
+                  max={3600}
+                  step={15}
+                  value={intervalDraft}
+                  aria-describedby={intervalHintId}
+                  onChange={(e) => setIntervalDraft(e.target.value)}
+                  onBlur={commitInterval}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitInterval();
+                  }}
+                  className={skin.input}
+                />
+              </OnbField>
+              <p id={intervalHintId} className={cx('mt-1', skin.hint)}>
+                {t('onboarding.settings.autosaveIntervalHint')}
+              </p>
+            </div>
+          ) : null}
         </div>
-      </OnboardingSectionCard>
+      </OnbSection>
 
-      <div className="koma-onb-grid2">
-        {tabs.map(({ id, Icon, titleKey, descKey }) => (
-          <OnboardingSectionCard key={id}>
-            <div className="koma-onb-settingsTabCard">
-              <div className="koma-onb-settingsTabCard__copy">
-                <div className="koma-onb-cardHead">
-                  <span className="koma-onb-iconTile" aria-hidden="true">
-                    <Icon size={14} />
-                  </span>
-                  <h4 className="koma-onb-cardTitle">{t(titleKey)}</h4>
-                </div>
-                <p className="koma-onb-muted">{t(descKey)}</p>
-              </div>
+      <OnbSection title={t('onboarding.settings.tabsTitle')} desc={t('onboarding.settings.tabsDesc')}>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {SETTINGS_TABS.map(({ id, Icon, key }) => (
+            <li key={id}>
               <button
                 type="button"
-                className="koma-onb-btn koma-onb-btn--ghost koma-onb-btn--sm"
                 onClick={() => onOpenSettingsTab(id)}
+                className={cx('group flex h-full w-full items-start gap-3', skin.item, skin.press, skin.itemOff)}
               >
-                <span>{t('onboarding.settings.openTabButton')}</span>
-                <ExternalLink size={12} />
+                <span aria-hidden="true" className={skin.sectionIcon}><Icon size={14} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className={cx('block', skin.itemTitle)}>{t(`onboarding.settings.tabs.${key}Title`)}</span>
+                  <span className={cx('mt-1 block', skin.muted)}>{t(`onboarding.settings.tabs.${key}Desc`)}</span>
+                </span>
+                <span className={cx('inline-flex shrink-0 items-center gap-1', skin.label)}>
+                  {t('onboarding.settings.openTabButton')}
+                  <ExternalLink size={11} aria-hidden="true" />
+                </span>
               </button>
-            </div>
-          </OnboardingSectionCard>
-        ))}
-      </div>
+            </li>
+          ))}
+        </ul>
+      </OnbSection>
     </div>
   );
 }

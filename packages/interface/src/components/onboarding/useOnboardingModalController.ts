@@ -72,7 +72,7 @@ export interface OnboardingController {
   petKoma: () => void;
   komaPetting: boolean;
   githubUrl: string;
-  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
+  goToStep: (stepId: OnboardingStepId) => void;
   handleDismiss: () => void;
   handleCompleteOnly: () => void;
   handleCompleteAndTour: () => void;
@@ -91,7 +91,6 @@ export function useOnboardingModalController({
   const [komaPetting, setKomaPetting] = useState(false);
   const petTimerRef = useRef<number | null>(null);
   const { entries } = useModelManagerLiveState();
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -99,9 +98,6 @@ export function useOnboardingModalController({
     }
     const releaseLock = acquireOnboardingModalLock();
     setStepIndex(0);
-    window.requestAnimationFrame(() => {
-      closeButtonRef.current?.focus();
-    });
     return releaseLock;
   }, [open]);
 
@@ -165,6 +161,11 @@ export function useOnboardingModalController({
     setStepIndex((prev) => Math.max(0, prev - 1));
   }, []);
 
+  const goToStep = useCallback((stepId: OnboardingStepId) => {
+    const index = ONBOARDING_STEPS.findIndex((step) => step.id === stepId);
+    if (index >= 0) setStepIndex(index);
+  }, []);
+
   const goNext = useCallback(() => {
     setStepIndex((prev) => Math.min(ONBOARDING_STEPS.length - 1, prev + 1));
   }, []);
@@ -202,6 +203,10 @@ export function useOnboardingModalController({
     }
 
     const onKeyDown = (event: KeyboardEvent): void => {
+      const owner = event.target instanceof Element ? event.target.closest('[role="dialog"]') : null;
+      if (event.defaultPrevented || (owner && !owner.hasAttribute('data-onboarding-theme'))) {
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         handleDismiss();
@@ -238,7 +243,7 @@ export function useOnboardingModalController({
     petKoma,
     komaPetting,
     githubUrl,
-    closeButtonRef,
+    goToStep,
     handleDismiss,
     handleCompleteOnly,
     handleCompleteAndTour,

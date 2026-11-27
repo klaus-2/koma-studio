@@ -213,7 +213,7 @@ describe('OnboardingModal', () => {
       expect(dialog?.getAttribute('data-onboarding-theme')).toBe(family);
       expect(document.body.querySelector('[data-koma-pose]')).not.toBeNull();
 
-      const railButtons = document.body.querySelectorAll('.koma-onb-railItem');
+      const railButtons = document.body.querySelectorAll('[data-onb-step]');
       const step4Btn = railButtons[3];
       expect(step4Btn).toBeTruthy();
       if (step4Btn) {
@@ -241,5 +241,62 @@ describe('OnboardingModal', () => {
 
       unmount();
     }
+  });
+});
+
+const renderAtFinish = (onClose = vi.fn(), onStartTour = vi.fn()) => {
+  render(
+    <I18nProvider>
+      <OnboardingModal
+        open
+        userId="user-finish"
+        onClose={onClose}
+        onStartTour={onStartTour}
+        onOpenSettingsTab={vi.fn()}
+        onOpenExternalUrl={vi.fn()}
+      />
+    </I18nProvider>,
+  );
+  const finishStep = document.body.querySelector('[data-onb-step="finish"]');
+  if (finishStep) fireEvent.click(finishStep);
+  return { onClose, onStartTour };
+};
+
+describe('OnboardingModal finish step', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem('koma-studio.locale.v1', 'en');
+    useThemeStore.setState({ family: 'noir', theme: 'dark' });
+    setDesktopBridgeProvider({});
+  });
+
+  it('enters the studio without the tour when the tour checkbox is cleared', () => {
+    vi.useFakeTimers();
+    const { onClose, onStartTour } = renderAtFinish();
+    fireEvent.click(screen.getByRole('checkbox', { name: new RegExp(enMessages['onboarding.finish.tourCheckbox']) }));
+    fireEvent.click(screen.getByText(enMessages['onboarding.finish.enterStudioButton']));
+    vi.advanceTimersByTime(100);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onStartTour).not.toHaveBeenCalled();
+    expect(readOnboardingState('user-finish')?.status).toBe('completed');
+    vi.useRealTimers();
+  });
+
+  it('jumps back to the step that owns a summary row', () => {
+    renderAtFinish();
+    expect(screen.getByText('7 / 7')).toBeTruthy();
+    const [firstEdit] = screen.getAllByRole('button', { name: /^Edit / });
+    expect(firstEdit).toBeTruthy();
+    if (firstEdit) fireEvent.click(firstEdit);
+    expect(screen.getByText('1 / 7')).toBeTruthy();
+  });
+
+  it('moves the theme family radio with arrow keys', () => {
+    renderAtFinish();
+    const welcome = document.body.querySelector('[data-onb-step="welcome"]');
+    if (welcome) fireEvent.click(welcome);
+    const noirRadio = screen.getByRole('radio', { checked: true, name: /Noir/i });
+    fireEvent.keyDown(noirRadio, { key: 'ArrowLeft' });
+    expect(useThemeStore.getState().family).toBe('classic');
   });
 });

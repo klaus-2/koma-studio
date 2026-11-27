@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -11,16 +11,9 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
-import {
-  SOURCE_LANGUAGE_OPTIONS,
-  TARGET_LANGUAGE_OPTIONS,
-} from '../../../models/aioStageCatalog';
+import { SOURCE_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import { estimateModelRequiredDiskBytes } from '../../../models/model-storage';
-import type {
-  AioLocalModelStage,
-  ModelInstallLifecycleStatus,
-  ModelInstallState,
-} from '../../../models/types';
+import type { AioLocalModelStage, ModelInstallLifecycleStatus, ModelInstallState } from '../../../models/types';
 import { useModelManagerLiveState } from '../../../hooks/useModelManager';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { ModelProgressBar } from '../../ModelManagerModal/ModelProgressBar';
@@ -31,10 +24,16 @@ import {
   getRecommendedModelIdsForStage,
 } from '../../ModelManagerModal/recommendedInstall';
 import {
-  OnboardingBadge,
-  OnboardingSectionCard,
-  OnboardingSelect,
+  OnbBadge,
+  OnbCheckbox,
+  OnbField,
+  OnbNotice,
+  OnbSection,
+  OnbSelect,
+  OnbToggleRow,
+  cx,
 } from '../onboardingPrimitives';
+import { useOnbSkin } from '../onboardingSkin';
 
 export interface OnboardingInstallModelsStepProps {
   onInstallModels?: (modelIds?: string[]) => Promise<unknown>;
@@ -44,7 +43,7 @@ export interface OnboardingInstallModelsStepProps {
   onOpenModelManager?: () => void;
 }
 
-const CORE_ONBOARDING_STAGES: readonly AioLocalModelStage[] = [
+const CORE_STAGES: readonly AioLocalModelStage[] = [
   'detectText',
   'recognizeText',
   'translation',
@@ -85,366 +84,260 @@ export function OnboardingInstallModelsStep({
   onOpenModelManager,
 }: OnboardingInstallModelsStepProps) {
   const { t, translateDynamic } = useI18n();
+  const skin = useOnbSkin();
+  const listTitleId = useId();
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const setAioSrcLang = useAioPipelineStore((s) => s.setAioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const setAioTgtLang = useAioPipelineStore((s) => s.setAioTgtLang);
-  const deviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
-
+  const vramGb = useAioPipelineStore((s) => s.aioDeviceInfo?.vram_gb ?? null);
   const { entries, diskSpace, initialized } = useModelManagerLiveState();
+
   const [includeEnhance, setIncludeEnhance] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const stages = useMemo<readonly AioLocalModelStage[]>(
-    () =>
-      includeEnhance
-        ? [...CORE_ONBOARDING_STAGES, 'enhanceImage']
-        : CORE_ONBOARDING_STAGES,
+    () => (includeEnhance ? [...CORE_STAGES, 'enhanceImage'] : CORE_STAGES),
     [includeEnhance],
   );
 
   const recommendedIds = useMemo(() => {
-    const seen = new Set<string>();
-    const ids: string[] = [];
+    const ids = new Set<string>();
     for (const stage of stages) {
-      const stageIds = getRecommendedModelIdsForStage(stage, aioSrcLang, aioTgtLang) ?? [];
-      for (const id of stageIds) {
-        if (!seen.has(id) && entries[id]) {
-          seen.add(id);
-          ids.push(id);
-        }
+      for (const id of getRecommendedModelIdsForStage(stage, aioSrcLang, aioTgtLang) ?? []) {
+        if (entries[id]) ids.add(id);
       }
     }
-    return ids;
+    return [...ids];
   }, [aioSrcLang, aioTgtLang, entries, stages]);
 
-  const multiSummary = useMemo(
-    () =>
-      buildMultiStageInstallSummary(
-        entries,
-        stages,
-        aioSrcLang,
-        aioTgtLang,
-        estimateModelRequiredDiskBytes,
-      ),
-    [aioSrcLang, aioTgtLang, entries, stages],
-  );
+  const eligibleKey = buildMultiStageInstallSummary(
+    entries,
+    stages,
+    aioSrcLang,
+    aioTgtLang,
+    estimateModelRequiredDiskBytes,
+  ).eligibleModelIds.join(',');
 
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
-    () => new Set(multiSummary.eligibleModelIds),
+    () => new Set(eligibleKey ? eligibleKey.split(',') : []),
   );
 
   useEffect(() => {
-    setSelectedIds(new Set(multiSummary.eligibleModelIds));
-  }, [aioSrcLang, aioTgtLang, includeEnhance, multiSummary.eligibleModelIds.join(',')]);
+    setSelectedIds(new Set(eligibleKey ? eligibleKey.split(',') : []));
+  }, [eligibleKey]);
 
-  const selectedEligibleIds = useMemo(
-    () =>
-      recommendedIds.filter((id) => {
-        const entry = entries[id];
-        return Boolean(entry && selectedIds.has(id) && ELIGIBLE_INSTALL_STATUSES.has(entry.status));
-      }),
-    [entries, recommendedIds, selectedIds],
-  );
+  const eligibleIds = recommendedIds.filter((id) => {
+    const entry = entries[id];
+    return Boolean(entry && ELIGIBLE_INSTALL_STATUSES.has(entry.status));
+  });
+  const selectedEligibleIds = eligibleIds.filter((id) => selectedIds.has(id));
+  const selectedBytes = selectedEligibleIds.reduce((sum, id) => {
+    const entry = entries[id];
+    return entry ? sum + estimateModelRequiredDiskBytes(entry.model) : sum;
+  }, 0);
+  const activeCount = recommendedIds.filter((id) => {
+    const entry = entries[id];
+    return Boolean(entry && isActiveStatus(entry.status));
+  }).length;
+  const installedCount = recommendedIds.filter((id) => entries[id]?.status === 'installed').length;
+  const allReady = recommendedIds.length > 0 && installedCount === recommendedIds.length;
+  const notEnoughSpace = diskSpace !== null && diskSpace !== undefined && selectedBytes > diskSpace.freeBytes;
 
-  const selectedBytes = useMemo(
-    () =>
-      selectedEligibleIds.reduce((sum, id) => {
-        const entry = entries[id];
-        return entry ? sum + estimateModelRequiredDiskBytes(entry.model) : sum;
-      }, 0),
-    [entries, selectedEligibleIds],
-  );
+  const allSelected = eligibleIds.length > 0 && selectedEligibleIds.length === eligibleIds.length;
+  const someSelected = selectedEligibleIds.length > 0 && !allSelected;
 
-  const activeDownloadsCount = useMemo(
-    () =>
-      recommendedIds.filter((id) => {
-        const entry = entries[id];
-        return Boolean(entry && isActiveStatus(entry.status));
-      }).length,
-    [entries, recommendedIds],
-  );
-
-  const installedCount = useMemo(
-    () =>
-      recommendedIds.filter((id) => entries[id]?.status === 'installed').length,
-    [entries, recommendedIds],
-  );
-
-  const readyPct =
-    recommendedIds.length > 0
-      ? Math.round((installedCount / recommendedIds.length) * 100)
-      : 0;
-
-  const srcOptions = useMemo(
-    () => SOURCE_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) })),
-    [t],
-  );
-
-  const tgtOptions = useMemo(
-    () => TARGET_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) })),
-    [t],
-  );
-
-  const toggleModelSelection = (modelId: string): void => {
+  const toggleOne = (modelId: string): void => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(modelId)) {
-        next.delete(modelId);
-      } else {
-        next.add(modelId);
-      }
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
       return next;
     });
   };
 
-  const handleInstallSelected = async (): Promise<void> => {
-    if (!onInstallModels || selectedEligibleIds.length === 0) {
-      return;
-    }
+  const toggleAll = (checked: boolean): void => {
+    setSelectedIds(checked ? new Set(eligibleIds) : new Set());
+  };
+
+  const handleInstall = async (): Promise<void> => {
+    if (!onInstallModels || selectedEligibleIds.length === 0) return;
     setActionError(null);
-    setBatchSubmitting(true);
+    setSubmitting(true);
     try {
       await onInstallModels(selectedEligibleIds);
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : t('modelManager.downloadError.unknown'),
-      );
+      setActionError(error instanceof Error ? error.message : t('modelManager.downloadError.unknown'));
     } finally {
-      setBatchSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const vramGb = deviceInfo?.vram_gb ?? null;
+  const srcOptions = SOURCE_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) }));
+  const tgtOptions = TARGET_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) }));
 
   return (
-    <div className="koma-onb-stepStack">
-
-      <OnboardingSectionCard>
-        <div className="koma-onb-pairBar">
-          <div className="koma-onb-pairBar__col">
-            <label htmlFor="koma-onb-src-lang" className="koma-onb-fieldLabel">
-              {t('onboarding.install.sourceLangLabel')}
-            </label>
-            <OnboardingSelect
-              id="koma-onb-src-lang"
-              value={aioSrcLang}
-              options={srcOptions}
-              onChange={setAioSrcLang}
-            />
-          </div>
-
-          <span className="koma-onb-pairBar__arrow" aria-hidden="true">
-            <ArrowRight size={16} />
-          </span>
-
-          <div className="koma-onb-pairBar__col">
-            <label htmlFor="koma-onb-tgt-lang" className="koma-onb-fieldLabel">
-              {t('onboarding.install.targetLangLabel')}
-            </label>
-            <OnboardingSelect
-              id="koma-onb-tgt-lang"
-              value={aioTgtLang}
-              options={tgtOptions}
-              onChange={setAioTgtLang}
-            />
-          </div>
+    <div className="flex flex-col gap-4">
+      <OnbSection title={t('onboarding.install.pairTitle')} desc={t('onboarding.install.pairDesc')}>
+        <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <OnbField label={t('onboarding.install.sourceLangLabel')} htmlFor="koma-onb-src-lang">
+            <OnbSelect id="koma-onb-src-lang" value={aioSrcLang} options={srcOptions} onChange={setAioSrcLang} />
+          </OnbField>
+          <ArrowRight size={16} aria-hidden="true" className={cx('hidden sm:mb-2.5 sm:block', skin.muted)} />
+          <OnbField label={t('onboarding.install.targetLangLabel')} htmlFor="koma-onb-tgt-lang">
+            <OnbSelect id="koma-onb-tgt-lang" value={aioTgtLang} options={tgtOptions} onChange={setAioTgtLang} />
+          </OnbField>
         </div>
-      </OnboardingSectionCard>
+        <div className="mt-3">
+          <OnbToggleRow
+            title={t('onboarding.install.includeEnhance')}
+            desc={t('onboarding.install.includeEnhanceDesc')}
+            checked={includeEnhance}
+            onChange={setIncludeEnhance}
+          />
+        </div>
+      </OnbSection>
 
-      <OnboardingSectionCard tone="info">
-        <div className="koma-onb-installBar">
-          <div className="min-w-0 flex-1">
-            <div className="koma-onb-cardHead">
-              <span className="koma-onb-iconTile" aria-hidden="true">
-                <HardDrive size={14} />
-              </span>
-              <strong className="koma-onb-cardTitle">
-                {t('onboarding.install.packTitle')}
-              </strong>
-              <OnboardingBadge tone={installedCount === recommendedIds.length && recommendedIds.length > 0 ? 'success' : 'info'}>
-                {t('onboarding.install.readyBadge', {
-                  installed: installedCount,
-                  total: recommendedIds.length,
-                })}
-              </OnboardingBadge>
-            </div>
-            <p className="koma-onb-muted">
-              {t('onboarding.install.sizeSummary', {
-                download: formatDownloadBytes(selectedBytes),
-                free: diskSpace
-                  ? formatDownloadBytes(diskSpace.freeBytes)
-                  : t('common.notAvailableShort'),
+      <OnbSection
+        icon={<HardDrive size={14} />}
+        title={t('onboarding.install.packTitle')}
+        desc={t('onboarding.install.sizeSummary', {
+          download: formatDownloadBytes(selectedBytes),
+          free: diskSpace ? formatDownloadBytes(diskSpace.freeBytes) : t('common.notAvailableShort'),
+        })}
+        titleId={listTitleId}
+        actions={
+          <OnbBadge tone={allReady ? 'success' : 'info'}>
+            {t('onboarding.install.readyBadge', { installed: installedCount, total: recommendedIds.length })}
+          </OnbBadge>
+        }
+      >
+        {!initialized && recommendedIds.length === 0 ? (
+          <p role="status" className={skin.muted}>{t('onboarding.install.loadingCatalog')}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {eligibleIds.length > 1 ? (
+              <label className={cx('flex cursor-pointer items-center gap-3 px-1', skin.label)}>
+                <OnbCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
+                <span>{t('onboarding.install.selectAll')}</span>
+              </label>
+            ) : null}
+
+            <ul aria-labelledby={listTitleId} className="flex flex-col gap-1.5">
+              {recommendedIds.map((modelId) => {
+                const entry = entries[modelId];
+                if (!entry) return null;
+                const eligible = ELIGIBLE_INSTALL_STATUSES.has(entry.status);
+                const busy = isActiveStatus(entry.status);
+                const installed = entry.status === 'installed';
+                const checked = eligible ? selectedIds.has(modelId) : installed;
+                const minVram = entry.model.minVramGb;
+                const exceedsVram = typeof minVram === 'number' && (vramGb === null || minVram > vramGb);
+
+                return (
+                  <li key={modelId} className={cx(skin.item, checked && !installed ? skin.itemOn : skin.itemOff)}>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                        <OnbCheckbox checked={checked} disabled={!eligible} onChange={() => toggleOne(modelId)} />
+                        <span className="min-w-0">
+                          <span className={cx('block truncate', skin.itemTitle)}>{entry.model.name}</span>
+                          <span className={cx('block', skin.mono)}>
+                            {t(STAGE_LABEL_KEYS[entry.model.stage])} · {formatDownloadBytes(estimateModelRequiredDiskBytes(entry.model), true)}
+                          </span>
+                        </span>
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {exceedsVram && typeof minVram === 'number' ? (
+                          <OnbBadge tone="warn">{t('onboarding.install.vramHint', { vram: minVram })}</OnbBadge>
+                        ) : null}
+                        {installed ? (
+                          <OnbBadge tone="success">
+                            <CheckCircle2 size={11} aria-hidden="true" />
+                            {t('modelManager.status.installed')}
+                          </OnbBadge>
+                        ) : entry.status === 'failed' ? (
+                          <>
+                            <OnbBadge tone="danger">
+                              <AlertCircle size={11} aria-hidden="true" />
+                              {t('modelManager.status.failed')}
+                            </OnbBadge>
+                            {onRetryModel ? (
+                              <button type="button" className={skin.btnSmall} onClick={() => void onRetryModel(modelId)}>
+                                <RefreshCw size={11} aria-hidden="true" />
+                                <span>{t('modelManager.actions.retry')}</span>
+                              </button>
+                            ) : null}
+                          </>
+                        ) : (
+                          <OnbBadge tone={busy ? 'info' : 'neutral'}>{t(STATUS_LABEL_KEYS[entry.status])}</OnbBadge>
+                        )}
+                      </div>
+                    </div>
+
+                    {entry.progress && busy ? (
+                      <div className="mt-2">
+                        <ModelProgressBar
+                          progress={entry.progress}
+                          compact
+                          onCancel={onCancelModel ? () => void onCancelModel(modelId) : undefined}
+                        />
+                      </div>
+                    ) : null}
+
+                    {entry.status === 'failed' ? (
+                      <p role="alert" className={cx('mt-2', skin.notice('danger'))}>
+                        {entry.errorCode
+                          ? translateDynamic(`modelManager.downloadError.${entry.errorCode}`)
+                          : entry.error || t('modelManager.downloadError.unknown')}
+                      </p>
+                    ) : null}
+                  </li>
+                );
               })}
-            </p>
-            <div className="koma-onb-packGauge" aria-hidden="true">
-              <div className="koma-onb-packGauge__fill" style={{ width: `${readyPct}%` }} />
-            </div>
+            </ul>
           </div>
+        )}
 
-          <div className="koma-onb-installActions">
-            <label className="koma-onb-checkChip">
-              <input
-                type="checkbox"
-                checked={includeEnhance}
-                onChange={(e) => setIncludeEnhance(e.target.checked)}
-              />
-              <span>{t('onboarding.install.includeEnhance')}</span>
-            </label>
+        {notEnoughSpace ? (
+          <div className="mt-3">
+            <OnbNotice tone="warn" role="alert">{t('onboarding.install.notEnoughSpace')}</OnbNotice>
+          </div>
+        ) : null}
+        {actionError ? (
+          <div className="mt-3">
+            <OnbNotice tone="danger" role="alert">{actionError}</OnbNotice>
+          </div>
+        ) : null}
 
-            {activeDownloadsCount > 0 && onCancelAllModels ? (
-              <button
-                type="button"
-                className="koma-onb-btn koma-onb-btn--ghost koma-onb-btn--sm"
-                onClick={() => void onCancelAllModels()}
-              >
-                <Square size={12} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <p className={cx('min-w-0 flex-1 basis-56', skin.muted)}>{t('onboarding.install.backgroundHint')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenModelManager ? (
+              <button type="button" className={skin.btnGhost} onClick={onOpenModelManager}>
+                <span>{t('onboarding.install.openManagerButton')}</span>
+                <ExternalLink size={12} aria-hidden="true" />
+              </button>
+            ) : null}
+            {activeCount > 0 && onCancelAllModels ? (
+              <button type="button" className={skin.btnGhost} onClick={() => void onCancelAllModels()}>
+                <Square size={12} aria-hidden="true" />
                 <span>{t('onboarding.install.cancelAll')}</span>
               </button>
             ) : null}
-
             <button
               type="button"
-              className="koma-onb-btn koma-onb-btn--primary"
-              disabled={batchSubmitting || selectedEligibleIds.length === 0 || !onInstallModels}
-              onClick={() => void handleInstallSelected()}
+              className={skin.btnPrimary}
+              aria-busy={submitting}
+              disabled={submitting || selectedEligibleIds.length === 0 || !onInstallModels}
+              onClick={() => void handleInstall()}
             >
-              <Download size={14} />
-              <span>
-                {t('onboarding.install.installSelectedButton', {
-                  count: selectedEligibleIds.length,
-                })}
-              </span>
+              <Download size={13} aria-hidden="true" />
+              <span>{t('onboarding.install.installSelectedButton', { count: selectedEligibleIds.length })}</span>
             </button>
-
-            {onOpenModelManager ? (
-              <button
-                type="button"
-                className="koma-onb-btn koma-onb-btn--ghost koma-onb-btn--sm"
-                onClick={onOpenModelManager}
-              >
-                <span>{t('onboarding.install.openManagerButton')}</span>
-                <ExternalLink size={12} />
-              </button>
-            ) : null}
           </div>
         </div>
-
-        <p className="koma-onb-muted koma-onb-mtXs">{t('onboarding.install.backgroundHint')}</p>
-        {actionError ? (
-          <p className="koma-onb-errorText koma-onb-mtXs" role="alert">
-            {actionError}
-          </p>
-        ) : null}
-      </OnboardingSectionCard>
-
-      {!initialized && recommendedIds.length === 0 ? (
-        <OnboardingSectionCard>
-          <p className="koma-onb-muted">{t('onboarding.install.loadingCatalog')}</p>
-        </OnboardingSectionCard>
-      ) : (
-        <div className="koma-onb-modelList">
-          {recommendedIds.map((modelId) => {
-            const entry = entries[modelId];
-            if (!entry) return null;
-            const eligible = ELIGIBLE_INSTALL_STATUSES.has(entry.status);
-            const isBusy = isActiveStatus(entry.status);
-            const isChecked = eligible ? selectedIds.has(modelId) : entry.status === 'installed';
-            const sizeEstimate = formatDownloadBytes(
-              estimateModelRequiredDiskBytes(entry.model),
-              true,
-            );
-            const exceedsVram =
-              typeof entry.model.minVramGb === 'number' &&
-              (vramGb === null || entry.model.minVramGb > vramGb);
-
-            return (
-              <div
-                key={modelId}
-                className={`koma-onb-modelRow ${
-                  entry.status === 'installed'
-                    ? 'koma-onb-modelRow--installed'
-                    : isChecked
-                      ? 'koma-onb-modelRow--selected'
-                      : ''
-                }`}
-              >
-                <div className="koma-onb-modelRow__top">
-                  <label className="koma-onb-modelRow__selectLabel">
-                    <input
-                      type="checkbox"
-                      className="koma-onb-checkbox"
-                      checked={isChecked}
-                      disabled={!eligible}
-                      onChange={() => toggleModelSelection(modelId)}
-                    />
-                    <strong className="koma-onb-modelRow__name">{entry.model.name}</strong>
-                    <OnboardingBadge tone="neutral">
-                      {t(STAGE_LABEL_KEYS[entry.model.stage])}
-                    </OnboardingBadge>
-                    <span className="koma-onb-mono koma-onb-modelRow__size">{sizeEstimate}</span>
-                  </label>
-
-                  <div className="koma-onb-modelRow__meta">
-                    {exceedsVram && typeof entry.model.minVramGb === 'number' ? (
-                      <OnboardingBadge tone="warn">
-                        {t('onboarding.install.vramHint', { vram: entry.model.minVramGb })}
-                      </OnboardingBadge>
-                    ) : null}
-
-                    {entry.status === 'installed' ? (
-                      <OnboardingBadge tone="success">
-                        <CheckCircle2 size={11} />
-                        {t('modelManager.status.installed')}
-                      </OnboardingBadge>
-                    ) : entry.status === 'failed' ? (
-                      <>
-                        <OnboardingBadge tone="accent">
-                          <AlertCircle size={11} />
-                          {t('modelManager.status.failed')}
-                        </OnboardingBadge>
-                        {onRetryModel ? (
-                          <button
-                            type="button"
-                            className="koma-onb-btn koma-onb-btn--ghost koma-onb-btn--sm"
-                            onClick={() => void onRetryModel(modelId)}
-                          >
-                            <RefreshCw size={12} />
-                            <span>{t('modelManager.actions.retry')}</span>
-                          </button>
-                        ) : null}
-                      </>
-                    ) : (
-                      <OnboardingBadge tone={isBusy ? 'info' : 'neutral'}>
-                        {t(STATUS_LABEL_KEYS[entry.status])}
-                      </OnboardingBadge>
-                    )}
-                  </div>
-                </div>
-
-                {entry.progress && isBusy ? (
-                  <ModelProgressBar
-                    progress={entry.progress}
-                    compact
-                    onCancel={
-                      onCancelModel ? () => void onCancelModel(modelId) : undefined
-                    }
-                  />
-                ) : null}
-
-                {entry.status === 'failed' ? (
-                  <p className="koma-onb-errorText" role="alert">
-                    {entry.errorCode
-                      ? translateDynamic(`modelManager.downloadError.${entry.errorCode}`)
-                      : entry.error || t('modelManager.downloadError.unknown')}
-                  </p>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      </OnbSection>
     </div>
   );
 }

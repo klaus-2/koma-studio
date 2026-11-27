@@ -1,13 +1,5 @@
-import {
-  ArrowRight,
-  Globe2,
-  Layers,
-  Monitor,
-  Moon,
-  Palette,
-  Sparkles,
-  Sun,
-} from 'lucide-react';
+import { useId } from 'react';
+import { Globe2, Layers, Monitor, Moon, Palette, Sparkles, Sun } from 'lucide-react';
 import { useThemeStore, type KomaTheme } from '@koma/ui/stores/theme-store';
 import { THEME_FAMILIES } from '@koma/ui/themes/registry';
 import { UI_SCALE_OPTIONS, useUiScaleStore } from '@koma/ui/stores/ui-scale-store';
@@ -15,227 +7,142 @@ import { UI_SCALE_OPTIONS, useUiScaleStore } from '@koma/ui/stores/ui-scale-stor
 import { useI18n } from '../../../i18n';
 import type { AppLocale } from '../../../i18n/config';
 import {
-  OnboardingBadge,
-  OnboardingSectionCard,
-  OnboardingSelect,
-  OnboardingToggleRow,
+  OnbField,
+  OnbNotice,
+  OnbSection,
+  OnbSelect,
+  OnbToggleRow,
+  cx,
+  type OnbOption,
 } from '../onboardingPrimitives';
+import { OnbChoiceGroup, OnbSegmented } from '../onboardingChoiceControls';
+import { useOnbSkin } from '../onboardingSkin';
 
-const PIPELINE_KEYS = [
-  'aio.stage.detectText',
-  'aio.stage.recognizeText',
-  'aio.stage.getTranslations',
-  'aio.stage.segmentText',
-  'aio.stage.cleanImage',
-  'aio.stage.render',
-] as const;
+const NOIR_SWATCH: Record<string, string> = {
+  noir: 'bg-gradient-to-br from-ink via-ink to-crimson/70 text-paper',
+  classic: 'bg-gradient-to-br from-ink via-ink to-[#a855f7]/70 text-paper',
+};
 
 export function OnboardingWelcomeStep() {
   const { locale, localeLabels, setLocale, supportedLocales, t } = useI18n();
-  const currentTheme = useThemeStore((s) => s.theme);
-  const setCurrentTheme = useThemeStore((s) => s.setTheme);
-  const currentFamily = useThemeStore((s) => s.family);
-  const setCurrentFamily = useThemeStore((s) => s.setFamily);
+  const skin = useOnbSkin();
+  const familyTitleId = useId();
+  const modeLabelId = useId();
+  const scaleLabelId = useId();
+
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const family = useThemeStore((s) => s.family);
+  const setFamily = useThemeStore((s) => s.setFamily);
   const uiScale = useUiScaleStore((s) => s.uiScale);
   const setUiScale = useUiScaleStore((s) => s.setUiScale);
   const compactDensity = useUiScaleStore((s) => s.compactDensity);
   const setCompactDensity = useUiScaleStore((s) => s.setCompactDensity);
 
-  const localeOptions = supportedLocales.map((loc) => ({
-    value: loc,
-    label: localeLabels[loc],
+  const familyOptions = THEME_FAMILIES.map((entry) => ({
+    value: entry.id,
+    title: t(entry.nameKey),
+    desc: t(entry.descKey),
+    media: (
+      <span
+        aria-hidden="true"
+        className={
+          skin.noir
+            ? cx(
+                'panel-cut-sm grid h-10 w-12 shrink-0 place-items-center border border-paper/15 font-display text-xs font-black',
+                NOIR_SWATCH[entry.id],
+              )
+            : `koma-stg-theme__preview koma-stg-theme__preview--${entry.id}`
+        }
+      >
+        {entry.glyph}
+      </span>
+    ),
+  }));
+
+  const modeOptions: readonly OnbOption<KomaTheme>[] = [
+    { value: 'dark', label: t('settings.theme.dark'), icon: <Moon size={13} aria-hidden="true" /> },
+    { value: 'light', label: t('settings.theme.light'), icon: <Sun size={13} aria-hidden="true" /> },
+  ];
+
+  const scaleOptions = UI_SCALE_OPTIONS.map((scale) => ({
+    value: scale,
+    label: `${Math.round(scale * 100)}%`,
+  }));
+
+  const localeOptions = supportedLocales.map((entry) => ({
+    value: entry,
+    label: localeLabels[entry],
   }));
 
   return (
-    <div className="koma-onb-stepStack">
+    <div className="flex flex-col gap-4">
+      <OnbNotice tone="info">
+        <Sparkles size={13} aria-hidden="true" className="mt-0.5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <strong className="block">{t('onboarding.welcome.heroTitle')}</strong>
+          {t('onboarding.welcome.liveHint')}
+        </span>
+      </OnbNotice>
 
-      <OnboardingSectionCard tone="accent" className="koma-onb-heroCard">
-        <div className="koma-onb-hero">
-          <div className="koma-onb-hero__copy">
-            <div className="koma-onb-eyebrowRow">
-              <OnboardingBadge tone="accent">
-                <Sparkles size={11} />
-                {t('onboarding.welcome.badge')}
-              </OnboardingBadge>
-            </div>
-            <h3 className="koma-onb-heading">{t('onboarding.welcome.heroTitle')}</h3>
-            <p className="koma-onb-lead">{t('onboarding.welcome.heroBody')}</p>
-          </div>
-          <div className="koma-onb-flowStrip" aria-label={t('onboarding.welcome.pipelineAria')}>
-            {PIPELINE_KEYS.map((stageKey, idx) => (
-              <span key={stageKey} className="koma-onb-flowItem">
-                <span className="koma-onb-flowChip">
-                  <span className="koma-onb-flowChip__idx">{idx + 1}</span>
-                  <span>{t(stageKey)}</span>
-                </span>
-                {idx < PIPELINE_KEYS.length - 1 && (
-                  <ArrowRight size={11} className="koma-onb-flowArrow" aria-hidden="true" />
-                )}
-              </span>
-            ))}
-          </div>
-        </div>
-      </OnboardingSectionCard>
+      <OnbSection
+        icon={<Palette size={14} />}
+        title={t('onboarding.welcome.familyTitle')}
+        desc={t('onboarding.welcome.familyDesc')}
+        titleId={familyTitleId}
+      >
+        <OnbChoiceGroup
+          labelledBy={familyTitleId}
+          value={family}
+          options={familyOptions}
+          onChange={setFamily}
+        />
+      </OnbSection>
 
-      <div className="koma-onb-grid2">
-        <OnboardingSectionCard>
-          <div className="koma-onb-cardHead">
-            <span className="koma-onb-iconTile" aria-hidden="true">
-              <Palette size={14} />
-            </span>
-            <div>
-              <span className="koma-onb-cardTitle">{t('onboarding.welcome.familyTitle')}</span>
-              <p className="koma-onb-muted">{t('onboarding.welcome.familyDesc')}</p>
-            </div>
-          </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <OnbSection
+          icon={<Monitor size={14} />}
+          title={t('onboarding.welcome.themeTitle')}
+          desc={t('onboarding.welcome.themeDesc')}
+        >
+          <OnbField label={t('onboarding.welcome.themeTitle')} labelId={modeLabelId}>
+            <OnbSegmented labelledBy={modeLabelId} value={theme} options={modeOptions} onChange={setTheme} />
+          </OnbField>
+        </OnbSection>
 
-          <div className="koma-onb-choiceGrid">
-            {THEME_FAMILIES.map((family) => {
-              const active = currentFamily === family.id;
-              return (
-                <button
-                  key={family.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setCurrentFamily(family.id)}
-                  className={`koma-onb-themeCard ${active ? 'koma-onb-themeCard--active' : ''}`}
-                >
-
-                  <span
-                    className={`koma-onb-skinSwatch koma-onb-skinSwatch--${family.id}`}
-                    aria-hidden="true"
-                  >
-                    <span className="koma-onb-skinSwatch__bar" />
-                    <span className="koma-onb-skinSwatch__glyph">{family.glyph}</span>
-                    <span className="koma-onb-skinSwatch__dots">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  </span>
-                  <span className="koma-onb-choiceCopy">
-                    <span className="koma-onb-choiceName">{t(family.nameKey)}</span>
-                    <span className="koma-onb-choiceDesc">{t(family.descKey)}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </OnboardingSectionCard>
-
-        <OnboardingSectionCard>
-          <div className="koma-onb-cardHead">
-            <span className="koma-onb-iconTile" aria-hidden="true">
-              <Monitor size={14} />
-            </span>
-            <div>
-              <span className="koma-onb-cardTitle">{t('onboarding.welcome.themeTitle')}</span>
-              <p className="koma-onb-muted">{t('onboarding.welcome.themeDesc')}</p>
-            </div>
-          </div>
-
-          <div className="koma-onb-choiceGrid">
-            {(
-              [
-                {
-                  id: 'dark' as KomaTheme,
-                  Icon: Moon,
-                  nameKey: 'settings.theme.dark',
-                  descKey: 'settings.theme.darkDesc',
-                },
-                {
-                  id: 'light' as KomaTheme,
-                  Icon: Sun,
-                  nameKey: 'settings.theme.light',
-                  descKey: 'settings.theme.lightDesc',
-                },
-              ] as const
-            ).map((opt) => {
-              const active = currentTheme === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setCurrentTheme(opt.id)}
-                  className={`koma-onb-themeCard ${active ? 'koma-onb-themeCard--active' : ''}`}
-                >
-                  <span
-                    className={`koma-onb-modeSwatch koma-onb-modeSwatch--${opt.id}`}
-                    aria-hidden="true"
-                  >
-                    <opt.Icon size={16} />
-                  </span>
-                  <span className="koma-onb-choiceCopy">
-                    <span className="koma-onb-choiceName">{t(opt.nameKey)}</span>
-                    <span className="koma-onb-choiceDesc">{t(opt.descKey)}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </OnboardingSectionCard>
-      </div>
-
-      <div className="koma-onb-grid2">
-        <OnboardingSectionCard>
-          <div className="koma-onb-cardHead">
-            <span className="koma-onb-iconTile" aria-hidden="true">
-              <Globe2 size={14} />
-            </span>
-            <div>
-              <label htmlFor="koma-onb-locale-select" className="koma-onb-cardTitle">
-                {t('onboarding.welcome.languageTitle')}
-              </label>
-              <p className="koma-onb-muted">{t('onboarding.welcome.languageDesc')}</p>
-            </div>
-          </div>
-          <div className="koma-onb-mtSm">
-            <OnboardingSelect
+        <OnbSection
+          icon={<Globe2 size={14} />}
+          title={t('onboarding.welcome.languageTitle')}
+          desc={t('onboarding.welcome.languageDesc')}
+        >
+          <OnbField label={t('onboarding.welcome.languageTitle')} htmlFor="koma-onb-locale-select">
+            <OnbSelect
               id="koma-onb-locale-select"
               value={locale}
               options={localeOptions}
-              onChange={(val) => setLocale(val as AppLocale)}
+              onChange={(value) => setLocale(value as AppLocale)}
             />
-          </div>
-        </OnboardingSectionCard>
-
-        <OnboardingSectionCard>
-          <div className="koma-onb-cardHead">
-            <span className="koma-onb-iconTile" aria-hidden="true">
-              <Layers size={14} />
-            </span>
-            <div>
-              <span className="koma-onb-cardTitle">{t('onboarding.welcome.scaleTitle')}</span>
-              <p className="koma-onb-muted">{t('onboarding.welcome.scaleDesc')}</p>
-            </div>
-          </div>
-          <div className="koma-onb-pillRow" role="group" aria-label={t('onboarding.welcome.scaleTitle')}>
-            {UI_SCALE_OPTIONS.map((scale) => {
-              const active = uiScale === scale;
-              return (
-                <button
-                  key={scale}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setUiScale(scale)}
-                  className={`koma-onb-pillBtn ${active ? 'koma-onb-pillBtn--active' : ''}`}
-                >
-                  {Math.round(scale * 100)}%
-                </button>
-              );
-            })}
-          </div>
-          <div className="koma-onb-mtSm koma-onb-dividerTop">
-            <OnboardingToggleRow
-              title={t('settings.uiScale.compactTitle')}
-              description={t('settings.uiScale.compactDesc')}
-              checked={compactDensity}
-              onChange={setCompactDensity}
-            />
-          </div>
-        </OnboardingSectionCard>
+          </OnbField>
+        </OnbSection>
       </div>
+
+      <OnbSection
+        icon={<Layers size={14} />}
+        title={t('onboarding.welcome.scaleTitle')}
+        desc={t('onboarding.welcome.scaleDesc')}
+      >
+        <div className="flex flex-col gap-3">
+          <OnbField label={t('onboarding.welcome.scaleTitle')} labelId={scaleLabelId}>
+            <OnbSegmented labelledBy={scaleLabelId} value={uiScale} options={scaleOptions} onChange={setUiScale} />
+          </OnbField>
+          <OnbToggleRow
+            title={t('settings.uiScale.compactTitle')}
+            desc={t('settings.uiScale.compactDesc')}
+            checked={compactDensity}
+            onChange={setCompactDensity}
+          />
+        </div>
+      </OnbSection>
     </div>
   );
 }
