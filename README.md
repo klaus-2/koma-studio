@@ -34,12 +34,12 @@ The whole job is one pipeline, six stages, in this order:
 
 | Stage | What happens |
 |---|---|
-| **Detect** | Locate the text and bubble regions on the page |
+| **Detect** | Locate bubbles, narration, HUD boxes, and SFX — plus classify bubble shapes (`speech`, `thought`, `scream`, `whisper`, `narration`, `system_box`) |
 | **OCR** | Extract the textual content of each region |
 | **Translate** | Translate it with the model or service you picked |
-| **Segment** | Refine the region geometry into renderable lines |
-| **Clean** | Inpaint the source text away (AOT/LaMa + mask) |
-| **Render** | Draw the translated text back into the image |
+| **Segment** | Generate pixel-level text masks (`CTD Text Mask`, `Comic Text Mask`, or built-in CC heuristic) |
+| **Clean** | Reconstruct underlying artwork safely inside masks (`LaMa Manga`, `LaMa FP32 512`, `AOT`, or AI Clean) |
+| **Render** | Draw the translated text back into `inner_box` bubble bounds |
 
 Run it end to end in one click (**AIO automatic**), or open it up and take
 manual control of each stage — rewind, re-run, skip, adjust the region on the
@@ -56,6 +56,39 @@ Redrawer**, **Typesetter**, **Translator**, **Stitch**, **Smart Split**,
 - **No telemetry.** The app does not collect analytics, usage statistics or behavioural
   data.
 - **MIT licensed.** Bring your own models, CUDA/CPU/TensorRT/OpenVINO aware.
+
+## Model Choice & Visual Benchmarks
+
+Pick the workflow that matches your hardware, page complexity, and level of manual control — the complete visual analysis across colored manhwa, manga screentones, webtoon strips, CPU timings, and generative img-to-img localization lives in [`docs/MODEL-GUIDE.md`](./docs/MODEL-GUIDE.md).
+
+| Workflow Profile | Detect | Segment | Clean / Render | Best For |
+|---|---|---|---|---|
+| **Default Local (GPU / Best Quality)** | `RT-DETR v2` | `CTD Text Mask` | `LaMa Manga Dynamic` | Sharpest deterministic cleaning on gradients, HUD boxes & screentones (`unmasked_max_diff = 0`) |
+| **CPU-Only / Fast Batch** | `RT-DETR v2` | `CTD Text Mask` | `LaMa FP32 512` | **2–8× faster on CPU** (`3.7–44s/page`) with full color accuracy |
+| **Low Disk / B&W Bubbles** | `Comic Text Detector` | `Baka Content CC` | `AOT` (~22 MB) | Minimal disk footprint on simple flat monochrome dialog balloons |
+| **Hybrid Local + AI Clean** | `RT-DETR v2` | `CTD Text Mask` | **Automatic AI Clean** + Typesetter | Heavy stylized SFX over detailed art while keeping editable text & PSD layers |
+| **AIO AI (img-to-img)** | Single-Pass / Hybrid Guided | Integrated Redraw | `HY-Image 3.5`, Gemini Image, GPT Image, or Local Edit | One-step translation + redraw + style-matched lettering in native bubbles & SFX |
+
+**Cleaning benchmark — Local Inpainting (`AOT`, `LaMa Manga`, `LaMa FP32`) vs. Automatic AI Clean (`HY-Image 3.5`):**
+
+![Colored manhwa cleaning comparison](docs/media/benchmarks/cleaning-colored-manhwa.jpg)
+
+**AIO AI (img-to-img) single-pass localization showcase (`HY-Image 3.5` via custom OpenAI-compatible image endpoint):**
+
+![AIO AI end-to-end img-to-img benchmarks](docs/media/benchmarks/aio-ai-end-to-end.jpg)
+
+<details>
+<summary>More visual benchmarks: B&amp;W Manga Screentones, Long-Strip Webtoons &amp; Geometric Bubble Shape Classification</summary>
+
+![Manga screentone cleaning comparison](docs/media/benchmarks/cleaning-manga-screentone.jpg)
+
+![Webtoon strip cleaning comparison](docs/media/benchmarks/cleaning-webtoon-strip.jpg)
+
+![Bubble detection and structural shape classification](docs/media/benchmarks/detection-bubble-shapes.png)
+
+</details>
+
+See [**Model Choice & Visual Benchmarks (`docs/MODEL-GUIDE.md`)**](./docs/MODEL-GUIDE.md) for measured CPU vs. generative timings, **6-Stage Pipeline vs. AIO AI** tradeoffs (`Direct`, `Hybrid Guided`, `Script Guided`), segmentation comparisons, and structural bubble classification (`speech`, `thought`, `scream`, `whisper`, `narration`, `system_box`, `trembling`).
 
 ## How KOMA compares
 
