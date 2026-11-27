@@ -11,10 +11,12 @@ import {
   migrateLegacyModePresets,
   modeDefaultPresetId,
   needsLegacyModeMigration,
+  resetModeDefaultTransform,
 } from './modeDefaults';
 import {
   loadTypographyPresetState,
   resolveModeTypographyPreset,
+  FREE_TEXT_TRANSFORM_RESET_KEY,
   TYPOGRAPHY_PRESET_STORAGE_KEY,
 } from './presets';
 import { RENDER_MODE_PRESET_MODES } from '../utils/renderModePresets';
@@ -263,5 +265,48 @@ describe('SFX approved-region application (single commit via B1 core)', () => {
     );
     expect(result).toEqual({ kind: 'no-preset' });
     expect(commits).toBe(0);
+  });
+});
+
+describe('Free preset transform reset', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  const tiltedFreeState = (): TypographyPresetStateV1 => {
+    const state = buildDefaultTypographyPresetState(DEFAULT_RENDER_STYLE);
+    return {
+      ...state,
+      presets: state.presets.map((entry) =>
+        entry.id === modeDefaultPresetId('text_free')
+          ? { ...entry, style: { ...entry.style, rotation: 5, skewX: 1, skewY: 3, fontFamily: 'Kept Font' } }
+          : entry,
+      ),
+    };
+  };
+
+  it('ships the Free default with no rotation or skew', () => {
+    const free = buildDefaultTypographyPresetState(DEFAULT_RENDER_STYLE).presets.find(
+      (entry) => entry.id === modeDefaultPresetId('text_free'),
+    );
+    expect(free?.style).toMatchObject({ rotation: 0, skewX: 0, skewY: 0 });
+  });
+
+  it('zeroes only the transform of the Free default and keeps its other edits', () => {
+    const next = resetModeDefaultTransform(tiltedFreeState(), 'text_free');
+    const free = next.presets.find((entry) => entry.id === modeDefaultPresetId('text_free'));
+    expect(free?.style).toMatchObject({ rotation: 0, skewX: 0, skewY: 0, fontFamily: 'Kept Font' });
+  });
+
+  it('resets a stored tilted Free preset once and leaves later user tilts alone', () => {
+    window.localStorage.setItem(TYPOGRAPHY_PRESET_STORAGE_KEY, JSON.stringify(tiltedFreeState()));
+    const first = loadTypographyPresetState();
+    const freeId = modeDefaultPresetId('text_free');
+    expect(first.presets.find((entry) => entry.id === freeId)?.style.rotation).toBe(0);
+    expect(window.localStorage.getItem(FREE_TEXT_TRANSFORM_RESET_KEY)).toBe('1');
+
+    window.localStorage.setItem(TYPOGRAPHY_PRESET_STORAGE_KEY, JSON.stringify(tiltedFreeState()));
+    const second = loadTypographyPresetState();
+    expect(second.presets.find((entry) => entry.id === freeId)?.style.rotation).toBe(5);
   });
 });

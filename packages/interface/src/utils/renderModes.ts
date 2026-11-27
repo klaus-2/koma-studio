@@ -56,6 +56,9 @@ const buildDefaultModePatch = (
         outlineColor: "#ffffff",
         outlineWidth: 1.5,
         uppercase: false,
+        rotation: 0,
+        skewX: 0,
+        skewY: 0,
       };
 
     case "text_sfx":

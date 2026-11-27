@@ -65,6 +65,22 @@ export const buildDefaultTypographyPresetState = (
   defaultPresetId: modeDefaultPresetId("text_bubble"),
 });
 
+export const resetModeDefaultTransform = (
+  state: TypographyPresetStateV1,
+  mode: RenderModePresetMode,
+): TypographyPresetStateV1 => {
+  const id = modeDefaultPresetId(mode);
+  let changed = false;
+  const presets = state.presets.map((preset) => {
+    if (preset.id !== id) return preset;
+    const { rotation, skewX, skewY } = preset.style;
+    if (!rotation && !skewX && !skewY) return preset;
+    changed = true;
+    return { ...preset, style: { ...preset.style, rotation: 0, skewX: 0, skewY: 0 } };
+  });
+  return changed ? { ...state, presets } : state;
+};
+
 const isUntouchedSfxSeed = (preset: TypographyStylePreset): boolean =>
   preset.id.startsWith(LEGACY_SFX_SEED_ID_PREFIX) && preset.createdAt === 0 && preset.updatedAt === 0;
 

@@ -23,9 +23,11 @@ import {
   migrateLegacyModePresets,
   modeDefaultPresetId,
   needsLegacyModeMigration,
+  resetModeDefaultTransform,
 } from "./modeDefaults";
 
 export const TYPOGRAPHY_PRESET_STORAGE_KEY = "koma-typography-presets-v1";
+export const FREE_TEXT_TRANSFORM_RESET_KEY = "koma-typography-free-transform-reset-v1";
 
 const DEFAULT_STYLE: RenderTextStyle = {
   fontFamily: "Arial",
@@ -272,12 +274,20 @@ const persistState = (state: TypographyPresetStateV1): void => {
   window.localStorage.setItem(TYPOGRAPHY_PRESET_STORAGE_KEY, JSON.stringify(state));
 };
 
+const resetFreeTextTransformOnce = (state: TypographyPresetStateV1): TypographyPresetStateV1 => {
+  if (window.localStorage.getItem(FREE_TEXT_TRANSFORM_RESET_KEY)) return state;
+  window.localStorage.setItem(FREE_TEXT_TRANSFORM_RESET_KEY, "1");
+  const next = resetModeDefaultTransform(state, "text_free");
+  if (next !== state) persistState(next);
+  return next;
+};
+
 export const loadTypographyPresetState = (): TypographyPresetStateV1 => {
   if (typeof window === "undefined") return buildModeDefaultPresetState();
   migrateRenderSizeCatalog(TYPOGRAPHY_PRESET_STORAGE_KEY);
   const raw = parseJson<TypographyPresetStateV1>(window.localStorage.getItem(TYPOGRAPHY_PRESET_STORAGE_KEY));
   if (raw === null) return buildModeDefaultPresetState();
-  const state = sanitizeState(raw);
+  const state = resetFreeTextTransformOnce(sanitizeState(raw));
   if (!needsLegacyModeMigration(state)) return state;
   return saveTypographyPresetState(migrateLegacyModePresets(state, DEFAULT_STYLE, loadRenderModePresetState().presets));
 };
@@ -287,8 +297,6 @@ export const saveTypographyPresetState = (state: TypographyPresetStateV1): Typog
   persistState(sanitized);
   return sanitized;
 };
-
-
 
 export const getTypographyPresetById = (
   presetId: string | null | undefined,
@@ -355,7 +363,6 @@ export const deleteTypographyFolder = (
 ): TypographyPresetStateV1 => {
   const idsToRemove = collectDescendantFolderIds(folderId, state.folders);
   const nextFolders = state.folders.filter((folder) => !idsToRemove.has(folder.id));
-  // Move presets that belonged to any removed folder to no folder
   const nextPresets = state.presets.map((preset) =>
     preset.folderId && idsToRemove.has(preset.folderId)
       ? { ...preset, folderId: null, updatedAt: Date.now() }
