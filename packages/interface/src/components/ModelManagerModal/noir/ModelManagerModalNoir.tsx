@@ -25,6 +25,7 @@ import { InstallAllConfirmation } from '../InstallAllConfirmation';
 import { ModelCard } from '../ModelCard';
 import { ModelFilters } from '../ModelFilters';
 import { ALL_AIO_LOCAL_STAGES, buildMultiStageInstallSummary } from '../recommendedInstall';
+import StageModelGuideCard, { isGuideStage } from '../../dashboard/StageModelGuideCard';
 
 export interface ModelManagerModalProps {
   open: boolean;
@@ -264,13 +265,11 @@ export const ModelManagerModalNoir = ({
             transition={{ duration: 0.45, ease: EASE }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ── Decorações ── */}
             <span aria-hidden className="absolute left-0 top-0 z-10 h-[3px] w-full bg-gradient-to-r from-crimson via-crimson/50 to-transparent" />
             <span aria-hidden className="v-text pointer-events-none absolute bottom-6 right-2 z-0 select-none font-display text-xl font-black tracking-widest text-paper/[0.06]">
               モデル管理 — KOMA
             </span>
 
-            {/* ═══ HEADER ═══ */}
             <header className="relative flex items-start justify-between gap-4 px-5 pb-4 pt-5 sm:px-6">
               <div className="flex items-start gap-3.5">
                 <m.span
@@ -343,7 +342,6 @@ export const ModelManagerModalNoir = ({
               </div>
             )}
 
-            {/* ═══ FILTERS ═══ */}
             <ModelFilters
               filters={filters}
               languages={languageOptions}
@@ -356,14 +354,16 @@ export const ModelManagerModalNoir = ({
               onStatusChange={setStatusFilter}
             />
 
-            {/* ═══ BODY ═══ */}
             <div className="relative flex-1 space-y-8 overflow-y-auto px-5 py-5 sm:px-6">
-              {/* ── LOCAL ── */}
               {effectiveSource !== 'cloud' && (
                 <section>
                   <CatalogHeader index="01"
                     title={<>{t('modelManager.modal.localModels')}</>}
                     desc={t('modelManager.modal.localDesc')} />
+
+                  {isGuideStage(localStageFilter) && (
+                    <StageModelGuideCard stage={localStageFilter} noir compact className="mb-3" />
+                  )}
 
                   <m.div variants={stagger} initial="hidden" animate="show"
                     className="grid gap-3 md:grid-cols-2">
@@ -384,7 +384,6 @@ export const ModelManagerModalNoir = ({
                 </section>
               )}
 
-              {/* ── CLOUD ── */}
               {enableCloudCatalog && effectiveSource !== 'local' && (
                 <section>
                   <CatalogHeader index="02"
@@ -433,7 +432,6 @@ export const ModelManagerModalNoir = ({
               )}
             </div>
 
-            {/* ═══ FOOTER ═══ */}
             {!hideFooter && (
               <footer className="relative flex flex-wrap items-center gap-4 border-t border-paper/10 bg-ink/70 px-5 py-4 sm:px-6">
                 <DiskSpaceIndicator diskSpace={diskSpace} installedCount={installedCount}

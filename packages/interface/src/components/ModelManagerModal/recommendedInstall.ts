@@ -19,8 +19,8 @@ export const ELIGIBLE_INSTALL_STATUSES = new Set<ModelInstallState['status']>([
 
 const STAGE_RECOMMENDED_MODEL_IDS: Partial<Record<AioLocalModelStage, string[]>> = {
   detectText: ['font_rtdetr_v2'],
-  segmentText: ['baka_content_cc'],
-  cleanImage: ['aot'],
+  segmentText: ['ctd_text_seg'],
+  cleanImage: ['lama_manga'],
   imageEdit: ['flux2_klein_4b_gguf_q4'],
 };
 

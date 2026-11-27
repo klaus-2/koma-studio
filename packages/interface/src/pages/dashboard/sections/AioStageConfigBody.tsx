@@ -12,6 +12,7 @@ import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import ImageEditCompatibilityBanner from '../../../components/dashboard/ImageEditCompatibilityBanner';
 import ImageEditModelConfigFields from '../../../components/dashboard/ImageEditModelConfigFields';
 import ImageEditModelGuideCard from '../../../components/dashboard/ImageEditModelGuideCard';
+import StageModelGuideCard from '../../../components/dashboard/StageModelGuideCard';
 import KlSlider from '../../../components/dashboard/KlSlider';
 import StageModelSelect, {
   STAGE_HINTS_CLEAN,
@@ -297,24 +298,27 @@ export default memo(function AioStageConfigBody({
   return (
     <>
       {activeStageTab === 'detectText' && (
-        <StageModelSelect
-          label={t('aio.stage.detectText')}
-          value={aioStageSelection.detectText}
-          options={availableDetectStageOptions}
-          selectedModel={selectedDetectModel}
-          statusText={selectedDetectStatusText}
-          formatOptionLabel={formatAioStageOptionLabel}
-          onSelectModel={(modelKey) =>
-            selectAioLocalStageModel('detectText', modelKey)
-          }
-          onOpenManager={() =>
-            openModelManagerForStage('detectText', {
-              focusedModelId: aioStageSelection.detectText,
-            })
-          }
-          refusal={stageModelRefusals.detectText ?? null}
-          onUseDefaultModel={() => useDefaultModelForStage('detectText')}
-        />
+        <>
+          <StageModelSelect
+            label={t('aio.stage.detectText')}
+            value={aioStageSelection.detectText}
+            options={availableDetectStageOptions}
+            selectedModel={selectedDetectModel}
+            statusText={selectedDetectStatusText}
+            formatOptionLabel={formatAioStageOptionLabel}
+            onSelectModel={(modelKey) =>
+              selectAioLocalStageModel('detectText', modelKey)
+            }
+            onOpenManager={() =>
+              openModelManagerForStage('detectText', {
+                focusedModelId: aioStageSelection.detectText,
+              })
+            }
+            refusal={stageModelRefusals.detectText ?? null}
+            onUseDefaultModel={() => useDefaultModelForStage('detectText')}
+          />
+          <StageModelGuideCard stage="detectText" noir={noir} compact className="mt-2" />
+        </>
       )}
 
       {activeStageTab === 'recognizeText' && (
@@ -378,25 +382,28 @@ export default memo(function AioStageConfigBody({
       )}
 
       {activeStageTab === 'segmentText' && (
-        <StageModelSelect
-          label={t('aio.stage.segmentText')}
-          value={aioStageSelection.segmentText}
-          options={availableSegmentStageOptions}
-          selectedModel={selectedSegmentModel}
-          statusText={selectedSegmentStatusText}
-          deviceVramGb={deviceVramGb}
-          formatOptionLabel={formatAioStageOptionLabel}
-          onSelectModel={(modelKey) =>
-            selectAioLocalStageModel('segmentText', modelKey)
-          }
-          onOpenManager={() =>
-            openModelManagerForStage('segmentText', {
-              focusedModelId: aioStageSelection.segmentText,
-            })
-          }
-          refusal={stageModelRefusals.segmentText ?? null}
-          onUseDefaultModel={() => useDefaultModelForStage('segmentText')}
-        />
+        <>
+          <StageModelSelect
+            label={t('aio.stage.segmentText')}
+            value={aioStageSelection.segmentText}
+            options={availableSegmentStageOptions}
+            selectedModel={selectedSegmentModel}
+            statusText={selectedSegmentStatusText}
+            deviceVramGb={deviceVramGb}
+            formatOptionLabel={formatAioStageOptionLabel}
+            onSelectModel={(modelKey) =>
+              selectAioLocalStageModel('segmentText', modelKey)
+            }
+            onOpenManager={() =>
+              openModelManagerForStage('segmentText', {
+                focusedModelId: aioStageSelection.segmentText,
+              })
+            }
+            refusal={stageModelRefusals.segmentText ?? null}
+            onUseDefaultModel={() => useDefaultModelForStage('segmentText')}
+          />
+          <StageModelGuideCard stage="segmentText" noir={noir} compact className="mt-2" />
+        </>
       )}
 
       {activeStageTab === 'cleanImage' && (
@@ -579,6 +586,7 @@ export default memo(function AioStageConfigBody({
           }
           hints={STAGE_HINTS_CLEAN}
         >
+          <StageModelGuideCard stage="cleanImage" noir={noir} compact />
           <KlSlider
             label={(
               <span className="koma-inline-label-with-info">
@@ -622,14 +630,15 @@ export default memo(function AioStageConfigBody({
             value={aioHdStrategy}
             onChange={(e) =>
               setAioHdStrategy(
-                e.target.value as 'original' | 'resize' | 'crop',
+                e.target.value as 'auto' | 'original' | 'resize' | 'crop',
               )
             }
             className={skin.select}
             aria-label={t("dashboard.dashboardLlm.hdStrategy")}
           >
-            <option value="resize">{t("dashboard.dashboardLlm.resize")}</option>
+            <option value="auto">{translateOrFallback(locale, 'dashboard.aio.clean.hdStrategy.auto', 'Auto')}</option>
             <option value="crop">{t("dashboard.dashboardLlm.crop")}</option>
+            <option value="resize">{t("dashboard.dashboardLlm.resize")}</option>
             <option value="original">{t("dashboard.dashboardLlm.original")}</option>
           </select>
           <p className="koma-aio-hint">
@@ -647,7 +656,7 @@ export default memo(function AioStageConfigBody({
               resetVal={960}
             />
           )}
-          {aioHdStrategy === 'crop' && (
+          {(aioHdStrategy === 'crop' || aioHdStrategy === 'auto') && (
             <>
               <KlSlider
                 label={(
@@ -670,7 +679,7 @@ export default memo(function AioStageConfigBody({
                 max={3000}
                 step={1}
                 onChange={setAioHdCropMargin}
-                resetVal={512}
+                resetVal={192}
               />
               <KlSlider
                 label={(

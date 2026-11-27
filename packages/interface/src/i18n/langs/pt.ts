@@ -509,8 +509,11 @@ export const ptMessages: TranslationCatalog = {
   'aio.model.auto.resolved': 'Auto: {model}',
   'aio.model.auto.summary': 'Auto: {name}',
   'aio.stage.detectText': 'Detectar Texto',
+  'aio.stage.detectText.short': 'Detectar',
   'aio.stage.recognizeText': 'Reconhecer Texto',
+  'aio.stage.recognizeText.short': 'OCR',
   'aio.stage.getTranslations': 'Obter Traduções',
+  'aio.stage.getTranslations.short': 'Traduzir',
   'aio.stage.segmentText': 'Segmentar Texto',
   'aio.stage.cleanImage': 'Limpar Imagem',
   'aio.stage.tabsBarAria': 'Configuração por etapa',
@@ -4157,9 +4160,9 @@ export const ptMessages: TranslationCatalog = {
   'model.m2m100_1_2b_ct2.description':
     'Tradutor local multilíngue via CTranslate2, com cobertura ampla de idiomas e compatibilidade com o fluxo offline do BallonsTranslator.',
   'model.font_rtdetr_v2.description':
-    'Modelo local para detecção de regiões de texto no pipeline AIO.',
+    'Detetor recomendado em passagem única para balões, narração e texto solto (~160,7 MB), com classificação automática de formas de balão.',
   'model.comic_text_detector.description':
-    'Detector local baseado no módulo CTD do BallonsTranslator para caixas de texto em páginas de manga.',
+    'Detetor clássico e rápido para banda desenhada (~90,3 MB) — partilha os pesos com a segmentação CTD Text Mask.',
   'model.manga_ocr.description': 'Modelo OCR local para japonês no AIO.',
   'model.meiki_ocr.description':
     'OCR japonês local especializado em texto renderizado, com modelos horizontal e vertical em ONNX.',
@@ -4187,15 +4190,19 @@ export const ptMessages: TranslationCatalog = {
     'OCR local multi-idioma com instalação sob demanda no diretório de modelos do app.',
   'model.pororo.description': 'Modelo OCR local para coreano no pipeline AIO.',
   'model.baka_content_cc.description':
-    'Modelo local para segmentação/refino das regiões de texto no AIO.',
+    'Heurística embutida sem transferência (Otsu + componentes conexos) — instantânea em balões P&B limpos; use CTD Text Mask em arte colorida ou texturada.',
+  'model.ctd_text_seg.description':
+    'Máscara neural U-Net recomendada ao nível do pixel (~90,3 MB) — preserva contornos e traços; partilha os pesos do Comic Text Detector.',
+  'model.comic_text_mask.description':
+    'Segmentador U-Net ResNet18 por recorte (~54,7 MB, licença MIT) — alta precisão em páginas coloridas e multilingues.',
   'model.aot.description':
-    'Modelo local de inpainting para limpeza de balões no AIO.',
+    'Modelo leve (~22 MB) e económico, indicado para balões simples lisos e mangá P&B.',
   'model.lama_manga.description':
-    'Modelo local de inpainting contextual para áreas complexas no AIO.',
+    'Modelo de limpeza padrão recomendado (~196,7 MB) — maior fidelidade visual em manhwas/webtoons coloridos, gradientes, painéis HUD e retículas.',
   'model.opencv_lama.description':
-    'Modelo local leve de inpainting via OpenCV Zoo, pensado para CPU e execução rápida.',
+    'Exportação quantizada legada do OpenCV Zoo LaMa (~88,3 MB) — prefira LaMa FP32 512 em CPU ou LaMa Manga Dynamic para qualidade.',
   'model.lama_fp32.description':
-    'Port ONNX recomendado do big-lama em 512x512, indicado para CPU/GPU quando se busca equilíbrio entre qualidade e simplicidade.',
+    'LaMa de alta qualidade mais rápido em CPU (~198,4 MB) — cores fiéis em recortes 512x512, 2–8x mais rápido do que LaMa Manga em CPU.',
   'model.vntl_llama3_8b_v2.description':
     'Fine-tune LLaMA3 para VN japonês → inglês. Dataset reconstruído com suporte multi-linha. Use temp 0. (~5.7-8.5GB GGUF).',
   'model.lfm2_350m_enjp_mt.description':
@@ -4207,7 +4214,9 @@ export const ptMessages: TranslationCatalog = {
   'model.hunyuan_7b_mt_v1_0.description':
     'Tradutor multilíngue da Tencent — 1º lugar WMT25. 33 idiomas bidirecionais. Prompt: "Translate into <target_language>." (~4.2GB Q4_K_M).',
   'model.pp_doclayout_v3.description':
-    'Modelo local de detecção de layout e texto baseado em PP-DocLayout V3. Alta precisão para análise de layout de página.',
+    'Detetor completo de layout e ordem de leitura (~127,1 MB) — ideal para scans inclinados, revistas ou páginas em várias colunas.',
+  'model.yolo_bubble.description':
+    'Segmentador de instâncias YOLOv8-seg leve (~11,3 MB) para polígonos exatos de balões de fala e quadros sobrepostos.',
   'model.paddleocr_vl_1_5.description':
     'OCR VLM multilíngue de alta qualidade (PaddleOCR-VL 1.5). Até 128 tokens por bloco de texto.',
   'model.waifu2x_swin_unet_art_scan_2x.description':
@@ -4617,37 +4626,48 @@ export const ptMessages: TranslationCatalog = {
     'Excelente para projetos multilíngues onde qualidade é prioridade',
 
   'model.tooltip.font_rtdetr_v2.highlights':
-    'Detecta balões de fala e texto em quadrinhos\nIdentifica texto dentro e fora dos balões\nTudo em uma única passagem',
+    'Deteta balões, caixas de narração e texto solto numa passagem\nCombina automaticamente com a classificação geométrica/espetral do KOMA\nCalcula inner_box segura para tipografia (~160,7 MB)',
   'model.tooltip.font_rtdetr_v2.unique':
-    'O único que detecta balões, texto dentro dos balões e texto solto na página ao mesmo tempo',
+    'Separa diálogos dentro de balões de SFX livres e classifica automaticamente fala, pensamento, grito, sussurro, narração e painéis HUD.',
   'model.tooltip.font_rtdetr_v2.bestFor':
-    'Análise completa de páginas de quadrinhos — separa diálogos de texto solto automaticamente',
+    'Padrão recomendado para mangá, manhwa, webtoon e banda desenhada ocidental.',
   'model.tooltip.font_rtdetr_v2.performance':
-    'Leve e rápido, roda bem na maioria dos computadores',
+    'Inferência ONNX rápida em passagem única para CPU e GPU.',
   'model.tooltip.font_rtdetr_v2.notes':
-    'Treinado com mangá, webtoon, manhua e quadrinhos ocidentais',
+    'Melhor precisão geral entre diferentes estilos de arte.',
 
   'model.tooltip.comic_text_detector.highlights':
-    'Detecta texto em quadrinhos e mangá\nModelo original e confiável\nRoda rápido em qualquer computador',
+    'Detetor clássico leve para mangá (~90,3 MB)\nInclui cabeça de máscara U-Net\nPartilha pesos com a segmentação CTD Text Mask',
   'model.tooltip.comic_text_detector.unique':
-    'O detector clássico usado como base por muitos projetos de tradução de mangá',
+    'Ao instalar o Comic Text Detector, o CTD Text Mask fica logo pronto a usar sem transferência extra.',
   'model.tooltip.comic_text_detector.bestFor':
-    'Detecção básica e confiável de texto em quadrinhos — boa escolha padrão',
+    'Deteção rápida e fiável em mangás P&B ou computadores apenas com CPU.',
   'model.tooltip.comic_text_detector.performance':
-    'Rápido, roda bem sem placa de vídeo dedicada',
+    'Muito rápido em CPU e GPU (~90,3 MB).',
   'model.tooltip.comic_text_detector.notes':
-    'Modelo clássico e testado pela comunidade ao longo dos anos',
+    'Use o RT-DETR v2 quando também precisar de caixas dedicadas de balões e separação de formas.',
 
   'model.tooltip.pp_doclayout_v3.highlights':
-    'Analisa o layout de páginas escaneadas\nFunciona mesmo com páginas tortas ou curvas\nIdentifica a ordem correta de leitura',
+    'Análise completa de layout e regiões (~127,1 MB)\nLida com scans tortos, curvos ou fotografados\nExtrai ordem de leitura estrutural',
   'model.tooltip.pp_doclayout_v3.unique':
-    'Consegue entender páginas que foram fotografadas tortas ou escaneadas de forma irregular — algo que outros modelos não fazem',
+    'Compreende scans inclinados, fotos irregulares de livros e páginas densas em várias colunas onde detetores comuns falham.',
   'model.tooltip.pp_doclayout_v3.bestFor':
-    'Páginas escaneadas de forma imperfeita, fotos de livros ou layouts complexos com ordem de leitura difícil',
+    'Fotos de scans físicos, light novels, revistas ou páginas duplas complexas.',
   'model.tooltip.pp_doclayout_v3.performance':
-    'Robusto e confiável, funciona bem em diversas condições de iluminação',
+    'Velocidade moderada; ~127,1 MB; corre em CPU e GPU.',
   'model.tooltip.pp_doclayout_v3.notes':
-    'Útil quando as páginas não estão perfeitamente digitalizadas',
+    'Prefira RT-DETR v2 para deteção mais limpa em webtoons digitais e mangás comuns.',
+
+  'model.tooltip.yolo_bubble.highlights':
+    'Segmentação de instâncias ultraleve (~11,3 MB)\nPrevê polígonos exatos em redor de cada balão\nAjuda a separar balões encostados ou sobrepostos',
+  'model.tooltip.yolo_bubble.unique':
+    'Gera contornos pixel a pixel dos balões (segmentação Manga109) em vez de apenas retângulos aproximados.',
+  'model.tooltip.yolo_bubble.bestFor':
+    'Balões sobrepostos, quadros inclinados ou refinação precisa do contorno do balão.',
+  'model.tooltip.yolo_bubble.performance':
+    'Muito rápido e leve (~11,3 MB ONNX) em CPU e GPU.',
+  'model.tooltip.yolo_bubble.notes':
+    'Quando instalado, o KOMA pode combinar contornos do YOLO Bubble com deteções do RT-DETR v2.',
 
   'model.tooltip.manga_ocr.highlights':
     'Lê texto japonês em mangá\nFunciona com texto vertical e horizontal\nO mais recomendado para mangá japonês',
@@ -4813,47 +4833,48 @@ export const ptMessages: TranslationCatalog = {
     'Multilíngue incluindo japonês, chinês, inglês. Base para o fine-tune de mangá.',
 
   'model.tooltip.aot.highlights':
-    'Remove texto japonês de mangá\nReconstrói a arte de fundo automaticamente\nRápido e eficiente',
+    'Modelo de inpainting ultraleve (~22 MB)\nRápido em balões limpos e preenchimentos P&B lisos\nOcupa muito menos disco que modelos LaMa',
   'model.tooltip.aot.unique':
-    'Feito especialmente para remover texto de mangá — entende o estilo artístico e reconstrói o fundo de forma natural',
+    'Modelo ONNX compacto indicado para balões monocromáticos simples; usa menos RAM e disco que o LaMa.',
   'model.tooltip.aot.bestFor':
-    'Remover texto japonês de painéis de mangá reconstruindo a arte de fundo',
+    'Balões P&B simples quando o tamanho da transferência importa mais que reconstrução com textura.',
   'model.tooltip.aot.performance':
-    'Rápido, funciona bem com ou sem placa de vídeo',
-  'model.tooltip.aot.notes': 'Boa opção padrão para limpeza de texto em mangá',
+    'Transferência mínima (~22 MB); em CPU tende a ser mais lento que o LaMa FP32 em recortes grandes.',
+  'model.tooltip.aot.notes':
+    'Em arte colorida, gradientes ou retículas, o AOT pode esborratar texturas — prefira LaMa Manga Dynamic (GPU) ou LaMa FP32 512 (CPU).',
 
   'model.tooltip.lama_manga.highlights':
-    'Remove texto de mangá e anime\nFunciona com imagens de qualquer tamanho\nLida bem com áreas grandes de texto',
+    'Modelo de inpainting padrão recomendado (~196,7 MB)\nConvoluções rápidas de Fourier preservam texturas complexas\nResolução arbitrária por recorte sem distorções',
   'model.tooltip.lama_manga.unique':
-    'Não tem limite de tamanho de imagem — funciona com páginas de qualquer resolução, ao contrário de outros modelos',
+    'Reconstrói gradientes, painéis HUD luminosos, retículas e céus coloridos com muito mais naturalidade que o AOT.',
   'model.tooltip.lama_manga.bestFor':
-    'Remover texto de páginas de mangá de qualquer tamanho, especialmente blocos grandes de texto e balões',
+    'Manhwas/webtoons coloridos, retículas densas de mangá, painéis escuros e fundos detalhados.',
   'model.tooltip.lama_manga.performance':
-    'Aceita qualquer tamanho de imagem; velocidade boa na maioria dos computadores',
+    'Rápido com aceleração GPU; em CPU pura fica mais lento do que o LaMa FP32 512.',
   'model.tooltip.lama_manga.notes':
-    'Versão melhorada do LaMa — use quando a página for grande ou tiver muito texto para remover',
+    'Melhor qualidade geral no Clean. Se correr apenas em CPU e notar lentidão, mude para LaMa FP32 512.',
 
   'model.tooltip.opencv_lama.highlights':
-    'Remove texto de imagens\nVersão leve e simples\nBoa para uso geral',
+    'Exportação LaMa quantizada legada (~88,3 MB)\nPesos OpenCV Zoo voltados para CPU\nFidelidade inferior ao LaMa FP32 e LaMa Manga',
   'model.tooltip.opencv_lama.unique':
-    'Versão oficial e mantida pelo OpenCV — integração direta e confiável',
+    'Variante quantizada mantida por compatibilidade.',
   'model.tooltip.opencv_lama.bestFor':
-    'Remoção de texto básica e rápida quando você não precisa da máxima qualidade',
+    'Fluxos legados de recurso.',
   'model.tooltip.opencv_lama.performance':
-    'Leve e rápido, roda em qualquer computador',
+    'Algumas builds CPU do ONNX Runtime têm sobrecarga com quantização QDQ.',
   'model.tooltip.opencv_lama.notes':
-    'Boa opção leve para limpeza simples de texto',
+    'Prefira LaMa FP32 512 em CPU ou LaMa Manga Dynamic para fidelidade de cores segura.',
 
   'model.tooltip.lama_fp32.highlights':
-    'Remove texto de imagens com alta qualidade\nMelhor qualidade entre os removedores\nIdeal quando qualidade importa mais que velocidade',
+    'LaMa de alta qualidade mais rápido em CPU (~198,4 MB)\nRecortes fixos 512x512 com precisão total de cores FP32\n2–8x mais rápido em CPU do que o LaMa Manga Dynamic',
   'model.tooltip.lama_fp32.unique':
-    'A versão mais fiel e precisa do LaMa — reproduz o fundo de forma mais natural que as versões leves',
+    'Mantém reconstrução estrutural de qualidade LaMa com tempo 2–8x menor em CPU via inferência fixa em 512px.',
   'model.tooltip.lama_fp32.bestFor':
-    'Quando a qualidade da limpeza é mais importante que a velocidade',
+    'PCs sem GPU dedicada ou limpeza rápida de manhwas/mangás coloridos sem sacrificar fidelidade.',
   'model.tooltip.lama_fp32.performance':
-    'Mais lento que as versões leves; precisa de mais memória',
+    'Medido entre ~3,7–44s/página em CPU conforme o número de recortes; píxeis fora da máscara ficam intactos.',
   'model.tooltip.lama_fp32.notes':
-    'Use quando qualidade for prioridade. Tamanho fixo de entrada.',
+    'Combine com HD Strategy Crop (Margem 192px) para manter nitidez dentro dos blocos 512x512.',
 
   'model.tooltip.waifu2x_swin_unet_art_scan_2x.highlights':
     'Melhora scans de anime em 2x\nRemove ruído e melhora qualidade\nIdeal para scans de mangá',
@@ -4977,15 +4998,37 @@ export const ptMessages: TranslationCatalog = {
     'Se o arquivo não carregar, pode ser necessário converter o formato externamente.',
 
   'model.tooltip.baka_content_cc.highlights':
-    'Separa texto de balões em páginas de quadrinhos\nIdentifica o que é texto e o que é balão\nRápido e eficiente',
+    'Heurística embutida sem transferência adicional\nUsa limiarização de Otsu e componentes conexos\nExecução imediata sem descarregar pesos',
   'model.tooltip.baka_content_cc.unique':
-    'Integrado com o sistema de detecção de texto e balões — trabalha em conjunto com outros modelos',
+    'Integrado diretamente no KOMA como recurso instantâneo offline quando não há modelos neurais instalados.',
   'model.tooltip.baka_content_cc.bestFor':
-    'Separar texto e balões em páginas de mangá para processamento posterior',
+    'Mangás P&B limpos com texto preto em balão branco quando quer começar já sem transferências extra.',
   'model.tooltip.baka_content_cc.performance':
-    'Rápido e leve, não precisa de placa de vídeo potente',
+    'Heurística muito rápida em CPU.',
   'model.tooltip.baka_content_cc.notes':
-    'Usado como parte do pipeline de segmentação',
+    'Para textos coloridos, bordas luminosas, gradientes ou retículas, prefira CTD Text Mask ou Comic Text Mask.',
+
+  'model.tooltip.ctd_text_seg.highlights':
+    'Máscara neural U-Net recomendada (~90,3 MB)\nCaptura letras com contorno e balões em gradiente\nPartilha pesos com o Comic Text Detector',
+  'model.tooltip.ctd_text_seg.unique':
+    'Gera máscaras precisas ao nível do traço preservando contornos e a arte envolvente.',
+  'model.tooltip.ctd_text_seg.bestFor':
+    'Segmentação padrão para retículas de mangá, manhwas coloridos e caixas de sistema/HUD.',
+  'model.tooltip.ctd_text_seg.performance':
+    'Inferência ONNX rápida em CPU e GPU (~90,3 MB).',
+  'model.tooltip.ctd_text_seg.notes':
+    'Combina na perfeição com LaMa Manga Dynamic ou LaMa FP32 512 para evitar manchas no fundo.',
+
+  'model.tooltip.comic_text_mask.highlights':
+    'Máscara U-Net ResNet18 independente (~54,7 MB, MIT)\nExecuta diretamente por recorte detetado\nSeparação nítida de traços em arte colorida e multilingue',
+  'model.tooltip.comic_text_mask.unique':
+    'Modelo ONNX compacto dedicado à segmentação de texto por recorte com licença permissiva MIT.',
+  'model.tooltip.comic_text_mask.bestFor':
+    'Páginas multilingues, fontes estilizadas pequenas ou fundos coloridos densos.',
+  'model.tooltip.comic_text_mask.performance':
+    'Leve (~54,7 MB) e rápido por recorte em CPU e GPU.',
+  'model.tooltip.comic_text_mask.notes':
+    'Excelente alternativa ao CTD Text Mask para transferência menor ou máxima precisão dentro de cada recorte.',
   'settings.tooltips.title': 'Dicas de Ferramentas',
   'settings.tooltips.description':
     'Controle quando dicas contextuais aparecem durante o uso do dashboard.',
@@ -5182,12 +5225,12 @@ export const ptMessages: TranslationCatalog = {
   'onboarding.modelsGuide.costLabel': 'Compromisso',
   'onboarding.modelsGuide.tierLight.badge': 'Local Rápido',
   'onboarding.modelsGuide.tierLight.title': 'Modelos Leves',
-  'onboarding.modelsGuide.tierLight.desc': 'RT-DETR, MangaOCR, NLLB/OPUS e inpainting AOT.',
+  'onboarding.modelsGuide.tierLight.desc': 'RT-DETR v2, MangaOCR, CTD Text Mask, NLLB/OPUS e inpainting LaMa FP32 / AOT.',
   'onboarding.modelsGuide.tierLight.pros': 'Funciona em CPU ou 2–4 GB VRAM com grande rapidez.',
   'onboarding.modelsGuide.tierLight.tradeoff': 'Menos contexto em calão ou texto complexo.',
   'onboarding.modelsGuide.tierHeavy.badge': 'Alta Qualidade',
   'onboarding.modelsGuide.tierHeavy.title': 'Modelos Locais Pesados',
-  'onboarding.modelsGuide.tierHeavy.desc': 'PaddleOCR-VL, PP-DocLayout, Sakura 7B, VNTL Llama 8B e LaMa.',
+  'onboarding.modelsGuide.tierHeavy.desc': 'PaddleOCR-VL, PP-DocLayout, Sakura 7B, VNTL Llama 8B e LaMa Manga Dynamic.',
   'onboarding.modelsGuide.tierHeavy.pros': 'Melhor ordem de leitura, nuance e limpeza de fundos.',
   'onboarding.modelsGuide.tierHeavy.tradeoff': 'Exige 6–12+ GB VRAM e processamento mais demorado.',
   'onboarding.modelsGuide.tierCloud.badge': 'API Custom / BYOK',
@@ -5219,7 +5262,7 @@ export const ptMessages: TranslationCatalog = {
   'onboarding.aio.detect.title': 'Etapa 1 — Detect Text',
   'onboarding.aio.detect.body': 'Deteta balões, caixas e SFX antes do OCR.',
   'onboarding.aio.detect.paramModelTitle': 'Modelo Detector',
-  'onboarding.aio.detect.paramModelDesc': 'RT-DETR v2 ou PP-DocLayout para páginas mais complexas.',
+  'onboarding.aio.detect.paramModelDesc': 'RT-DETR v2 deteta balões/texto e alimenta a classificação automática de formas; YOLO Bubble Seg gera polígonos de balões; PP-DocLayout V3 ajuda em scans tortos.',
   'onboarding.aio.detect.paramTipTitle': 'Regiões em falta',
   'onboarding.aio.detect.paramTipDesc': 'No modo Manual use Seleção de Área para marcar textos ignorados.',
   'onboarding.aio.ocr.title': 'Etapa 2 — Recognize Text (OCR)',
@@ -5237,7 +5280,7 @@ export const ptMessages: TranslationCatalog = {
   'onboarding.aio.segment.title': 'Etapa 4 — Segment Text',
   'onboarding.aio.segment.body': 'Extrai a máscara exata de texto antes de limpar o fundo.',
   'onboarding.aio.segment.paramMaskTitle': 'Máscara Precisa',
-  'onboarding.aio.segment.paramMaskDesc': 'Separa letras de tramas sem danificar o desenho.',
+  'onboarding.aio.segment.paramMaskDesc': 'CTD Text Mask e Comic Text Mask criam máscaras neurais nítidas em arte colorida; Baka Content CC funciona sem download em balões P&B simples.',
   'onboarding.aio.segment.paramRefineTitle': 'Pincel & Borracha',
   'onboarding.aio.segment.paramRefineDesc': 'Afine a máscara manualmente antes do Clean.',
   'onboarding.aio.clean.title': 'Etapa 5 — Clean Image & HD Strategy',
@@ -5249,11 +5292,11 @@ export const ptMessages: TranslationCatalog = {
   'onboarding.aio.clean.hdResizeDesc': 'Reduz imagens acima de Resize Limit (960px) para maior velocidade.',
   'onboarding.aio.clean.hdCropTitle': 'Crop + Trigger & Margin',
   'onboarding.aio.clean.recommendedTag': 'Equilibrado',
-  'onboarding.aio.clean.hdCropDesc': 'Acima de 512px, recorta com margem (512px) para unir qualidade e velocidade.',
-  'onboarding.aio.clean.dilationTitle': 'Dilatação da Máscara (10px)',
+  'onboarding.aio.clean.hdCropDesc': 'Acima de 512px, recorta com margem (192px) para unir qualidade e velocidade.',
+  'onboarding.aio.clean.dilationTitle': 'Dilatação da Máscara (padrão 5px)',
   'onboarding.aio.clean.dilationDesc': 'Alarga a máscara para remover halos residuais ao redor do texto.',
   'onboarding.aio.clean.aiCleanTitle': 'Local vs AI Clean Automático',
-  'onboarding.aio.clean.aiCleanDesc': 'Clean local é gratuito/offline; AI Clean ajuda em SFX complexos.',
+  'onboarding.aio.clean.aiCleanDesc': 'LaMa Manga Dynamic dá máxima qualidade em arte colorida, LaMa FP32 é 2–8x mais rápido em CPU, AOT (~22 MB) serve para balões P&B simples e AI Clean ajuda em SFX pesados.',
   'onboarding.aio.render.title': 'Etapa 6 — Render (Tipografia)',
   'onboarding.aio.render.body': 'Insere o texto traduzido com quebra automática e contornos.',
   'onboarding.aio.render.paramModesTitle': 'Modos & Fontes',
@@ -5492,4 +5535,34 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.imageEdit.guide.localTitle': 'Modelos Locais Hugging Face (Offline)',
   'dashboard.imageEdit.guide.localDesc': 'Transfira em Gerir Modelos. Use InstructPix2Pix (4–8 GB VRAM) só no AI Clean, ou FLUX.2 Klein 4B / LongCat / Qwen-Image-Edit / FireRed (8–24 GB VRAM) tanto no AI Clean como no AIO IA.',
   'dashboard.imageEdit.guide.localExamples': 'InstructPix2Pix (4 GB) · FLUX.2 Klein 4B GGUF (8 GB) · Qwen-Image-Edit 2511 GGUF (12 GB) · LongCat Turbo (16 GB) · Qwen/FireRed BF16 (24 GB)',
+  'dashboard.stageModelGuide.title': 'Que modelo escolher?',
+  'dashboard.stageModelGuide.badge.recommended': 'Recomendado',
+  'dashboard.stageModelGuide.badge.fastCpu': 'CPU Rápida',
+  'dashboard.stageModelGuide.badge.lightweight': 'Leve',
+  'dashboard.stageModelGuide.badge.pixelMasks': 'Máscaras Pixel',
+  'dashboard.stageModelGuide.badge.zeroDownload': 'Sem Download',
+  'dashboard.stageModelGuide.badge.complexLayout': 'Layout Complexo',
+  'dashboard.stageModelGuide.badge.legacyOrAi': 'Legado / SFX Pesado',
+  'dashboard.stageModelGuide.detectText.rtdetr.title': 'RT-DETR v2 (~160,7 MB)',
+  'dashboard.stageModelGuide.detectText.rtdetr.desc': 'Melhor detetor geral em passagem única. Integra classificação automática de formas do KOMA (fala, pensamento, grito, sussurro, narração, caixa HUD) e inner_box segura.',
+  'dashboard.stageModelGuide.detectText.ctd.title': 'Comic Text Detector (~90,3 MB)',
+  'dashboard.stageModelGuide.detectText.ctd.desc': 'Detetor clássico e rápido para mangá. Partilha exatamente os mesmos pesos do CTD Text Mask em Segment.',
+  'dashboard.stageModelGuide.detectText.yoloBubble.title': 'YOLO Bubble Seg (~11,3 MB)',
+  'dashboard.stageModelGuide.detectText.yoloBubble.desc': 'Prevê polígonos pixel a pixel de balões de fala, útil quando há balões sobrepostos ou quadros não retangulares.',
+  'dashboard.stageModelGuide.detectText.ppDoc.title': 'PP-DocLayout V3 (~127,1 MB)',
+  'dashboard.stageModelGuide.detectText.ppDoc.desc': 'Análise de página inteira e ordem de leitura para scans tortos, fotos de livros ou revistas densas.',
+  'dashboard.stageModelGuide.segmentText.ctd.title': 'CTD Text Mask (~90,3 MB)',
+  'dashboard.stageModelGuide.segmentText.ctd.desc': 'Máscara U-Net precisa que protege bordas, painéis HUD e traços finos. Reutiliza os pesos do Comic Text Detector.',
+  'dashboard.stageModelGuide.segmentText.comicMask.title': 'Comic Text Mask (~54,7 MB)',
+  'dashboard.stageModelGuide.segmentText.comicMask.desc': 'Modelo ResNet18 U-Net independente (MIT) por recorte — excelente nitidez em fundos coloridos e idiomas variados.',
+  'dashboard.stageModelGuide.segmentText.baka.title': 'Baka Content CC (Embutido)',
+  'dashboard.stageModelGuide.segmentText.baka.desc': 'Heurística Otsu + componentes conexos sem transferência. Instantânea em balões P&B limpos; prefira máscara neural em páginas coloridas.',
+  'dashboard.stageModelGuide.cleanImage.lamaManga.title': 'LaMa Manga Dynamic (~196,7 MB)',
+  'dashboard.stageModelGuide.cleanImage.lamaManga.desc': 'Melhor qualidade geral em manhwas/webtoons coloridos, gradientes, painéis HUD e retículas de mangá. Rápido em GPU.',
+  'dashboard.stageModelGuide.cleanImage.lamaFp32.title': 'LaMa FP32 512 (~198,4 MB)',
+  'dashboard.stageModelGuide.cleanImage.lamaFp32.desc': 'Melhor equilíbrio em CPU (2–8x mais rápido do que LaMa Manga em CPU) mantendo fidelidade de cores em recortes 512x512.',
+  'dashboard.stageModelGuide.cleanImage.aot.title': 'AOT (~22 MB)',
+  'dashboard.stageModelGuide.cleanImage.aot.desc': 'Menor transferência para balões P&B simples e lisos; pode esborratar fundos coloridos ou texturados face ao LaMa.',
+  'dashboard.stageModelGuide.cleanImage.other.title': 'OpenCV LaMa & Automatic AI Clean',
+  'dashboard.stageModelGuide.cleanImage.other.desc': 'OpenCV LaMa (~88,3 MB) é legado (prefira LaMa FP32 512 em CPU). Ative Automatic AI Clean para apagar SFX grandes sobre arte detalhada.',
 } as const;

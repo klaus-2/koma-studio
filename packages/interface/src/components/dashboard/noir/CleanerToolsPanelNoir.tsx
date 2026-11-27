@@ -7,6 +7,7 @@ import KlSlider from '../KlSlider';
 import ImageEditCompatibilityBanner from '../ImageEditCompatibilityBanner';
 import ImageEditModelConfigFields from '../ImageEditModelConfigFields';
 import ImageEditModelGuideCard from '../ImageEditModelGuideCard';
+import StageModelGuideCard from '../StageModelGuideCard';
 import { useI18n } from '../../../i18n';
 import { CleanerProcessingLabel } from '../CleanerProcessingLabel';
 import type { TranslationKey } from '../../../i18n/messages';
@@ -56,8 +57,8 @@ interface CleanerToolsPanelProps {
   localApiUrl: string;
   aioMaskDilation: number;
   setAioMaskDilation: (value: number) => void;
-  aioHdStrategy: 'original' | 'resize' | 'crop';
-  setAioHdStrategy: (value: 'original' | 'resize' | 'crop') => void;
+  aioHdStrategy: 'auto' | 'original' | 'resize' | 'crop';
+  setAioHdStrategy: (value: 'auto' | 'original' | 'resize' | 'crop') => void;
   aioHdResizeLimit: number;
   setAioHdResizeLimit: (value: number) => void;
   aioHdCropMargin: number;
@@ -161,22 +162,25 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
               </select>
             </ModelSlot>
 
+            <StageModelGuideCard stage="cleanImage" noir compact className="mt-2" />
+
             <BackendChip>{localApiUrl}</BackendChip>
           </AioSection>
 
           <AioSection icon={Wrench} title={t('dashboard.cleaner.settings.title')} defaultOpen>
             <KlSlider label={t('dashboard.cleaner.settings.maskDilation')} value={aioMaskDilation} min={0} max={50} step={1} onChange={setAioMaskDilation} resetVal={5} />
             <Field label={t('dashboard.cleaner.settings.hdStrategy')}>
-              <select value={aioHdStrategy} onChange={(e) => setAioHdStrategy(e.target.value as any)} className="noir-select panel-cut-sm">
-                <option value="resize">{t('dashboard.aio.clean.hdStrategy.resize')}</option>
+              <select value={aioHdStrategy} onChange={(e) => setAioHdStrategy(e.target.value as 'auto' | 'original' | 'resize' | 'crop')} className="noir-select panel-cut-sm">
+                <option value="auto">Auto</option>
                 <option value="crop">{t('dashboard.aio.clean.hdStrategy.crop')}</option>
+                <option value="resize">{t('dashboard.aio.clean.hdStrategy.resize')}</option>
                 <option value="original">{t('dashboard.aio.clean.hdStrategy.original')}</option>
               </select>
             </Field>
             {aioHdStrategy === 'resize' && <KlSlider label={t('dashboard.cleaner.settings.resizeLimit')} value={aioHdResizeLimit} min={256} max={3000} step={1} onChange={setAioHdResizeLimit} resetVal={960} />}
-            {aioHdStrategy === 'crop' && (
+            {(aioHdStrategy === 'crop' || aioHdStrategy === 'auto') && (
               <>
-                <KlSlider label={t('dashboard.cleaner.settings.cropMargin')} value={aioHdCropMargin} min={0} max={3000} step={1} onChange={setAioHdCropMargin} resetVal={512} />
+                <KlSlider label={t('dashboard.cleaner.settings.cropMargin')} value={aioHdCropMargin} min={0} max={3000} step={1} onChange={setAioHdCropMargin} resetVal={192} />
                 <KlSlider label={t('dashboard.cleaner.settings.cropTrigger')} value={aioHdCropTriggerSize} min={64} max={3000} step={1} onChange={setAioHdCropTriggerSize} resetVal={512} />
               </>
             )}

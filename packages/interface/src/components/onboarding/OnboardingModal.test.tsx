@@ -48,8 +48,12 @@ describe('OnboardingModal', () => {
           },
           'not_installed',
         ),
-        aot: buildInstallState(
-          { ...createMockModel('aot'), stage: 'cleanImage', name: 'AOT' },
+        ctd_text_seg: buildInstallState(
+          { ...createMockModel('ctd_text_seg'), stage: 'segmentText', name: 'CTD Text Mask (ONNX)' },
+          'not_installed',
+        ),
+        lama_manga: buildInstallState(
+          { ...createMockModel('lama_manga'), stage: 'cleanImage', name: 'LaMa Manga Dynamic' },
           'not_installed',
         ),
       },

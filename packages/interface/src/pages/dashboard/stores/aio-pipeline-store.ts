@@ -103,8 +103,8 @@ const INITIAL_AIO_STAGE_SELECTION = {
   detectText: 'font_rtdetr_v2',
   recognizeText: 'manga_ocr',
   getTranslations: 'google_translate',
-  segmentText: 'baka_content_cc',
-  cleanImage: 'aot',
+  segmentText: 'ctd_text_seg',
+  cleanImage: 'lama_manga',
 } as const;
 
 export function dropLegacyCloudStageSelection<T extends AioEditableState['aioStageSelection']>(
@@ -193,10 +193,10 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
       ...INITIAL_AIO_STAGE_SELECTION,
     }),
 
-    aioMaskDilation: 10,
-    aioHdStrategy: 'original',
+    aioMaskDilation: 5,
+    aioHdStrategy: 'crop',
     aioHdResizeLimit: 960,
-    aioHdCropMargin: 512,
+    aioHdCropMargin: 192,
     aioHdCropTriggerSize: 512,
 
     aioCleanViaAi: parseStoredAioBoolean(

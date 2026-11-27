@@ -29,8 +29,8 @@ const args = {
   availableDetectStageOptions: [stageOption('font_rtdetr_v2')],
   availableOcrStageOptions: [stageOption('manga_ocr')],
   availableTranslationStageOptions: [stageOption('google_translate')],
-  availableSegmentStageOptions: [stageOption('baka_content_cc')],
-  availableCleanStageOptions: [stageOption('aot')],
+  availableSegmentStageOptions: [stageOption('ctd_text_seg')],
+  availableCleanStageOptions: [stageOption('lama_manga')],
   setStatusMessage,
 };
 

@@ -22,6 +22,7 @@ import { InstallAllConfirmation } from './InstallAllConfirmation';
 import { ModelCard } from './ModelCard';
 import { ModelFilters } from './ModelFilters';
 import { ALL_AIO_LOCAL_STAGES, buildMultiStageInstallSummary } from './recommendedInstall';
+import StageModelGuideCard, { isGuideStage } from '../dashboard/StageModelGuideCard';
 import styles from './styles.module.css';
 
 export interface ModelManagerModalProps {
@@ -222,7 +223,6 @@ export const ModelManagerModalClassic = ({
         modalClassName={styles.modal}
         labelledBy="mm-title"
       >
-        {/* ═══ Header ═══ */}
         <header className={styles.header}>
           <div className={styles.headerTitle}>
             <span className={styles.headerIcon} aria-hidden="true">
@@ -287,7 +287,6 @@ export const ModelManagerModalClassic = ({
           </div>
         )}
 
-        {/* ═══ Filters ═══ */}
         <ModelFilters
           filters={filters}
           languages={languageOptions}
@@ -300,15 +299,17 @@ export const ModelManagerModalClassic = ({
           onStatusChange={setStatusFilter}
         />
 
-        {/* ═══ Body ═══ */}
         <div className={styles.body}>
-          {/* ── Local Catalog ──────────────────────────────── */}
           {effectiveSource !== 'cloud' && (
             <section className={styles.catalogSection}>
               <header className={styles.catalogHeader}>
                 <h3>{t('modelManager.modal.localModels')}</h3>
                 <p>{t('modelManager.modal.localDesc')}</p>
               </header>
+
+              {isGuideStage(localStageFilter) && (
+                <StageModelGuideCard stage={localStageFilter} compact className="mb-3" />
+              )}
 
               <div className={styles.modelGrid}>
                 {filteredLocal.map((entry) => (
@@ -339,7 +340,6 @@ export const ModelManagerModalClassic = ({
             </section>
           )}
 
-          {/* ── Cloud Catalog ──────────────────────────────── */}
           {enableCloudCatalog && effectiveSource !== 'local' && (
             <section className={styles.catalogSection}>
               <header className={styles.catalogHeader}>
@@ -363,14 +363,12 @@ export const ModelManagerModalClassic = ({
                 </div>
               </header>
 
-              {/* Custom Profiles */}
               {showCustom && customProfilesSection && (
                 <div className={styles.customProfilesWrap}>
                   {customProfilesSection}
                 </div>
               )}
 
-              {/* Free Providers */}
               {freeProviderSection && (
                 <div className={styles.freeProviderSectionWrap}>
                   <div className={styles.freeProviderSectionTitle}>
@@ -390,7 +388,6 @@ export const ModelManagerModalClassic = ({
           )}
         </div>
 
-        {/* ═══ Footer ═══ */}
         {!hideFooter && (
           <footer className={styles.footer}>
             <DiskSpaceIndicator

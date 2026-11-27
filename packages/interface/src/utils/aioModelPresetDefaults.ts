@@ -12,8 +12,8 @@ const stages = (recognizeText: string, getTranslations = "google_translate"): Ai
   detectText: "font_rtdetr_v2",
   recognizeText,
   getTranslations,
-  segmentText: "baka_content_cc",
-  cleanImage: "aot",
+  segmentText: "ctd_text_seg",
+  cleanImage: "lama_manga",
 });
 
 const DEFAULT_PRESET_SPECS: ReadonlyArray<readonly [sourceLanguage: string, name: string, stageModels: AioStageSelection]> = [

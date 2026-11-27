@@ -43,8 +43,6 @@ export const BASE_TRANSLATION_MODELS_REGISTRY: TranslationModel[] = [
     },
     speed: "excellent",
     downloadUrl: "https://huggingface.co/JustFrederik/nllb-200-distilled-600M-ct2-int8/resolve/main/model.bin",
-    // Real SHA of the current file on HF (the old 06ac9fba… no longer matched —
-    // the upstream repo replaced model.bin).
     checksumSHA256: "ed1beaf75134de7505315a5223162f56acff397eff6b50638a500d3936fe707b",
     fileSize: "617.36MB",
     installStrategy: "backend_managed",
@@ -357,6 +355,7 @@ export const DETECT_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     downloadUrl: "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/main/detector.onnx",
     checksumSHA256: "065744e91c0594ad8663aa8b870ce3fb27222942eded5a3cc388ce23421bd195",
     fileSize: "160.68MB",
+    recommended: true,
     tooltipKey: "model.tooltip.font_rtdetr_v2",
   },
   {
@@ -407,6 +406,30 @@ export const DETECT_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     docsUrl: "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_safetensors",
     tooltipKey: "model.tooltip.pp_doclayout_v3",
   },
+  {
+    id: "yolo_bubble",
+    name: "YOLO Bubble Seg (ONNX)",
+    description: "model.yolo_bubble.description",
+    version: REGISTRY_VERSION,
+    stage: "detectText",
+    sourceLanguages: ["*"],
+    targetLanguages: ["*"],
+    requirements: {
+      gpu: false,
+      vramMin: "0",
+      ramMin: "4GB RAM",
+      diskSpace: "12MB",
+    },
+    speed: "excellent",
+    downloadUrl: "https://huggingface.co/mednasserallah/manga109-segmentation-bubble-onnx/resolve/main/manga109_segmentation_bubble_1024.onnx",
+    checksumSHA256: "593cae61f4c9ffc773fee34d55c28069390d19415c24dc04600f983311618ea3",
+    fileSize: "11.30MB",
+    installStrategy: "backend_managed",
+    runtimeFamily: "onnx",
+    backendInstallEndpoint: "/models/install",
+    docsUrl: "https://huggingface.co/mednasserallah/manga109-segmentation-bubble-onnx",
+    tooltipKey: "model.tooltip.yolo_bubble",
+  },
 ];
 
 export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
@@ -425,9 +448,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "300MB",
     },
     speed: "fast",
-    // URL/checksum are required in the desktop payload.
-    // The real Manga OCR install runs through a dedicated mini-backend endpoint
-    // (downloads encoder/decoder/vocab from HuggingFace).
     downloadUrl: "https://huggingface.co/mayocream/manga-ocr-onnx/resolve/main/encoder_model.onnx",
     checksumSHA256: "15fa8155fe9bc1a7d25d9bb353debaa4def033d0174e907dbd2dd6d995def85f",
     fileSize: "439.61MB",
@@ -627,8 +647,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "12.14MB",
     },
     speed: "ok",
-    // The real install flow runs through the mini-backend to download the required
-    // files (detection + recognition + dictionary) into the local directory.
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
@@ -653,8 +671,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "12.14MB",
     },
     speed: "fast",
-    // The real install flow runs through the mini-backend to download the required
-    // files (detection + recognition + dictionary) into the local directory.
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
@@ -679,8 +695,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "20.53MB",
     },
     speed: "fast",
-    // The real install flow runs through the mini-backend to download the required
-    // files (detection + recognition + dictionary) into the local directory.
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
@@ -705,8 +719,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "12.11MB",
     },
     speed: "fast",
-    // The real install flow runs through the mini-backend to download the required
-    // files (detection + recognition + dictionary) into the local directory.
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
@@ -739,8 +751,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "800MB",
     },
     speed: "ok",
-    // URL required in the desktop install payload.
-    // The easyocr install flow is special and runs through the mini-backend.
     downloadUrl: "https://huggingface.co/bert-base-uncased/resolve/main/config.json",
     checksumSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
     fileSize: "73.67MB",
@@ -764,8 +774,6 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       diskSpace: "152.75MB",
     },
     speed: "ok",
-    // URL required in the desktop install payload.
-    // The pororo install flow is special and runs through the mini-backend.
     downloadUrl: "https://huggingface.co/ogkalu/pororo/resolve/main/craft.pt",
     checksumSHA256: "4a5efbfb48b4081100544e75e1e2b57f8de3d84f213004b14b85fd4b3748db17",
     fileSize: "152.75MB",

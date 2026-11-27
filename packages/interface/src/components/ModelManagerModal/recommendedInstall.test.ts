@@ -21,8 +21,8 @@ const estimateBytes = (model: { id: string }): number =>
 describe('getRecommendedModelIdsForStage', () => {
   it('recommends the stage-wide model for any language', () => {
     expect(getRecommendedModelIdsForStage('detectText', 'ru')).toEqual(['font_rtdetr_v2']);
-    expect(getRecommendedModelIdsForStage('segmentText', 'zh-tw')).toEqual(['baka_content_cc']);
-    expect(getRecommendedModelIdsForStage('cleanImage', 'fi')).toEqual(['aot']);
+    expect(getRecommendedModelIdsForStage('segmentText', 'zh-tw')).toEqual(['ctd_text_seg']);
+    expect(getRecommendedModelIdsForStage('cleanImage', 'fi')).toEqual(['lama_manga']);
   });
 
   it('curates recognizeText per language', () => {
@@ -118,9 +118,6 @@ describe('getRecommendedModelIdsForStage', () => {
   });
 
   it('pins the picks for the selectable chinese target languages', () => {
-    // TARGET_LANGUAGE_OPTIONS offers zh-cn/zh-tw only; plain "zh" never appears
-    // as a selectable target. Sakura covers zh/zh-cn upstream, zh-tw routes to
-    // Hunyuan which declares it in its target list.
     expect(getRecommendedModelIdsForStage('translation', 'ja', 'zh-cn')).toEqual([
       'sakura_1_5b_qwen2_5_v1_0',
     ]);

@@ -62,8 +62,8 @@ describe('buildMultiStageInstallSummary', () => {
     const entries = {
       manga_ocr: makeEntry('manga_ocr', 'recognizeText'),
       font_rtdetr_v2: makeEntry('font_rtdetr_v2', 'detectText'),
-      baka_content_cc: makeEntry('baka_content_cc', 'segmentText'),
-      aot: makeEntry('aot', 'cleanImage'),
+      ctd_text_seg: makeEntry('ctd_text_seg', 'segmentText'),
+      lama_manga: makeEntry('lama_manga', 'cleanImage'),
       paddleocr_en_v5: makeEntry('paddleocr_en_v5', 'recognizeText'),
     };
     const summary = buildMultiStageInstallSummary(
@@ -77,8 +77,8 @@ describe('buildMultiStageInstallSummary', () => {
     expect(summary.eligibleModelIds).toEqual([
       'manga_ocr',
       'font_rtdetr_v2',
-      'baka_content_cc',
-      'aot',
+      'ctd_text_seg',
+      'lama_manga',
     ]);
     expect(summary.totalBytes).toBe(300 + 500 + 500 + 500);
     expect(summary.requiredBytes).toBe(summary.totalBytes);
@@ -105,8 +105,8 @@ describe('buildMultiStageInstallSummary', () => {
       sugoi_v4_ja_en_ct2: makeEntry('sugoi_v4_ja_en_ct2', 'translation'),
       font_rtdetr_v2: makeEntry('font_rtdetr_v2', 'detectText'),
       manga_ocr: makeEntry('manga_ocr', 'recognizeText'),
-      baka_content_cc: makeEntry('baka_content_cc', 'segmentText'),
-      aot: makeEntry('aot', 'cleanImage'),
+      ctd_text_seg: makeEntry('ctd_text_seg', 'segmentText'),
+      lama_manga: makeEntry('lama_manga', 'cleanImage'),
       waifu2x_mock: makeEntry('waifu2x_mock', 'enhanceImage'),
     };
 
@@ -132,8 +132,8 @@ describe('buildMultiStageInstallSummary', () => {
       'sugoi_v4_ja_en_ct2',
       'font_rtdetr_v2',
       'manga_ocr',
-      'baka_content_cc',
-      'aot',
+      'ctd_text_seg',
+      'lama_manga',
       'waifu2x_mock',
     ]);
     expect(multi.totalBytes).toBe(300 + 500 + 500 + 500 + 500 + 500);

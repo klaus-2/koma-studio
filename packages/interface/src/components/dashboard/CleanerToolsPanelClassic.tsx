@@ -20,6 +20,7 @@ import KlSlider from './KlSlider';
 import ImageEditCompatibilityBanner from './ImageEditCompatibilityBanner';
 import ImageEditModelConfigFields from './ImageEditModelConfigFields';
 import ImageEditModelGuideCard from './ImageEditModelGuideCard';
+import StageModelGuideCard from './StageModelGuideCard';
 import type { CustomLlmProfile } from '../../utils/customLlm';
 import {
   getLocalImageEditSpec,
@@ -64,8 +65,8 @@ interface CleanerToolsPanelProps {
   localApiUrl: string;
   aioMaskDilation: number;
   setAioMaskDilation: (value: number) => void;
-  aioHdStrategy: 'original' | 'resize' | 'crop';
-  setAioHdStrategy: (value: 'original' | 'resize' | 'crop') => void;
+  aioHdStrategy: 'auto' | 'original' | 'resize' | 'crop';
+  setAioHdStrategy: (value: 'auto' | 'original' | 'resize' | 'crop') => void;
   aioHdResizeLimit: number;
   setAioHdResizeLimit: (value: number) => void;
   aioHdCropMargin: number;
@@ -391,6 +392,8 @@ export default function CleanerToolsPanelClassic({
                 )}
               </div>
 
+              <StageModelGuideCard stage="cleanImage" compact className="mt-2" />
+
               <span className="koma-backend-chip">
                 <span className="koma-backend-chip__dot" aria-hidden="true" />
                 {localApiUrl}
@@ -414,13 +417,14 @@ export default function CleanerToolsPanelClassic({
                   value={aioHdStrategy}
                   onChange={(e) =>
                     setAioHdStrategy(
-                      e.target.value as 'original' | 'resize' | 'crop',
+                      e.target.value as 'auto' | 'original' | 'resize' | 'crop',
                     )
                   }
                   className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                 >
-                  <option value="resize">{t('dashboard.aio.clean.hdStrategy.resize')}</option>
+                  <option value="auto">Auto</option>
                   <option value="crop">{t('dashboard.aio.clean.hdStrategy.crop')}</option>
+                  <option value="resize">{t('dashboard.aio.clean.hdStrategy.resize')}</option>
                   <option value="original">{t('dashboard.aio.clean.hdStrategy.original')}</option>
                 </select>
               </div>
@@ -436,7 +440,7 @@ export default function CleanerToolsPanelClassic({
                   resetVal={960}
                 />
               )}
-              {aioHdStrategy === 'crop' && (
+              {(aioHdStrategy === 'crop' || aioHdStrategy === 'auto') && (
                 <>
                   <KlSlider
                     label={t('dashboard.cleaner.settings.cropMargin')}
@@ -445,7 +449,7 @@ export default function CleanerToolsPanelClassic({
                     max={3000}
                     step={1}
                     onChange={setAioHdCropMargin}
-                    resetVal={512}
+                    resetVal={192}
                   />
                   <KlSlider
                     label={t('dashboard.cleaner.settings.cropTrigger')}

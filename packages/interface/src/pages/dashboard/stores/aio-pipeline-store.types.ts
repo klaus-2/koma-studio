@@ -54,7 +54,7 @@ export interface AioEditableState {
   aioPresetState: AioModelPresetStateV2;
   aioPresetEditorDraft: AioPresetEditorDraft;
   aioMaskDilation: number;
-  aioHdStrategy: 'original' | 'resize' | 'crop';
+  aioHdStrategy: 'auto' | 'original' | 'resize' | 'crop';
   aioHdResizeLimit: number;
   aioHdCropMargin: number;
   aioHdCropTriggerSize: number;
