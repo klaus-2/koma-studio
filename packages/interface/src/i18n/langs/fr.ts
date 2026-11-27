@@ -1208,6 +1208,7 @@ export const frMessages: TranslationCatalog = {
   'renderPreview.skewY': 'Inclinaison Y',
   'renderPreview.skewYMinus2': 'Inclinaison Y -2°',
   'renderPreview.skewYPlus2': 'Inclinaison Y +2°',
+  'renderPreview.resetTransform': 'Réinitialiser rotation et inclinaison',
   'renderPreview.adjustments': 'Ajustements',
   'renderPreview.refine': 'Affiner',
   'renderPreview.autoFontSize': 'Taille de police auto',

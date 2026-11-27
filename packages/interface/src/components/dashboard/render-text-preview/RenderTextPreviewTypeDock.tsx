@@ -1,7 +1,3 @@
-// Floating type dock for the render text preview: font/shape/size controls,
-// formatting, orientation, skew steppers, and the expanded fine-tune panel
-// with fill/outline/shadow/text-effect/circular-text popovers.
-// JSX moved verbatim from RenderTextPreview.tsx (T07 split).
 
 import React from 'react';
 import {
@@ -10,6 +6,7 @@ import {
   AlignRight,
   Bold,
   Italic,
+  RotateCcw,
   Settings,
   Sparkles,
   Underline,
@@ -143,9 +140,7 @@ const RenderTextPreviewTypeDock = ({
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="koma-type-dock__bar">
-        {/* ═══ Row 1: Primary Controls ═══ */}
         <div className="koma-type-dock__row koma-type-dock__row--primary">
-          {/* Font Family */}
           <FontFamilySelect
             className="koma-type-dock__select koma-type-dock__select--font"
             value={selectedRegionStyle.fontFamily}
@@ -155,7 +150,6 @@ const RenderTextPreviewTypeDock = ({
             previewText={buildDefaultRegionRenderText(selectedRegion)}
           />
 
-          {/* Shape */}
           <select
             className="koma-type-dock__select koma-type-dock__select--shape"
             value={selectedRegion?.shape?.kind ?? 'rounded'}
@@ -171,7 +165,6 @@ const RenderTextPreviewTypeDock = ({
             <option value="rounded">{t('renderPreview.elliptic')}</option>
           </select>
 
-          {/* Font Size Stepper */}
           <div
             className="koma-type-dock__stepper"
             role="group"
@@ -206,9 +199,7 @@ const RenderTextPreviewTypeDock = ({
 
         <div className="koma-type-dock__row-sep" aria-hidden="true" />
 
-        {/* ═══ Row 2: Format Controls ═══ */}
         <div className="koma-type-dock__row koma-type-dock__row--format">
-          {/* Alignment */}
           <div
             className="koma-type-dock__icon-group"
             role="group"
@@ -269,7 +260,6 @@ const RenderTextPreviewTypeDock = ({
 
           <span className="koma-type-dock__pipe" aria-hidden="true" />
 
-          {/* Typography Style */}
           <div
             className="koma-type-dock__icon-group"
             role="group"
@@ -348,7 +338,6 @@ const RenderTextPreviewTypeDock = ({
 
           <span className="koma-type-dock__pipe" aria-hidden="true" />
 
-          {/* Orientation */}
           <div
             className="koma-type-dock__icon-group"
             role="group"
@@ -415,7 +404,6 @@ const RenderTextPreviewTypeDock = ({
 
           <span className="koma-type-dock__pipe" aria-hidden="true" />
 
-          {/* Rotation Stepper */}
           <div
             className="koma-type-dock__stepper"
             role="group"
@@ -443,9 +431,7 @@ const RenderTextPreviewTypeDock = ({
           </div>
         </div>
 
-        {/* ═══ Row 3: Transform + Actions ═══ */}
         <div className="koma-type-dock__row koma-type-dock__row--actions">
-          {/* Skew X */}
           <div
             className="koma-type-dock__stepper koma-type-dock__stepper--labeled"
             role="group"
@@ -483,7 +469,6 @@ const RenderTextPreviewTypeDock = ({
             </button>
           </div>
 
-          {/* Skew Y */}
           <div
             className="koma-type-dock__stepper koma-type-dock__stepper--labeled"
             role="group"
@@ -521,9 +506,23 @@ const RenderTextPreviewTypeDock = ({
             </button>
           </div>
 
+          <div className="koma-type-dock__stepper">
+            <button
+              type="button"
+              className="koma-type-dock__step-btn"
+              onClick={() =>
+                updateSelectedRegionStyle((s) => ({ ...s, rotation: 0, skewX: 0, skewY: 0 }))
+              }
+              disabled={!selectedRegionStyle.rotation && !selectedRegionStyle.skewX && !selectedRegionStyle.skewY}
+              aria-label={t('renderPreview.resetTransform')}
+              title={t('renderPreview.resetTransform')}
+            >
+              <RotateCcw size={12} aria-hidden="true" />
+            </button>
+          </div>
+
           <span className="koma-type-dock__spacer" />
 
-          {/* Action Buttons */}
           <button
             type="button"
             className={cn(
@@ -551,11 +550,9 @@ const RenderTextPreviewTypeDock = ({
         </div>
       </div>
 
-      {/* ═══ Expanded Fine-Tune Panel ═══ */}
       {dockExpanded && (
         <div className="koma-type-dock__fine custom-scrollbar">
           <div className="koma-type-dock__fine-grid">
-            {/* Auto Font Size */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.autoFontSize')}
@@ -581,7 +578,6 @@ const RenderTextPreviewTypeDock = ({
               </label>
             </div>
 
-            {/* Hyphenation */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.hyphenation')}
@@ -605,7 +601,6 @@ const RenderTextPreviewTypeDock = ({
               </label>
             </div>
 
-            {/* Max Font Size */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.maxSize')}
@@ -636,7 +631,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </div>
 
-            {/* Min Font Size */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.minSize')}
@@ -667,7 +661,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </div>
 
-            {/* Line Spacing */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.lineSpacing')}
@@ -693,7 +686,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </div>
 
-            {/* Text Opacity */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">
                 {t('renderPreview.opacity')}
@@ -719,7 +711,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </div>
 
-            {/* Skew X */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">{t('renderPreview.skewX')}</span>
               <div className="koma-type-dock__fine-control">
@@ -745,7 +736,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </div>
 
-            {/* Skew Y */}
             <div className="koma-type-dock__fine-field">
               <span className="koma-type-dock__fine-label">{t('renderPreview.skewY')}</span>
               <div className="koma-type-dock__fine-control">
@@ -772,9 +762,7 @@ const RenderTextPreviewTypeDock = ({
             </div>
           </div>
 
-          {/* ═══ Effects Row ═══ */}
           <div className="koma-type-dock__effects-row">
-            {/* Fill */}
             <FillStylePopover
               label={t('renderPreview.fill')}
               value={buildFillPickerValue(selectedRegionStyle)}
@@ -787,9 +775,6 @@ const RenderTextPreviewTypeDock = ({
                     nextValue,
                     style.color || '#111111',
                   );
-                  // CRITICAL: Do NOT include keys that are not in INLINE_RENDER_STYLE_KEYS
-                  // (e.g. detectGradient), otherwise getInlineStylePatchFromStyleDiff returns null
-                  // and the style is applied to the entire region instead of the selection.
                   return {
                     ...style,
                     color: nextFill.color,
@@ -803,7 +788,6 @@ const RenderTextPreviewTypeDock = ({
               }}
             />
 
-            {/* Outline */}
             <RenderEffectPopover
               label={t('renderPreview.outline')}
               value={selectedRegionStyle.outlineColor}
@@ -871,7 +855,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </RenderEffectPopover>
 
-            {/* Shadow */}
             <RenderEffectPopover
               label={t('renderPreview.shadow')}
               value={buildShadowFillPickerValue(selectedRegionStyle)}
@@ -899,7 +882,6 @@ const RenderTextPreviewTypeDock = ({
                 )
               }
             >
-              {/* Opacity + Blur side by side */}
               <div className="koma-effect-popover__field-pair">
                 <div className="koma-effect-popover__field">
                   <label>{t('renderPreview.opacity')}</label>
@@ -942,7 +924,6 @@ const RenderTextPreviewTypeDock = ({
                   </span>
                 </div>
               </div>
-              {/* Offset X + Offset Y side by side */}
               <div className="koma-effect-popover__field-pair">
                 <div className="koma-effect-popover__field">
                   <label>{t('renderPreview.offsetX')}</label>
@@ -986,7 +967,6 @@ const RenderTextPreviewTypeDock = ({
                 </div>
               </div>
 
-              {/* Shadow Layers */}
               <div className="koma-effect-popover__layers">
                 <div className="koma-effect-popover__layersHead">
                   <span>{t('renderPreview.shadowLayers')}</span>
@@ -1030,7 +1010,6 @@ const RenderTextPreviewTypeDock = ({
                           <X size={10} />
                         </button>
                       </div>
-                      {/* Fill – full width, no value column */}
                       <div className="koma-effect-popover__field koma-effect-popover__field--fill">
                         <label>{t('renderPreview.fill')}</label>
                         <FillStylePopover
@@ -1053,7 +1032,6 @@ const RenderTextPreviewTypeDock = ({
                           }
                         />
                       </div>
-                      {/* Opacity + Blur side by side */}
                       <div className="koma-effect-popover__field-pair">
                         <div className="koma-effect-popover__field">
                           <label>{t('renderPreview.opacity')}</label>
@@ -1104,7 +1082,6 @@ const RenderTextPreviewTypeDock = ({
                           </span>
                         </div>
                       </div>
-                      {/* Offset X + Offset Y side by side */}
                       <div className="koma-effect-popover__field-pair">
                         <div className="koma-effect-popover__field">
                           <label>{t('renderPreview.offsetX')}</label>
@@ -1161,7 +1138,6 @@ const RenderTextPreviewTypeDock = ({
               </div>
             </RenderEffectPopover>
 
-            {/* Text Effect */}
             <TextEffectPopover
               value={selectedRegionStyle.textEffectPreset ?? 'none'}
               presets={NATIVE_TEXT_EFFECT_PRESETS}
@@ -1170,7 +1146,6 @@ const RenderTextPreviewTypeDock = ({
               onIntensityChange={handleTextEffectIntensity}
             />
 
-            {/* Circular Text */}
             <CircularTextPopover
               enabled={selectedRegionStyle.textPathMode === 'circular'}
               summary={`${((selectedRegionStyle.circularRadiusScale || 0.78) * 100).toFixed(0)}%`}
@@ -1269,7 +1244,4 @@ const RenderTextPreviewTypeDock = ({
   );
 };
 
-// The dock receives stable callback identities from the composition root, so
-// memoizing skips its ~1,100-line subtree while dragging/hovering changes
-// unrelated parent state (interaction, hoveredRegionId, contextMenu, ...).
 export default React.memo(RenderTextPreviewTypeDock);

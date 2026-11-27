@@ -1325,6 +1325,7 @@ export const enMessages = {
   'renderPreview.skewY': 'Skew Y',
   'renderPreview.skewYMinus2': 'Skew Y -2°',
   'renderPreview.skewYPlus2': 'Skew Y +2°',
+  'renderPreview.resetTransform': 'Reset rotation and skew',
   'renderPreview.adjustments': 'Adjustments',
   'renderPreview.refine': 'Refine',
   'renderPreview.autoFontSize': 'Auto Font Size',

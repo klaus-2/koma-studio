@@ -1250,6 +1250,7 @@ export const deMessages: TranslationCatalog = {
   'renderPreview.skewY': 'Neigung Y',
   'renderPreview.skewYMinus2': 'Neigung Y −2°',
   'renderPreview.skewYPlus2': 'Neigung Y +2°',
+  'renderPreview.resetTransform': 'Drehung und Neigung zurücksetzen',
   'renderPreview.adjustments': 'Anpassungen',
   'renderPreview.refine': 'Verfeinern',
   'renderPreview.autoFontSize': 'Automatische Schriftgröße',

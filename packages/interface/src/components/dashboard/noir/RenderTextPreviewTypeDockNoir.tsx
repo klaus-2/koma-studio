@@ -10,6 +10,7 @@ import {
   ArrowUp,
   Bold,
   Italic,
+  RotateCcw,
   Settings,
   Sparkles,
   Underline,
@@ -81,7 +82,6 @@ interface RenderTextPreviewTypeDockNoirProps {
   syncInlineEditorSelection: () => void;
 }
 
-/* ── Dock stepper (beta) ── */
 function Stepper({ label, value, unit, onDec, onInc, decLabel, incLabel, className }: {
   label: string; value: string | number; unit?: string; onDec: () => void; onInc: () => void; decLabel: string; incLabel: string; className?: string;
 }) {
@@ -96,7 +96,6 @@ function Stepper({ label, value, unit, onDec, onInc, decLabel, incLabel, classNa
   );
 }
 
-/* ── Dock icon group + icon + pipe (beta) ── */
 function IconGroup({ children, label }: { children: React.ReactNode; label: string }) {
   return <div className="panel-cut-sm flex h-7 bg-ink-3" role="group" aria-label={label}>{children}</div>;
 }
@@ -116,7 +115,6 @@ function DockPipe() {
   return <span className="h-7 w-px bg-crimson/20" aria-hidden="true" />;
 }
 
-/* ── Fine-tune field / toggle / range (beta) ── */
 function FineField({ label, children }: { label: string; children: React.ReactNode }) {
   const id = useId();
   return (
@@ -146,10 +144,6 @@ function FineToggle({ checked, onChange, text, id, 'aria-label': ariaLabel }: {
   );
 }
 
-/**
- * Local-draft range: store commits on pointer-up so dock style sliders
- * do not thrash region maps / canvas on every input event (INP).
- */
 function FineRange({ min, max, step, value, onChange, id, 'aria-label': ariaLabel }: {
   min: number; max: number; step: number; value: number; onChange: (v: number) => void; display?: string;
   id?: string; 'aria-label'?: string;
@@ -264,10 +258,9 @@ const RenderTextPreviewTypeDockNoir = ({
       onPointerDown={(e) => { dockPointerDownRef.current = true; syncInlineEditorSelection(); e.stopPropagation(); }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="glass panel-cut relative flex w-full max-w-full flex-col gap-1 border-crimson/30 p-2 shadow-hard-crimson">
+      <div className="glass panel-cut relative flex w-full max-w-full flex-col gap-1.5 border-crimson/30 p-2 shadow-hard-crimson">
         <div className="halftone-red pointer-events-none absolute inset-0 opacity-10" aria-hidden="true" />
 
-        {/* ═══ Row 1: Primary ═══ */}
         <div className="relative flex items-center gap-1.5">
           <FontFamilySelect
             className="panel-cut-sm h-7 min-w-0 flex-1 max-w-[170px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
@@ -278,7 +271,7 @@ const RenderTextPreviewTypeDockNoir = ({
             previewText={buildDefaultRegionRenderText(selectedRegion)}
           />
           <select
-            className="panel-cut-sm h-7 w-[82px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
+            className="panel-cut-sm h-7 w-[104px] shrink-0 border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
             value={selectedRegion?.shape?.kind ?? 'rounded'}
             onChange={(e) => updateSelectedRegionShapeKind(e.target.value as TypographyShapeKind)}
             disabled={selectedRegionIsNoteOverlay}
@@ -293,16 +286,13 @@ const RenderTextPreviewTypeDockNoir = ({
 
         <div className="relative h-px bg-crimson/15" aria-hidden="true" />
 
-        {/* ═══ Row 2: Format ═══ */}
         <div className="relative flex flex-wrap items-center gap-1.5">
           <IconGroup label={t('renderPreview.alignment')}>
             <DockIcon active={selectedRegionStyle.alignment === 'left'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'left' }))} label={t('renderPreview.alignLeft')}><AlignLeft size={12} /></DockIcon>
             <DockIcon active={selectedRegionStyle.alignment === 'center'} onClick={() => normalizeSelectedRegionShape({ centerText: true, source: 'refined' })} label={t('renderPreview.alignCenter')}><AlignCenter size={12} /></DockIcon>
             <DockIcon active={selectedRegionStyle.alignment === 'right'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'right' }))} label={t('renderPreview.alignRight')}><AlignRight size={12} /></DockIcon>
           </IconGroup>
-
           <DockPipe />
-
           <IconGroup label={t('renderPreview.typographyStyle')}>
             <DockIcon active={selectedRegionStyle.bold} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, bold: !s.bold }))} label={t('renderPreview.bold')}><Bold size={12} /></DockIcon>
             <DockIcon active={selectedRegionStyle.italic} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, italic: !s.italic }))} label={t('renderPreview.italic')}><Italic size={12} /></DockIcon>
@@ -311,9 +301,7 @@ const RenderTextPreviewTypeDockNoir = ({
               <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconUppercase')}</span>
             </DockIcon>
           </IconGroup>
-
           <DockPipe />
-
           <IconGroup label={t('renderPreview.textOrientation')}>
             <DockIcon active={selectedRegionStyle.textOrientation !== 'vertical'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textOrientation: 'horizontal' }))} label={t('renderPreview.horizontal')} title={t('renderPreview.horizontal')}>
               <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconHorizontal')}</span>
@@ -325,24 +313,12 @@ const RenderTextPreviewTypeDockNoir = ({
               <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconCircular')}</span>
             </DockIcon>
           </IconGroup>
-
-          <DockPipe />
-
-          <Stepper label={t('renderPreview.rotation')} onDec={() => adjustSelectedRotation(-5)} onInc={() => adjustSelectedRotation(5)}
-            decLabel={t('renderPreview.rotateMinus5')} incLabel={t('renderPreview.rotatePlus5')} value={`${Math.round(selectedRegionStyle.rotation)}°`} />
-
-          <DockPipe />
-
-          <IconGroup label={t('renderPreview.nudgeGroup')}>
-            <DockIcon onClick={() => nudgeSelectedRegion('left')} label={t('renderPreview.nudgeLeft')}><ArrowLeft size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('up')} label={t('renderPreview.nudgeUp')}><ArrowUp size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('down')} label={t('renderPreview.nudgeDown')}><ArrowDown size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('right')} label={t('renderPreview.nudgeRight')}><ArrowRight size={12} /></DockIcon>
-          </IconGroup>
         </div>
 
-        {/* ═══ Row 3: Transform + Actions ═══ */}
         <div className="relative flex flex-wrap items-center gap-1.5">
+          <Stepper label={t('renderPreview.rotation')} onDec={() => adjustSelectedRotation(-5)} onInc={() => adjustSelectedRotation(5)}
+            decLabel={t('renderPreview.rotateMinus5')} incLabel={t('renderPreview.rotatePlus5')} value={`${Math.round(selectedRegionStyle.rotation)}°`} />
+          <DockPipe />
           <Stepper label={t('renderPreview.skewX')} unit={t('dashboard.render.skewXLabel')}
             onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) - 2) }))}
             onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) + 2) }))}
@@ -351,9 +327,28 @@ const RenderTextPreviewTypeDockNoir = ({
             onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) - 2) }))}
             onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) + 2) }))}
             decLabel={t('renderPreview.skewYMinus2')} incLabel={t('renderPreview.skewYPlus2')} value={`${Math.round(selectedRegionStyle.skewY || 0)}°`} />
+          <button
+            type="button"
+            onClick={() => updateSelectedRegionStyle((s) => ({ ...s, rotation: 0, skewX: 0, skewY: 0 }))}
+            disabled={!selectedRegionStyle.rotation && !selectedRegionStyle.skewX && !selectedRegionStyle.skewY}
+            aria-label={t('renderPreview.resetTransform')}
+            title={t('renderPreview.resetTransform')}
+            className="panel-cut-sm grid h-7 w-7 place-items-center bg-ink-3 text-paper-dim transition-colors hover:bg-crimson hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+          >
+            <RotateCcw size={12} />
+          </button>
+        </div>
 
+        <div className="relative h-px bg-crimson/15" aria-hidden="true" />
+
+        <div className="relative flex flex-wrap items-center gap-1.5">
+          <IconGroup label={t('renderPreview.nudgeGroup')}>
+            <DockIcon onClick={() => nudgeSelectedRegion('left')} label={t('renderPreview.nudgeLeft')}><ArrowLeft size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('up')} label={t('renderPreview.nudgeUp')}><ArrowUp size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('down')} label={t('renderPreview.nudgeDown')}><ArrowDown size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('right')} label={t('renderPreview.nudgeRight')}><ArrowRight size={12} /></DockIcon>
+          </IconGroup>
           <span className="flex-1" />
-
           <button
             type="button"
             className={cn(
@@ -376,7 +371,6 @@ const RenderTextPreviewTypeDockNoir = ({
         </div>
       </div>
 
-      {/* ═══ Expanded Fine-Tune Panel ═══ */}
       {dockExpanded && (
         <m.div
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -387,7 +381,6 @@ const RenderTextPreviewTypeDockNoir = ({
           <span className="kicker relative mb-2 block !text-azure">// {t('renderPreview.adjustments')}</span>
 
           <div className="relative grid grid-cols-2 gap-2">
-            {/* Auto Font Size */}
             <FineField label={t('renderPreview.autoFontSize')}>
               <FineToggle
                 checked={selectedRegionStyle.autoFontSize}
@@ -395,7 +388,6 @@ const RenderTextPreviewTypeDockNoir = ({
                 text={selectedRegionStyle.autoFontSize ? t('renderPreview.autoFit') : t('renderPreview.fixed')}
               />
             </FineField>
-            {/* Hyphenation */}
             <FineField label={t('renderPreview.hyphenation')}>
               <FineToggle
                 checked={selectedRegionStyle.hyphenationEnabled}
@@ -403,41 +395,34 @@ const RenderTextPreviewTypeDockNoir = ({
                 text={selectedRegionStyle.hyphenationEnabled ? t('renderPreview.enabled') : t('renderPreview.disabled')}
               />
             </FineField>
-            {/* Max Font */}
             <FineField label={t('renderPreview.maxSize')}>
               <FineRange min={8} max={160} step={1} value={Math.round(selectedRegionStyle.fontSize)}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, fontSize: v, minFontSize: Math.min(Math.round(s.minFontSize), v) }))}
                 display={`${Math.round(selectedRegionStyle.fontSize)}px`} />
             </FineField>
-            {/* Min Font */}
             <FineField label={t('renderPreview.minSize')}>
               <FineRange min={6} max={Math.max(6, Math.round(selectedRegionStyle.fontSize))} step={1} value={Math.round(selectedRegionStyle.minFontSize)}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, minFontSize: clamp(v, 6, Math.max(6, Math.round(s.fontSize))) }))}
                 display={`${Math.round(selectedRegionStyle.minFontSize)}px`} />
             </FineField>
-            {/* Line Spacing */}
             <FineField label={t('renderPreview.lineSpacing')}>
               <FineRange min={0.65} max={2.2} step={0.05} value={selectedRegionStyle.lineSpacing}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, lineSpacing: v }))} display={selectedRegionStyle.lineSpacing.toFixed(2)} />
             </FineField>
-            {/* Opacity */}
             <FineField label={t('renderPreview.opacity')}>
               <FineRange min={0.05} max={1} step={0.01} value={selectedRegionStyle.opacity}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, opacity: v }))} display={`${Math.round(selectedRegionStyle.opacity * 100)}%`} />
             </FineField>
-            {/* Skew X */}
             <FineField label={t('renderPreview.skewX')}>
               <FineRange min={-45} max={45} step={0.5} value={selectedRegionStyle.skewX || 0}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew(v) }))} display={`${(selectedRegionStyle.skewX || 0).toFixed(1)}°`} />
             </FineField>
-            {/* Skew Y */}
             <FineField label={t('renderPreview.skewY')}>
               <FineRange min={-45} max={45} step={0.5} value={selectedRegionStyle.skewY || 0}
                 onChange={(v) => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew(v) }))} display={`${(selectedRegionStyle.skewY || 0).toFixed(1)}°`} />
             </FineField>
           </div>
 
-          {/* ═══ Effects Row ═══ */}
           <div className="koma-effects-row relative mt-2.5 flex flex-nowrap items-center gap-1.5 overflow-x-auto border-t border-paper/10 pt-2.5">
             <FillStylePopover
               label={t('renderPreview.fill')}
@@ -523,7 +508,6 @@ const RenderTextPreviewTypeDockNoir = ({
                 </div>
               </div>
 
-              {/* Shadow Layers */}
               <div className="koma-effect-popover__layers">
                 <div className="koma-effect-popover__layersHead">
                   <span>{t('renderPreview.shadowLayers')}</span>

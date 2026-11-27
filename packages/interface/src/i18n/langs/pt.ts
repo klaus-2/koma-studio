@@ -1278,6 +1278,7 @@ export const ptMessages: TranslationCatalog = {
   'renderPreview.skewY': 'Inclinação Y',
   'renderPreview.skewYMinus2': 'Inclinação Y -2°',
   'renderPreview.skewYPlus2': 'Inclinação Y +2°',
+  'renderPreview.resetTransform': 'Redefinir rotação e inclinação',
   'renderPreview.adjustments': 'Ajustes',
   'renderPreview.refine': 'Refinar',
   'renderPreview.autoFontSize': 'Auto Font Size',
