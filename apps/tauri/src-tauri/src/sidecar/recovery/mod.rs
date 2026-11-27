@@ -289,13 +289,17 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
     };
     let (status, message, retry_after) = (report.status, report.message, report.retry_after);
 
-    log::error!(
-        "mini-backend {cause}; recovery attempt {attempt}/{RESTART_MAX_ATTEMPTS}{}",
-        crash_log_path
-            .as_ref()
-            .map(|path| format!("; post-mortem written to {path}"))
-            .unwrap_or_default()
-    );
+    if report.expected_stop {
+        log::info!("mini-backend stopped ({cause} after a deliberate stop)");
+    } else {
+        log::error!(
+            "mini-backend {cause}; recovery attempt {attempt}/{RESTART_MAX_ATTEMPTS}{}",
+            crash_log_path
+                .as_ref()
+                .map(|path| format!("; post-mortem written to {path}"))
+                .unwrap_or_default()
+        );
+    }
 
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
     patch_runtime_state(
