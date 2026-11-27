@@ -88,7 +88,7 @@ function Stepper({ label, value, unit, onDec, onInc, decLabel, incLabel, classNa
   return (
     <div className={cn('panel-cut-sm flex h-7 items-center bg-ink-3', className)} role="group" aria-label={label}>
       <button type="button" onClick={onDec} aria-label={decLabel} className="grid h-7 w-7 place-items-center font-mono text-sm text-paper-dim transition-colors hover:bg-crimson hover:text-ink">−</button>
-      <span className="flex min-w-[40px] items-center justify-center gap-0.5 px-1 font-mono text-[11px] font-bold text-paper">
+      <span className="flex min-w-[40px] flex-1 items-center justify-center gap-0.5 px-1 font-mono text-[11px] font-bold text-paper">
         {value}{unit && <span className="text-[8px] uppercase text-paper-dim">{unit}</span>}
       </span>
       <button type="button" onClick={onInc} aria-label={incLabel} className="grid h-7 w-7 place-items-center font-mono text-sm text-paper-dim transition-colors hover:bg-crimson hover:text-ink">+</button>
@@ -96,8 +96,8 @@ function Stepper({ label, value, unit, onDec, onInc, decLabel, incLabel, classNa
   );
 }
 
-function IconGroup({ children, label }: { children: React.ReactNode; label: string }) {
-  return <div className="panel-cut-sm flex h-7 bg-ink-3" role="group" aria-label={label}>{children}</div>;
+function IconGroup({ children, label, className }: { children: React.ReactNode; label: string; className?: string }) {
+  return <div className={cn('panel-cut-sm flex h-7 bg-ink-3', className)} role="group" aria-label={label}>{children}</div>;
 }
 function DockIcon({ children, active, onClick, label, title }: {
   children: React.ReactNode; active?: boolean; onClick: () => void; label: string; title?: string;
@@ -105,14 +105,11 @@ function DockIcon({ children, active, onClick, label, title }: {
   return (
     <button
       type="button" onClick={onClick} aria-label={label} title={title} aria-pressed={active}
-      className={cn('grid h-7 w-7 place-items-center transition-colors', active ? 'bg-crimson text-ink' : 'text-paper-dim hover:text-paper')}
+      className={cn('grid h-7 min-w-[28px] flex-1 place-items-center transition-colors', active ? 'bg-crimson text-ink' : 'text-paper-dim hover:text-paper')}
     >
       {children}
     </button>
   );
-}
-function DockPipe() {
-  return <span className="h-7 w-px bg-crimson/20" aria-hidden="true" />;
 }
 
 function FineField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -261,113 +258,111 @@ const RenderTextPreviewTypeDockNoir = ({
       <div className="glass panel-cut relative flex w-full max-w-full flex-col gap-1.5 border-crimson/30 p-2 shadow-hard-crimson">
         <div className="halftone-red pointer-events-none absolute inset-0 opacity-10" aria-hidden="true" />
 
-        <div className="relative flex items-center gap-1.5">
-          <FontFamilySelect
-            className="panel-cut-sm h-7 min-w-0 flex-1 max-w-[170px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
-            value={selectedRegionStyle.fontFamily}
-            onChange={(family) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: family }))}
-            families={availableRenderFonts}
-            ariaLabel={t('renderPreview.textFont')}
-            previewText={buildDefaultRegionRenderText(selectedRegion)}
-          />
-          <select
-            className="panel-cut-sm h-7 w-[104px] shrink-0 border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
-            value={selectedRegion?.shape?.kind ?? 'rounded'}
-            onChange={(e) => updateSelectedRegionShapeKind(e.target.value as TypographyShapeKind)}
-            disabled={selectedRegionIsNoteOverlay}
-            aria-label={t('renderPreview.selectionShape')}
-          >
-            <option value="square">{t('renderPreview.rectangular')}</option>
-            <option value="rounded">{t('renderPreview.elliptic')}</option>
-          </select>
-          <Stepper label={t('renderPreview.fontSize')} onDec={() => adjustSelectedFontSize(-1)} onInc={() => adjustSelectedFontSize(1)}
-            decLabel={t('renderPreview.decreaseFont')} incLabel={t('renderPreview.increaseFont')} value={Math.round(selectedRegionStyle.fontSize)} />
-        </div>
+        <div className="relative grid grid-cols-[repeat(3,minmax(0,1fr))_28px] gap-1.5">
+          <div className="contents">
+            <FontFamilySelect
+              className="panel-cut-sm h-7 w-full min-w-0 border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
+              value={selectedRegionStyle.fontFamily}
+              onChange={(family) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: family }))}
+              families={availableRenderFonts}
+              ariaLabel={t('renderPreview.textFont')}
+              previewText={buildDefaultRegionRenderText(selectedRegion)}
+            />
+            <select
+              className="panel-cut-sm h-7 w-full min-w-0 border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
+              value={selectedRegion?.shape?.kind ?? 'rounded'}
+              onChange={(e) => updateSelectedRegionShapeKind(e.target.value as TypographyShapeKind)}
+              disabled={selectedRegionIsNoteOverlay}
+              aria-label={t('renderPreview.selectionShape')}
+            >
+              <option value="square">{t('renderPreview.rectangular')}</option>
+              <option value="rounded">{t('renderPreview.elliptic')}</option>
+            </select>
+            <Stepper label={t('renderPreview.fontSize')} onDec={() => adjustSelectedFontSize(-1)} onInc={() => adjustSelectedFontSize(1)}
+              decLabel={t('renderPreview.decreaseFont')} incLabel={t('renderPreview.increaseFont')} value={Math.round(selectedRegionStyle.fontSize)} className="col-span-2" />
+          </div>
 
-        <div className="relative h-px bg-crimson/15" aria-hidden="true" />
+          <div className="col-span-4 h-px bg-crimson/15" aria-hidden="true" />
 
-        <div className="relative flex flex-wrap items-center gap-1.5">
-          <IconGroup label={t('renderPreview.alignment')}>
-            <DockIcon active={selectedRegionStyle.alignment === 'left'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'left' }))} label={t('renderPreview.alignLeft')}><AlignLeft size={12} /></DockIcon>
-            <DockIcon active={selectedRegionStyle.alignment === 'center'} onClick={() => normalizeSelectedRegionShape({ centerText: true, source: 'refined' })} label={t('renderPreview.alignCenter')}><AlignCenter size={12} /></DockIcon>
-            <DockIcon active={selectedRegionStyle.alignment === 'right'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'right' }))} label={t('renderPreview.alignRight')}><AlignRight size={12} /></DockIcon>
-          </IconGroup>
-          <DockPipe />
-          <IconGroup label={t('renderPreview.typographyStyle')}>
-            <DockIcon active={selectedRegionStyle.bold} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, bold: !s.bold }))} label={t('renderPreview.bold')}><Bold size={12} /></DockIcon>
-            <DockIcon active={selectedRegionStyle.italic} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, italic: !s.italic }))} label={t('renderPreview.italic')}><Italic size={12} /></DockIcon>
-            <DockIcon active={selectedRegionStyle.underline} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, underline: !s.underline }))} label={t('renderPreview.underline')}><Underline size={12} /></DockIcon>
-            <DockIcon active={selectedRegionStyle.uppercase} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, uppercase: !s.uppercase }))} label={t('renderPreview.uppercase')} title={t('renderPreview.uppercase')}>
-              <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconUppercase')}</span>
-            </DockIcon>
-          </IconGroup>
-          <DockPipe />
-          <IconGroup label={t('renderPreview.textOrientation')}>
-            <DockIcon active={selectedRegionStyle.textOrientation !== 'vertical'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textOrientation: 'horizontal' }))} label={t('renderPreview.horizontal')} title={t('renderPreview.horizontal')}>
-              <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconHorizontal')}</span>
-            </DockIcon>
-            <DockIcon active={selectedRegionStyle.textOrientation === 'vertical'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textOrientation: 'vertical' }))} label={t('renderPreview.vertical')} title={t('renderPreview.vertical')}>
-              <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconVertical')}</span>
-            </DockIcon>
-            <DockIcon active={selectedRegionStyle.textPathMode === 'circular'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textPathMode: s.textPathMode === 'circular' ? 'normal' : 'circular' }))} label={t('renderPreview.circular')} title={t('renderPreview.circularText')}>
-              <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconCircular')}</span>
-            </DockIcon>
-          </IconGroup>
-        </div>
+          <div className="contents">
+            <IconGroup className="w-full" label={t('renderPreview.alignment')}>
+              <DockIcon active={selectedRegionStyle.alignment === 'left'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'left' }))} label={t('renderPreview.alignLeft')}><AlignLeft size={12} /></DockIcon>
+              <DockIcon active={selectedRegionStyle.alignment === 'center'} onClick={() => normalizeSelectedRegionShape({ centerText: true, source: 'refined' })} label={t('renderPreview.alignCenter')}><AlignCenter size={12} /></DockIcon>
+              <DockIcon active={selectedRegionStyle.alignment === 'right'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, alignment: 'right' }))} label={t('renderPreview.alignRight')}><AlignRight size={12} /></DockIcon>
+            </IconGroup>
+            <IconGroup className="w-full" label={t('renderPreview.typographyStyle')}>
+              <DockIcon active={selectedRegionStyle.bold} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, bold: !s.bold }))} label={t('renderPreview.bold')}><Bold size={12} /></DockIcon>
+              <DockIcon active={selectedRegionStyle.italic} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, italic: !s.italic }))} label={t('renderPreview.italic')}><Italic size={12} /></DockIcon>
+              <DockIcon active={selectedRegionStyle.underline} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, underline: !s.underline }))} label={t('renderPreview.underline')}><Underline size={12} /></DockIcon>
+              <DockIcon active={selectedRegionStyle.uppercase} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, uppercase: !s.uppercase }))} label={t('renderPreview.uppercase')} title={t('renderPreview.uppercase')}>
+                <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconUppercase')}</span>
+              </DockIcon>
+            </IconGroup>
+            <IconGroup className="col-span-2" label={t('renderPreview.textOrientation')}>
+              <DockIcon active={selectedRegionStyle.textOrientation !== 'vertical'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textOrientation: 'horizontal' }))} label={t('renderPreview.horizontal')} title={t('renderPreview.horizontal')}>
+                <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconHorizontal')}</span>
+              </DockIcon>
+              <DockIcon active={selectedRegionStyle.textOrientation === 'vertical'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textOrientation: 'vertical' }))} label={t('renderPreview.vertical')} title={t('renderPreview.vertical')}>
+                <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconVertical')}</span>
+              </DockIcon>
+              <DockIcon active={selectedRegionStyle.textPathMode === 'circular'} onClick={() => updateSelectedRegionStyle((s) => ({ ...s, textPathMode: s.textPathMode === 'circular' ? 'normal' : 'circular' }))} label={t('renderPreview.circular')} title={t('renderPreview.circularText')}>
+                <span className="font-mono text-[10px] font-bold">{t('renderPreview.iconCircular')}</span>
+              </DockIcon>
+            </IconGroup>
+          </div>
 
-        <div className="relative flex flex-wrap items-center gap-1.5">
-          <Stepper label={t('renderPreview.rotation')} onDec={() => adjustSelectedRotation(-5)} onInc={() => adjustSelectedRotation(5)}
-            decLabel={t('renderPreview.rotateMinus5')} incLabel={t('renderPreview.rotatePlus5')} value={`${Math.round(selectedRegionStyle.rotation)}°`} />
-          <DockPipe />
-          <Stepper label={t('renderPreview.skewX')} unit={t('dashboard.render.skewXLabel')}
-            onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) - 2) }))}
-            onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) + 2) }))}
-            decLabel={t('renderPreview.skewXMinus2')} incLabel={t('renderPreview.skewXPlus2')} value={`${Math.round(selectedRegionStyle.skewX || 0)}°`} />
-          <Stepper label={t('renderPreview.skewY')} unit={t('dashboard.render.skewYLabel')}
-            onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) - 2) }))}
-            onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) + 2) }))}
-            decLabel={t('renderPreview.skewYMinus2')} incLabel={t('renderPreview.skewYPlus2')} value={`${Math.round(selectedRegionStyle.skewY || 0)}°`} />
-          <button
-            type="button"
-            onClick={() => updateSelectedRegionStyle((s) => ({ ...s, rotation: 0, skewX: 0, skewY: 0 }))}
-            disabled={!selectedRegionStyle.rotation && !selectedRegionStyle.skewX && !selectedRegionStyle.skewY}
-            aria-label={t('renderPreview.resetTransform')}
-            title={t('renderPreview.resetTransform')}
-            className="panel-cut-sm grid h-7 w-7 place-items-center bg-ink-3 text-paper-dim transition-colors hover:bg-crimson hover:text-ink disabled:pointer-events-none disabled:opacity-40"
-          >
-            <RotateCcw size={12} />
-          </button>
-        </div>
+          <div className="contents">
+            <Stepper className="w-full" label={t('renderPreview.rotation')} onDec={() => adjustSelectedRotation(-5)} onInc={() => adjustSelectedRotation(5)}
+              decLabel={t('renderPreview.rotateMinus5')} incLabel={t('renderPreview.rotatePlus5')} value={`${Math.round(selectedRegionStyle.rotation)}°`} />
+            <Stepper className="w-full" label={t('renderPreview.skewX')} unit={t('dashboard.render.skewXLabel')}
+              onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) - 2) }))}
+              onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewX: normalizeRenderSkew((s.skewX || 0) + 2) }))}
+              decLabel={t('renderPreview.skewXMinus2')} incLabel={t('renderPreview.skewXPlus2')} value={`${Math.round(selectedRegionStyle.skewX || 0)}°`} />
+            <Stepper className="w-full" label={t('renderPreview.skewY')} unit={t('dashboard.render.skewYLabel')}
+              onDec={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) - 2) }))}
+              onInc={() => updateSelectedRegionStyle((s) => ({ ...s, skewY: normalizeRenderSkew((s.skewY || 0) + 2) }))}
+              decLabel={t('renderPreview.skewYMinus2')} incLabel={t('renderPreview.skewYPlus2')} value={`${Math.round(selectedRegionStyle.skewY || 0)}°`} />
+            <button
+              type="button"
+              onClick={() => updateSelectedRegionStyle((s) => ({ ...s, rotation: 0, skewX: 0, skewY: 0 }))}
+              disabled={!selectedRegionStyle.rotation && !selectedRegionStyle.skewX && !selectedRegionStyle.skewY}
+              aria-label={t('renderPreview.resetTransform')}
+              title={t('renderPreview.resetTransform')}
+              className="panel-cut-sm grid h-7 w-7 place-items-center bg-ink-3 text-paper-dim transition-colors hover:bg-crimson hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+            >
+              <RotateCcw size={12} />
+            </button>
+          </div>
 
-        <div className="relative h-px bg-crimson/15" aria-hidden="true" />
+          <div className="col-span-4 h-px bg-crimson/15" aria-hidden="true" />
 
-        <div className="relative flex flex-wrap items-center gap-1.5">
-          <IconGroup label={t('renderPreview.nudgeGroup')}>
-            <DockIcon onClick={() => nudgeSelectedRegion('left')} label={t('renderPreview.nudgeLeft')}><ArrowLeft size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('up')} label={t('renderPreview.nudgeUp')}><ArrowUp size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('down')} label={t('renderPreview.nudgeDown')}><ArrowDown size={12} /></DockIcon>
-            <DockIcon onClick={() => nudgeSelectedRegion('right')} label={t('renderPreview.nudgeRight')}><ArrowRight size={12} /></DockIcon>
-          </IconGroup>
-          <span className="flex-1" />
-          <button
-            type="button"
-            className={cn(
-              'panel-cut-sm flex h-7 items-center gap-1.5 px-2.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-all',
-              dockExpanded ? 'bg-crimson text-ink shadow-hard-gold' : 'bg-ink-3 text-paper-dim hover:-translate-x-0.5 hover:-translate-y-0.5 hover:text-paper hover:shadow-hard-crimson',
-            )}
-            onClick={() => setDockExpanded((prev) => !prev)}
-            aria-expanded={dockExpanded}
-          >
-            <Settings size={11} />{t('renderPreview.adjustments')}
-          </button>
-          <button
-            type="button"
-            className="panel-cut-sm flex h-7 items-center gap-1.5 bg-gold px-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-ink transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-crimson disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-none"
-            onClick={() => onRequestRefineRegion?.()}
-            disabled={!onRequestRefineRegion || selectedRegionIsNoteOverlay}
-          >
-            <Sparkles size={11} />{t('renderPreview.refine')}
-          </button>
+          <div className="contents">
+            <IconGroup className="w-full" label={t('renderPreview.nudgeGroup')}>
+              <DockIcon onClick={() => nudgeSelectedRegion('left')} label={t('renderPreview.nudgeLeft')}><ArrowLeft size={12} /></DockIcon>
+              <DockIcon onClick={() => nudgeSelectedRegion('up')} label={t('renderPreview.nudgeUp')}><ArrowUp size={12} /></DockIcon>
+              <DockIcon onClick={() => nudgeSelectedRegion('down')} label={t('renderPreview.nudgeDown')}><ArrowDown size={12} /></DockIcon>
+              <DockIcon onClick={() => nudgeSelectedRegion('right')} label={t('renderPreview.nudgeRight')}><ArrowRight size={12} /></DockIcon>
+            </IconGroup>
+            <button
+              type="button"
+              className={cn(
+                'panel-cut-sm flex h-7 w-full min-w-0 items-center justify-center gap-1.5 px-2 font-mono text-[10px] font-bold uppercase tracking-wider transition-all',
+                dockExpanded ? 'bg-crimson text-ink shadow-hard-gold' : 'bg-ink-3 text-paper-dim hover:-translate-x-0.5 hover:-translate-y-0.5 hover:text-paper hover:shadow-hard-crimson',
+              )}
+              onClick={() => setDockExpanded((prev) => !prev)}
+              aria-expanded={dockExpanded}
+            >
+              <Settings size={11} />{t('renderPreview.adjustments')}
+            </button>
+            <button
+              type="button"
+              className="panel-cut-sm col-span-2 flex h-7 min-w-0 items-center justify-center gap-1.5 bg-gold px-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-ink transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-crimson disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+              onClick={() => onRequestRefineRegion?.()}
+              disabled={!onRequestRefineRegion || selectedRegionIsNoteOverlay}
+            >
+              <Sparkles size={11} />{t('renderPreview.refine')}
+            </button>
+          </div>
         </div>
       </div>
 
