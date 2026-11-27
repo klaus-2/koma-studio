@@ -7,8 +7,7 @@ import { fetchWithTimeoutAndRetry } from '../utils/http';
 import { isRecord } from '../utils/guards';
 import { useMiniBackendThreadSettings } from '../pages/settings/hooks/use-mini-backend-thread-settings';
 import { useUiShellStore } from '../pages/dashboard/stores/ui-shell-store';
-
-/* ═══ Calibration report view (backend contract: routers/calibration.py) ══ */
+import { useIsOnboardingModalOpen } from './onboarding/onboardingOpenState';
 
 import type {
   CalibrationDialogPhase,
@@ -56,7 +55,6 @@ const narrowMeasurement = (
   };
 };
 
-/** Narrows the raw report JSON into the view the dialogs render. */
 export const narrowCalibrationReport = (
   value: unknown,
 ): CalibrationReportView | null => {
@@ -87,7 +85,6 @@ export const narrowCalibrationReport = (
   };
 };
 
-/** `GET /calibration/last` response: a report or the never-run marker. */
 export const narrowCalibrationLastResult = (
   value: unknown,
 ): CalibrationLastResult | null => {
@@ -96,11 +93,8 @@ export const narrowCalibrationLastResult = (
   return narrowCalibrationReport(value);
 };
 
-/* ═══ Calibration client ═══ */
-
-/** Runs the sidecar benchmark; throws on HTTP/transport/payload failure. */
 export const runCalibrationBenchmark = async (): Promise<CalibrationReportView> => {
-  // The benchmark is capped at a 20s wall-clock budget plus model load.
+
   const response = await fetchWithTimeoutAndRetry(
     buildUrl('localUrl', '/calibration/run'),
     { method: 'POST' },
@@ -113,7 +107,6 @@ export const runCalibrationBenchmark = async (): Promise<CalibrationReportView> 
   return report;
 };
 
-/** Loads the last persisted report (or the never-run marker). */
 export const fetchLastCalibrationReport = async (): Promise<CalibrationLastResult> => {
   const response = await fetchWithTimeoutAndRetry(
     buildUrl('localUrl', '/calibration/last'),
@@ -127,11 +120,8 @@ export const fetchLastCalibrationReport = async (): Promise<CalibrationLastResul
   return result;
 };
 
-/* ═══ First-run offer flag ═══ */
-
 const CALIBRATION_OFFER_STORAGE_KEY = 'koma-studio.calibration-offer.v1';
 
-/** True once the user answered the offer (accept OR decline) on any run. */
 export const hasCalibrationOfferBeenAnswered = (): boolean => {
   if (typeof window === 'undefined') return true;
   try {
@@ -151,17 +141,10 @@ export const markCalibrationOfferAnswered = (): void => {
       JSON.stringify({ answeredAt: new Date().toISOString() }),
     );
   } catch {
-    // Quota-blocked localStorage must not break the dialog flow.
+
   }
 };
 
-/* ═══ Tunable apply (through the settings hook's existing save flow) ═══ */
-
-/**
- * The settings hook's save closes over its draft state, so the draft update
- * and the save are one render apart: `applyRecommendation` marks the pending
- * flag and the effect fires the existing save after the draft landed.
- */
 export const useCalibrationTunableApply = (): CalibrationTunableApply => {
   const {
     setMiniBackendTunables,
@@ -187,23 +170,20 @@ export const useCalibrationTunableApply = (): CalibrationTunableApply => {
   return { applyRecommendation, saveStatus: tunablesSaveStatus };
 };
 
-/* ═══ Offer controller ═══ */
-
 const useCalibrationOfferController = (): CalibrationOfferController => {
   const processing = useUiShellStore((s) => s.processing);
+  const onboardingOpen = useIsOnboardingModalOpen();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<CalibrationDialogPhase>('offer');
   const [report, setReport] = useState<CalibrationReportView | null>(null);
   const [runError, setRunError] = useState(false);
   const { applyRecommendation, saveStatus } = useCalibrationTunableApply();
 
-  // First dashboard entry without a recorded answer and without an active
-  // processing run — never while processing.
   useEffect(() => {
-    if (processing) return;
+    if (processing || onboardingOpen) return;
     if (hasCalibrationOfferBeenAnswered()) return;
     setOpen(true);
-  }, [processing]);
+  }, [onboardingOpen, processing]);
 
   const accept = useCallback(() => {
     markCalibrationOfferAnswered();
@@ -226,9 +206,7 @@ const useCalibrationOfferController = (): CalibrationOfferController => {
   }, []);
 
   const close = useCallback(() => {
-    // Any dismissal (X / Fechar / ESC) also counts as an answer: the flag
-    // stops the offer effect from reopening on the next processing→idle
-    // transition or dashboard mount.
+
     markCalibrationOfferAnswered();
     setOpen(false);
   }, []);
@@ -257,10 +235,10 @@ const CalibrationOfferDialogFamily = createFamilyComponent(
   CalibrationOfferDialogNoir,
 );
 
-/** First-run calibration offer dialog. */
 export function CalibrationOfferDialog() {
+  const onboardingOpen = useIsOnboardingModalOpen();
   const controller = useCalibrationOfferController();
-  if (!controller.open) return null;
+  if (!controller.open || onboardingOpen) return null;
   return <CalibrationOfferDialogFamily controller={controller} />;
 }
 

@@ -5,6 +5,7 @@ import { I18nProvider } from '../../i18n';
 import { enMessages } from '../../i18n/langs/en';
 import { setDesktopBridgeProvider } from '../../lib/desktop-bridge';
 import { modelStore } from '../../stores/model-store';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { buildInstallState, createMockModel } from '../../models/model-install-fixtures';
 import { OnboardingModal } from './OnboardingModal';
 import {
@@ -18,6 +19,7 @@ describe('OnboardingModal', () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.localStorage.setItem('koma-studio.locale.v1', 'en');
+    useThemeStore.setState({ family: 'noir', theme: 'dark' });
     setDesktopBridgeProvider({});
     modelStore.setState({
       initialized: true,
@@ -185,5 +187,55 @@ describe('OnboardingModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onOpenSettingsTab).toHaveBeenCalledWith('general');
     expect(readOnboardingState('user-88')?.lastStepId).toBe('settings');
+  });
+
+  it('renders dedicated Noir and Classic theme shells with Koma Neeko and interactive previews', () => {
+    for (const family of ['noir', 'classic'] as const) {
+      useThemeStore.setState({ family, theme: 'dark' });
+      const { unmount } = render(
+        <I18nProvider>
+          <OnboardingModal
+            open
+            userId={`user-theme-${family}`}
+            onClose={vi.fn()}
+            onStartTour={vi.fn()}
+            onOpenSettingsTab={vi.fn()}
+            onOpenExternalUrl={vi.fn()}
+          />
+        </I18nProvider>,
+      );
+
+      const dialog = document.body.querySelector('[role="dialog"]');
+      expect(dialog?.getAttribute('data-onboarding-theme')).toBe(family);
+      expect(document.body.querySelector('[data-koma-pose]')).not.toBeNull();
+
+      const railButtons = document.body.querySelectorAll('.koma-onb-railItem');
+      const step4Btn = railButtons[3];
+      expect(step4Btn).toBeTruthy();
+      if (step4Btn) {
+        fireEvent.click(step4Btn);
+      }
+      expect(document.body.querySelector('[data-stage-preview="cleanImage"]')).not.toBeNull();
+
+      const step5Btn = railButtons[4];
+      expect(step5Btn).toBeTruthy();
+      if (step5Btn) {
+        fireEvent.click(step5Btn);
+      }
+      const spotlightBefore = document.body.querySelector('.koma-onb-spotlight [data-preview-kind]');
+      expect(spotlightBefore?.getAttribute('data-preview-kind')).toBe('healing');
+
+      const magicWandCard = document.body
+        .querySelector('[data-preview-kind="magic-wand"]')
+        ?.closest('button');
+      expect(magicWandCard).toBeTruthy();
+      if (magicWandCard) {
+        fireEvent.click(magicWandCard);
+      }
+      const spotlightAfter = document.body.querySelector('.koma-onb-spotlight [data-preview-kind]');
+      expect(spotlightAfter?.getAttribute('data-preview-kind')).toBe('magic-wand');
+
+      unmount();
+    }
   });
 });

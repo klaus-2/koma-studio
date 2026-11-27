@@ -13,6 +13,7 @@ import ReviewRawToolsPanel from '../../../components/dashboard/ReviewRawToolsPan
 import DashboardOverlays from '../../../components/dashboard/DashboardOverlays';
 import DashboardModelManagers from '../../../components/dashboard/DashboardModelManagers';
 import DashboardFooter from '../../../components/dashboard/DashboardFooter';
+import { KomaStudioCompanion } from '../../../components/koma-mascot/KomaStudioCompanion';
 import ImageCollectionSidebar from './ImageCollectionSidebar';
 import ManualToolsDockSection from './ManualToolsDock';
 import WorkflowSidebarPanelsSection from './WorkflowSidebarPanels';
@@ -906,7 +907,7 @@ export default memo(function DashboardMainLayout({
         removeImage={removeImage}
       />
 
-      <main className="koma-dash__main">
+      <main className="koma-dash__main relative">
         <KomaTopbar
           mode={mode}
           onModeChange={handleModeChange}
@@ -1081,6 +1082,8 @@ export default memo(function DashboardMainLayout({
           getPreviewSrc={getPreviewSrc}
           typographerWorkspace={typographerWorkspace}
         />
+
+        {!onboarding.isOpen && <KomaStudioCompanion />}
 
         <DashboardFooter
           statusMessage={statusMessage}

@@ -1,12 +1,9 @@
-/**
- * Shared Suspense fallback for lazily-loaded dashboard stages/panels.
- * Same visual pattern as the LazyFallback in DashboardSpecialModeStage.tsx.
- * Rendered only during a chunk fetch (idle preload keeps this off-screen in
- * practice; see useDashboardIdlePreload).
- */
+import { KomaNekoRig } from '../koma-mascot/KomaNekoRig';
+
 export default function DashboardLazyFallback() {
   return (
-    <div className="koma-stage__empty" data-tour="dashboard-stage-empty">
+    <div className="koma-stage__empty" data-tour="dashboard-stage-empty" role="status" aria-live="polite">
+      <KomaNekoRig pose="stretch" size={84} />
       <div className="koma-spinner" />
       <p>Loading workspace...</p>
     </div>

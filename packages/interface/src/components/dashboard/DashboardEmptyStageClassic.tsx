@@ -1,6 +1,7 @@
-import { Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import './DashboardEmptyStage.css';
 import { useI18n } from '../../i18n';
+import { KomaNekoActor } from '../koma-mascot/KomaNekoActor';
 
 interface DashboardEmptyStageProps {
   emptyPreviewTipIndex: number;
@@ -15,8 +16,8 @@ const DashboardEmptyStageClassic = ({
   return (
     <div className="koma-empty-stage" data-tour="dashboard-stage-empty">
       <div className="koma-empty-stage__content">
-        <div className="koma-empty-stage__icon" aria-hidden="true">
-          <ImageIcon size={28} />
+        <div className="mb-1 flex items-center justify-center" aria-hidden="true">
+          <KomaNekoActor pose="peek" mode="video" size={112} />
         </div>
         <p className="koma-empty-stage__title">{t('dashboard.emptyStage.title')}</p>
         <p className="koma-empty-stage__desc">

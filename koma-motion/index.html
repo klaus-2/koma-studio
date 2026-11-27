@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, height=720" />
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/koma-rig.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: #07070c;
+        color: #f2ede3;
+        font-family: 'Inter', sans-serif;
+      }
+      #root {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 64px;
+        background:
+          radial-gradient(ellipse at 25% 30%, rgba(255, 30, 110, 0.16), transparent 55%),
+          radial-gradient(ellipse at 78% 70%, rgba(0, 216, 255, 0.14), transparent 55%),
+          #07070c;
+      }
+      #mascot-wrap { width: 340px; height: 340px; }
+      .koma-svg { width: 100%; height: 100%; display: block; }
+      #copy { max-width: 520px; display: flex; flex-direction: column; gap: 14px; }
+      .kicker { font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.28em; color: #ff2e63; text-transform: uppercase; }
+      h1 { font-family: 'Archivo Black', sans-serif; font-size: 56px; line-height: 1.02; letter-spacing: -0.02em; }
+      p { font-family: 'JetBrains Mono', monospace; font-size: 15px; line-height: 1.6; color: rgba(242, 237, 227, 0.72); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="2.4" data-fps="60" data-width="1280" data-height="720">
+      <div id="mascot-wrap" class="clip" data-start="0" data-duration="2.4" data-track-index="0" data-layout-allow-overflow></div>
+      <div id="copy" class="clip" data-start="0" data-duration="2.4" data-track-index="1">
+        <span class="kicker">// KOMA MOTION STUDIO</span>
+        <h1>KOMA NEEKO</h1>
+        <p>Official HyperFrames animation rig & manga tool demonstration suite for Kōma Studio.</p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const wrap = document.getElementById('mascot-wrap');
+        wrap.innerHTML = window.KomaRig.buildSvgMarkup('wave', 'studio-hero');
+        const svg = wrap.querySelector('svg');
+        const tl = window.KomaRig.buildPoseTimeline(svg, 'wave', 2.4);
+        window.__timelines = window.__timelines || {};
+        window.__timelines['main'] = tl;
+        tl.seek(0);
+      })();
+    </script>
+  </body>
+</html>

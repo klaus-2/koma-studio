@@ -10,6 +10,7 @@ import {
 
 import { useI18n } from '../../i18n';
 import type { ErrorFallbackProps } from '../ErrorBoundary.types';
+import { KomaNekoRig } from '../koma-mascot/KomaNekoRig';
 import { EASE, btnGhost, btnPrimary } from '../system/v2/kit';
 
 const CROP_MARKS = [
@@ -62,24 +63,29 @@ export const ErrorBoundaryNoir = ({
       >
         <span aria-hidden className="absolute left-0 top-0 h-full w-[3px] bg-crimson" />
 
-        <div className="flex items-start gap-3.5">
-          <span
-            aria-hidden
-            className="panel-cut-sm mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center border border-crimson/45 bg-crimson/10 text-crimson"
-          >
-            <AlertTriangle size={18} strokeWidth={2.2} />
-          </span>
-          <div className="min-w-0">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-crimson">
-              <span aria-hidden>// </span>
-              {errorName}
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-black uppercase leading-[1.05] text-paper">
-              {t('errorBoundary.title')}
-            </h2>
-            <p className="mt-3 max-w-[42ch] font-display text-[13px] leading-relaxed text-paper/60">
-              {t('errorBoundary.description')}
-            </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <span
+              aria-hidden
+              className="panel-cut-sm mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center border border-crimson/45 bg-crimson/10 text-crimson"
+            >
+              <AlertTriangle size={18} strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0">
+              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-crimson">
+                <span aria-hidden>// </span>
+                {errorName}
+              </p>
+              <h2 className="mt-2 font-display text-2xl font-black uppercase leading-[1.05] text-paper">
+                {t('errorBoundary.title')}
+              </h2>
+              <p className="mt-3 max-w-[42ch] font-display text-[13px] leading-relaxed text-paper/60">
+                {t('errorBoundary.description')}
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0" aria-hidden="true">
+            <KomaNekoRig pose="surprised" size={compact ? 58 : 78} />
           </div>
         </div>
 

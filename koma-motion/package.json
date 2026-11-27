@@ -1,0 +1,11 @@
+{
+  "name": "scaffold",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.9.100 preview",
+    "check": "npx --yes hyperframes@0.9.100 check",
+    "render": "npx --yes hyperframes@0.9.100 render",
+    "publish": "npx --yes hyperframes@0.9.100 publish"
+  }
+}

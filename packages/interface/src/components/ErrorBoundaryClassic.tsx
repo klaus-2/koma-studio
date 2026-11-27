@@ -9,6 +9,7 @@ import {
 
 import { useI18n } from '../i18n';
 import type { ErrorFallbackProps } from './ErrorBoundary.types';
+import { KomaNekoRig } from './koma-mascot/KomaNekoRig';
 
 export const ErrorBoundaryClassic = ({
   errorName,
@@ -42,6 +43,9 @@ export const ErrorBoundaryClassic = ({
             <span className="koma-error-boundary__tag">{errorName}</span>
             <h2 className="koma-error-boundary__title">{t('errorBoundary.title')}</h2>
             <p className="koma-error-boundary__desc">{t('errorBoundary.description')}</p>
+          </div>
+          <div className="shrink-0" aria-hidden="true">
+            <KomaNekoRig pose="surprised" size={compact ? 52 : 70} />
           </div>
         </header>
 

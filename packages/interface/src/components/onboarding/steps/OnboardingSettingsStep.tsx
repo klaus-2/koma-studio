@@ -95,7 +95,9 @@ export function OnboardingSettingsStep({
     <div className="koma-onb-stepStack">
       <OnboardingSectionCard tone="accent">
         <div className="koma-onb-cardHead">
-          <Settings size={15} />
+          <span className="koma-onb-iconTile" aria-hidden="true">
+            <Settings size={14} />
+          </span>
           <h3 className="koma-onb-cardTitle">{t('onboarding.settings.quickPrefsTitle')}</h3>
           <OnboardingBadge tone="info">{t('onboarding.settings.liveSyncBadge')}</OnboardingBadge>
         </div>
@@ -129,7 +131,9 @@ export function OnboardingSettingsStep({
             <div className="koma-onb-settingsTabCard">
               <div className="koma-onb-settingsTabCard__copy">
                 <div className="koma-onb-cardHead">
-                  <Icon size={15} />
+                  <span className="koma-onb-iconTile" aria-hidden="true">
+                    <Icon size={14} />
+                  </span>
                   <h4 className="koma-onb-cardTitle">{t(titleKey)}</h4>
                 </div>
                 <p className="koma-onb-muted">{t(descKey)}</p>

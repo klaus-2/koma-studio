@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 
 export interface OnboardingCardProps {
@@ -75,5 +76,73 @@ export function OnboardingToggleRow({
         </span>
       </span>
     </label>
+  );
+}
+
+export interface OnboardingSelectOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export interface OnboardingSelectProps {
+  id: string;
+  value: string;
+  options: readonly OnboardingSelectOption[];
+  onChange: (value: string) => void;
+  ariaLabel?: string;
+}
+
+export function OnboardingSelect({
+  id,
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: OnboardingSelectProps) {
+  return (
+    <div className="koma-onb-selectWrap">
+      <select
+        id={id}
+        aria-label={ariaLabel}
+        className="koma-onb-select"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="koma-onb-selectWrap__icon" aria-hidden="true" />
+    </div>
+  );
+}
+
+export interface OnboardingMeterBarProps {
+  label: string;
+  value: number;
+  tone?: 'accent' | 'info' | 'warn' | 'success';
+}
+
+export function OnboardingMeterBar({
+  label,
+  value,
+  tone = 'accent',
+}: OnboardingMeterBarProps) {
+  const clamped = Math.max(0, Math.min(100, value));
+  return (
+    <div className="koma-onb-meter">
+      <div className="koma-onb-meter__head">
+        <span>{label}</span>
+        <span className="koma-onb-mono">{clamped}%</span>
+      </div>
+      <div className="koma-onb-meter__track" aria-hidden="true">
+        <div
+          className={`koma-onb-meter__fill koma-onb-meter__fill--${tone}`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+    </div>
   );
 }

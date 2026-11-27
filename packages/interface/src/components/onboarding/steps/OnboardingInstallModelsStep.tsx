@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -29,7 +30,11 @@ import {
   buildMultiStageInstallSummary,
   getRecommendedModelIdsForStage,
 } from '../../ModelManagerModal/recommendedInstall';
-import { OnboardingBadge, OnboardingSectionCard } from '../onboardingPrimitives';
+import {
+  OnboardingBadge,
+  OnboardingSectionCard,
+  OnboardingSelect,
+} from '../onboardingPrimitives';
 
 export interface OnboardingInstallModelsStepProps {
   onInstallModels?: (modelIds?: string[]) => Promise<unknown>;
@@ -167,6 +172,21 @@ export function OnboardingInstallModelsStep({
     [entries, recommendedIds],
   );
 
+  const readyPct =
+    recommendedIds.length > 0
+      ? Math.round((installedCount / recommendedIds.length) * 100)
+      : 0;
+
+  const srcOptions = useMemo(
+    () => SOURCE_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) })),
+    [t],
+  );
+
+  const tgtOptions = useMemo(
+    () => TARGET_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) })),
+    [t],
+  );
+
   const toggleModelSelection = (modelId: string): void => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -200,53 +220,50 @@ export function OnboardingInstallModelsStep({
 
   return (
     <div className="koma-onb-stepStack">
-      <div className="koma-onb-grid2">
-        <OnboardingSectionCard>
-          <label htmlFor="koma-onb-src-lang" className="koma-onb-cardTitle">
-            {t('onboarding.install.sourceLangLabel')}
-          </label>
-          <select
-            id="koma-onb-src-lang"
-            className="koma-onb-select"
-            value={aioSrcLang}
-            onChange={(e) => setAioSrcLang(e.target.value)}
-          >
-            {SOURCE_LANGUAGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.label)}
-              </option>
-            ))}
-          </select>
-        </OnboardingSectionCard>
 
-        <OnboardingSectionCard>
-          <label htmlFor="koma-onb-tgt-lang" className="koma-onb-cardTitle">
-            {t('onboarding.install.targetLangLabel')}
-          </label>
-          <select
-            id="koma-onb-tgt-lang"
-            className="koma-onb-select"
-            value={aioTgtLang}
-            onChange={(e) => setAioTgtLang(e.target.value)}
-          >
-            {TARGET_LANGUAGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.label)}
-              </option>
-            ))}
-          </select>
-        </OnboardingSectionCard>
-      </div>
+      <OnboardingSectionCard>
+        <div className="koma-onb-pairBar">
+          <div className="koma-onb-pairBar__col">
+            <label htmlFor="koma-onb-src-lang" className="koma-onb-fieldLabel">
+              {t('onboarding.install.sourceLangLabel')}
+            </label>
+            <OnboardingSelect
+              id="koma-onb-src-lang"
+              value={aioSrcLang}
+              options={srcOptions}
+              onChange={setAioSrcLang}
+            />
+          </div>
+
+          <span className="koma-onb-pairBar__arrow" aria-hidden="true">
+            <ArrowRight size={16} />
+          </span>
+
+          <div className="koma-onb-pairBar__col">
+            <label htmlFor="koma-onb-tgt-lang" className="koma-onb-fieldLabel">
+              {t('onboarding.install.targetLangLabel')}
+            </label>
+            <OnboardingSelect
+              id="koma-onb-tgt-lang"
+              value={aioTgtLang}
+              options={tgtOptions}
+              onChange={setAioTgtLang}
+            />
+          </div>
+        </div>
+      </OnboardingSectionCard>
 
       <OnboardingSectionCard tone="info">
         <div className="koma-onb-installBar">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="koma-onb-cardHead">
-              <HardDrive size={15} />
+              <span className="koma-onb-iconTile" aria-hidden="true">
+                <HardDrive size={14} />
+              </span>
               <strong className="koma-onb-cardTitle">
                 {t('onboarding.install.packTitle')}
               </strong>
-              <OnboardingBadge tone="success">
+              <OnboardingBadge tone={installedCount === recommendedIds.length && recommendedIds.length > 0 ? 'success' : 'info'}>
                 {t('onboarding.install.readyBadge', {
                   installed: installedCount,
                   total: recommendedIds.length,
@@ -261,10 +278,13 @@ export function OnboardingInstallModelsStep({
                   : t('common.notAvailableShort'),
               })}
             </p>
+            <div className="koma-onb-packGauge" aria-hidden="true">
+              <div className="koma-onb-packGauge__fill" style={{ width: `${readyPct}%` }} />
+            </div>
           </div>
 
-          <div className="koma-onb-modelRow__meta">
-            <label className="koma-onb-modelRow__selectLabel">
+          <div className="koma-onb-installActions">
+            <label className="koma-onb-checkChip">
               <input
                 type="checkbox"
                 checked={includeEnhance}
@@ -311,9 +331,9 @@ export function OnboardingInstallModelsStep({
           </div>
         </div>
 
-        <p className="koma-onb-muted">{t('onboarding.install.backgroundHint')}</p>
+        <p className="koma-onb-muted koma-onb-mtXs">{t('onboarding.install.backgroundHint')}</p>
         {actionError ? (
-          <p className="koma-onb-errorText" role="alert">
+          <p className="koma-onb-errorText koma-onb-mtXs" role="alert">
             {actionError}
           </p>
         ) : null}
@@ -330,6 +350,7 @@ export function OnboardingInstallModelsStep({
             if (!entry) return null;
             const eligible = ELIGIBLE_INSTALL_STATUSES.has(entry.status);
             const isBusy = isActiveStatus(entry.status);
+            const isChecked = eligible ? selectedIds.has(modelId) : entry.status === 'installed';
             const sizeEstimate = formatDownloadBytes(
               estimateModelRequiredDiskBytes(entry.model),
               true,
@@ -339,20 +360,30 @@ export function OnboardingInstallModelsStep({
               (vramGb === null || entry.model.minVramGb > vramGb);
 
             return (
-              <div key={modelId} className="koma-onb-modelRow">
+              <div
+                key={modelId}
+                className={`koma-onb-modelRow ${
+                  entry.status === 'installed'
+                    ? 'koma-onb-modelRow--installed'
+                    : isChecked
+                      ? 'koma-onb-modelRow--selected'
+                      : ''
+                }`}
+              >
                 <div className="koma-onb-modelRow__top">
                   <label className="koma-onb-modelRow__selectLabel">
                     <input
                       type="checkbox"
-                      checked={eligible ? selectedIds.has(modelId) : entry.status === 'installed'}
+                      className="koma-onb-checkbox"
+                      checked={isChecked}
                       disabled={!eligible}
                       onChange={() => toggleModelSelection(modelId)}
                     />
-                    <strong>{entry.model.name}</strong>
+                    <strong className="koma-onb-modelRow__name">{entry.model.name}</strong>
                     <OnboardingBadge tone="neutral">
                       {t(STAGE_LABEL_KEYS[entry.model.stage])}
                     </OnboardingBadge>
-                    <span className="koma-onb-muted">{sizeEstimate}</span>
+                    <span className="koma-onb-mono koma-onb-modelRow__size">{sizeEstimate}</span>
                   </label>
 
                   <div className="koma-onb-modelRow__meta">

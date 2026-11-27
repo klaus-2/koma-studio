@@ -1,6 +1,7 @@
 import { m, AnimatePresence } from 'framer-motion';
-import { Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useI18n } from '../../../i18n';
+import { KomaNekoActor } from '../../koma-mascot/KomaNekoActor';
 
 interface DashboardEmptyStageProps {
   emptyPreviewTipIndex: number;
@@ -32,8 +33,16 @@ const DashboardEmptyStage = ({ emptyPreviewTipIndex, currentEmptyPreviewTip }: D
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex max-w-md flex-col items-center text-center"
       >
-        <div className="panel-cut animate-stamp mb-5 grid h-20 w-20 place-items-center bg-crimson text-ink shadow-hard-gold">
-          <ImageIcon size={30} />
+        <div className="relative mb-3 flex items-center justify-center">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute h-24 w-24 rounded-full"
+            style={{
+              background:
+                'radial-gradient(circle, color-mix(in srgb, var(--color-crimson) 26%, transparent) 0%, transparent 72%)',
+            }}
+          />
+          <KomaNekoActor pose="peek" mode="video" size={118} />
         </div>
         <span className="kicker mb-2">// {t('dashboard.emptyStage.tipMeta')}</span>
         <h2 className="font-display text-3xl font-black uppercase leading-none tracking-tight text-paper">

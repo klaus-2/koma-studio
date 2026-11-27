@@ -5,6 +5,7 @@ import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useI18n } from '../../../i18n';
 import { useModelManagerLiveState } from '../../../hooks/useModelManager';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
+import { KomaNekoActor } from '../../koma-mascot/KomaNekoActor';
 import { OnboardingBadge, OnboardingSectionCard } from '../onboardingPrimitives';
 import { KOMA_GITHUB_REPO_URL } from '../onboardingSteps';
 
@@ -47,40 +48,49 @@ export function OnboardingFinishStep({
 
   return (
     <div className="koma-onb-stepStack">
-      <OnboardingSectionCard tone="success">
-        <div className="koma-onb-cardHead">
-          <CheckCircle2 size={16} />
-          <h3 className="koma-onb-cardTitle">{t('onboarding.finish.summaryTitle')}</h3>
-        </div>
-        <div className="koma-onb-summaryGrid">
-          <div className="koma-onb-summaryItem">
-            <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelLanguage')}</span>
-            <strong>{localeLabels[locale]}</strong>
+
+      <OnboardingSectionCard tone="success" className="koma-onb-finishHero">
+        <div className="koma-onb-finishBanner">
+          <div className="koma-onb-finishBanner__mascot" aria-hidden="true">
+            <KomaNekoActor pose="celebrate" mode="video" size={116} />
           </div>
-          <div className="koma-onb-summaryItem">
-            <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelAppearance')}</span>
-            <strong>
-              {family} · {theme}
-            </strong>
-          </div>
-          <div className="koma-onb-summaryItem">
-            <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelPair')}</span>
-            <strong>
-              {aioSrcLang.toUpperCase()} → {aioTgtLang.toUpperCase()}
-            </strong>
-          </div>
-          <div className="koma-onb-summaryItem">
-            <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelModels')}</span>
-            <strong>
-              {activeCount > 0
-                ? t('onboarding.finish.modelsWithActive', {
-                    installed: installedCount,
-                    active: activeCount,
-                  })
-                : t('onboarding.finish.modelsInstalled', {
-                    installed: installedCount,
-                  })}
-            </strong>
+
+          <div className="min-w-0 flex-1">
+            <div className="koma-onb-cardHead">
+              <CheckCircle2 size={16} aria-hidden="true" />
+              <h3 className="koma-onb-cardTitle">{t('onboarding.finish.summaryTitle')}</h3>
+            </div>
+            <div className="koma-onb-summaryGrid">
+              <div className="koma-onb-summaryItem">
+                <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelLanguage')}</span>
+                <strong>{localeLabels[locale]}</strong>
+              </div>
+              <div className="koma-onb-summaryItem">
+                <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelAppearance')}</span>
+                <strong className="uppercase">
+                  {family} · {theme}
+                </strong>
+              </div>
+              <div className="koma-onb-summaryItem">
+                <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelPair')}</span>
+                <strong className="koma-onb-mono">
+                  {aioSrcLang.toUpperCase()} → {aioTgtLang.toUpperCase()}
+                </strong>
+              </div>
+              <div className="koma-onb-summaryItem">
+                <span className="koma-onb-summaryItem__label">{t('onboarding.finish.labelModels')}</span>
+                <strong>
+                  {activeCount > 0
+                    ? t('onboarding.finish.modelsWithActive', {
+                        installed: installedCount,
+                        active: activeCount,
+                      })
+                    : t('onboarding.finish.modelsInstalled', {
+                        installed: installedCount,
+                      })}
+                </strong>
+              </div>
+            </div>
           </div>
         </div>
       </OnboardingSectionCard>
@@ -98,7 +108,7 @@ export function OnboardingFinishStep({
                 {t('onboarding.finish.github.badge')}
               </OnboardingBadge>
             </div>
-            <p className="koma-onb-body">{t('onboarding.finish.github.body')}</p>
+            <p className="koma-onb-body koma-onb-mtXs">{t('onboarding.finish.github.body')}</p>
           </div>
           <a
             href={githubUrl}
@@ -121,7 +131,7 @@ export function OnboardingFinishStep({
         <div className="koma-onb-finishActions">
           <button
             type="button"
-            className="koma-onb-btn koma-onb-btn--primary"
+            className="koma-onb-btn koma-onb-btn--primary koma-onb-btn--lg"
             onClick={onFinishAndStartTour}
           >
             <Compass size={15} />
@@ -129,7 +139,7 @@ export function OnboardingFinishStep({
           </button>
           <button
             type="button"
-            className="koma-onb-btn koma-onb-btn--ghost"
+            className="koma-onb-btn koma-onb-btn--ghost koma-onb-btn--lg"
             onClick={onFinishOnly}
           >
             <Play size={15} />
