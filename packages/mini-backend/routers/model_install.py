@@ -184,9 +184,9 @@ def _install_managed_model(
         "waifu2x_swin_unet_art_2x",
     }:
         return ensure_enhance_model_installed(normalized_model_id)
-    if normalized_model_id == "baka_content_cc":
+    if normalized_model_id in {"baka_content_cc", "ctd_text_seg", "comic_text_mask"}:
         return ensure_segmentation_model_installed(normalized_model_id)
-    if normalized_model_id in {"comic_text_detector", "font_rtdetr_v2"}:
+    if normalized_model_id in {"comic_text_detector", "font_rtdetr_v2", "yolo_bubble"}:
         return ensure_detection_model_installed(normalized_model_id)
     if normalized_model_id == "meiki_ocr":
         return ensure_meiki_models_installed()
@@ -355,7 +355,7 @@ async def install_inpainting_model(payload: InpaintingInstallRequest | None = No
 async def install_segmentation_model(payload: SegmentationInstallRequest | None = None) -> dict[str, Any]:
     model_id = (payload.model_id if payload else None) or "baka_content_cc"
     normalized_model_id = model_id.strip().lower()
-    if normalized_model_id != "baka_content_cc":
+    if normalized_model_id not in {"baka_content_cc", "ctd_text_seg", "comic_text_mask"}:
         raise HTTPException(status_code=400, detail=f"Invalid segmentation model: {model_id}")
 
     try:

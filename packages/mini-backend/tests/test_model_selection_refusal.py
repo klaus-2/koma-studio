@@ -42,7 +42,7 @@ from services.device_fallback import ExecutionFailedError
 
 class ExplicitSelectionRefusalTests(unittest.TestCase):
     def test_explicit_unimplemented_detection_keys_refuse(self) -> None:
-        for requested in ("craft", "yolo_bubble"):
+        for requested in ("craft",):
             with self.subTest(requested=requested):
                 with self.assertRaises(UnimplementedModelSelectionError) as ctx:
                     resolve_detector_key(requested)
@@ -50,6 +50,7 @@ class ExplicitSelectionRefusalTests(unittest.TestCase):
                 self.assertEqual(ctx.exception.model_key, requested)
                 self.assertEqual(ctx.exception.stage, "detect")
                 self.assertIn(DEFAULT_DETECTOR_KEY, ctx.exception.alternatives)
+                self.assertIn("yolo_bubble", ctx.exception.alternatives)
 
     def test_explicit_unimplemented_segmentation_key_refuses(self) -> None:
         with self.assertRaises(UnimplementedModelSelectionError) as ctx:
@@ -63,7 +64,7 @@ class ExplicitSelectionRefusalTests(unittest.TestCase):
     def _ready_default_registry() -> dict[str, DetectionModelSpec]:
         def _builder(
             device: object, confidence: float | None, nms_threshold: float | None
-        ) -> BaseDetector:  # pragma: no cover - never invoked, registry stub only
+        ) -> BaseDetector:  # pragma: no cover
             raise AssertionError("builder must not run during key resolution")
 
         return {
@@ -106,7 +107,7 @@ class ExplicitSelectionRefusalTests(unittest.TestCase):
     def test_not_installed_detection_model_keeps_fallback(self) -> None:
         def _builder(
             device: object, confidence: float | None, nms_threshold: float | None
-        ) -> BaseDetector:  # pragma: no cover - never invoked, registry stub only
+        ) -> BaseDetector:  # pragma: no cover
             raise AssertionError("builder must not run for a not-installed model")
 
         registry: dict[str, DetectionModelSpec] = {

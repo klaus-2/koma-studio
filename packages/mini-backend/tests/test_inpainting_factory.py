@@ -17,7 +17,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 IMPORT_ERROR: Exception | None = None
 try:
     from models.inpainting import factory as inpainting_factory
-except Exception as exc:  # pragma: no cover - optional runtime deps
+except Exception as exc:  # pragma: no cover
     IMPORT_ERROR = exc
 
 
@@ -72,6 +72,32 @@ class InpaintingFactoryTests(unittest.TestCase):
 
         self.assertEqual(
             list(lama_cls.call_args.kwargs["providers"]), ["CPUExecutionProvider"]
+        )
+
+    def test_auto_preference_and_lama_fp32_output_range(self) -> None:
+        from models.inpainting.registry import AUTO_PREFERENCE, INPAINT_MODEL_SPECS
+
+        self.assertEqual(
+            AUTO_PREFERENCE,
+            ("lama_manga", "lama_fp32", "aot", "opencv_lama"),
+        )
+        self.assertEqual(
+            INPAINT_MODEL_SPECS["lama_fp32"].output_range.value,
+            "zero_255",
+        )
+        with (
+            patch.object(inpainting_factory, "_is_available", return_value=True),
+            patch.object(
+                inpainting_factory,
+                "resolve_inpainting_model_path",
+                return_value=Path(__file__),
+            ),
+            patch.object(inpainting_factory, "LaMaInpainter") as lama_cls,
+        ):
+            inpainting_factory.get_inpainter(False, model_key="lama_fp32")
+        self.assertEqual(
+            lama_cls.call_args.kwargs["output_range"],
+            INPAINT_MODEL_SPECS["lama_fp32"].output_range,
         )
 
 

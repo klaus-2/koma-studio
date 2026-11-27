@@ -20,17 +20,17 @@ class InpaintOptions(SchemaModel):
 
     model_key: str | None = None
     mask_dilation: int = 5
-    hd_strategy: HDStrategy = HDStrategy.RESIZE
+    hd_strategy: HDStrategy = HDStrategy.CROP
     hd_strategy_resize_limit: int = 960
-    hd_strategy_crop_margin: int = 512
+    hd_strategy_crop_margin: int = 192
     hd_strategy_crop_trigger_size: int = 512
     use_gpu: bool | None = None
+    escalation_model_key: str | None = None
+    escalation_complexity_threshold: float = 0.65
 
     @field_validator("hd_strategy", mode="before")
     @classmethod
     def _normalize_hd_strategy(cls, value: object) -> object:
-        # HDStrategy.from_value normalizes aliases ("hd_resize" → RESIZE);
-        # keep unspecified/empty values at the model default.
         if isinstance(value, str) and value.strip():
             return HDStrategy.from_value(value)
         return value
@@ -70,7 +70,7 @@ class CleanRequest(SchemaModel):
     model_key: str | None = None
     hd_strategy: str = "crop"
     hd_strategy_resize_limit: int = 960
-    hd_strategy_crop_margin: int = 512
+    hd_strategy_crop_margin: int = 192
     hd_strategy_crop_trigger_size: int = 512
 
 
@@ -88,6 +88,7 @@ INPAINT_MASK_DILATION_FIELD = Annotated[int | None, Form(ge=0, le=64)]
 INPAINT_RESIZE_LIMIT_FIELD = Annotated[int | None, Form(ge=256, le=4096)]
 INPAINT_CROP_FIELD = Annotated[int | None, Form(ge=0, le=4096)]
 INPAINT_CROP_TRIGGER_FIELD = Annotated[int | None, Form(ge=64, le=4096)]
+INPAINT_ESCALATION_THRESHOLD_FIELD = Annotated[float | None, Form(ge=0.0, le=1.0)]
 
 REGION_LIST_ADAPTER: TypeAdapter[list[InpaintRegionRequest]] = TypeAdapter(
     list[InpaintRegionRequest]

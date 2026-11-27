@@ -95,7 +95,9 @@ class BatchedCropsOwnershipTests(unittest.TestCase):
         batched_model = _CountingFillWhite()
         result = batched_model._inpaint_crops_batched(image, mask, boxes, config)
 
-        self.assertGreater(reference_model.submitted_mask_pixels, unique_pixels)
+        self.assertLess(crops[0][0], crops[1][2])
+        self.assertLess(crops[1][0], crops[0][2])
+        self.assertEqual(reference_model.submitted_mask_pixels, unique_pixels)
         self.assertEqual(batched_model.submitted_mask_pixels, unique_pixels)
         self.assertTrue(np.allclose(result, reference, atol=1))
         self.assertTrue(np.all(result[mask >= 128] == 255))
@@ -183,6 +185,30 @@ class BatchedCropsTests(unittest.TestCase):
 
         self.assertGreaterEqual(len(model.calls), 2)
         self.assertTrue(np.allclose(result, reference, atol=1))
+
+    def test_max_batch_edge_splits_wide_tile_and_cluster_merges_nearby_glyphs(self) -> None:
+        crops = [(0, 0, 120, 60), (200, 0, 320, 60), (400, 0, 520, 60)]
+        groups = base_inpainter._batch_canvas_groups(crops, max_batch_edge=260)
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(sum(len(g) for g in groups), 3)
+
+        mask = np.zeros((160, 200), dtype=np.uint8)
+        mask[20:40, 20:40] = 255
+        mask[22:42, 50:70] = 255
+        mask[110:130, 140:170] = 255
+        clustered = base_inpainter.cluster_mask_boxes(mask, max_gap=28)
+        self.assertEqual(len(clustered), 2)
+
+    def test_blend_with_mask_never_modifies_unmasked_pixels_and_auto_strategy(self) -> None:
+        orig = np.full((64, 64, 3), 50, dtype=np.uint8)
+        inpainted = np.full((64, 64, 3), 240, dtype=np.uint8)
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        mask[20:44, 20:44] = 255
+
+        blended = base_inpainter.blend_with_mask(orig, inpainted, mask, feather=5)
+        self.assertTrue(np.all(blended[mask == 0] == 50))
+        self.assertGreater(int(blended[32, 32, 0]), 220)
+        self.assertEqual(base_inpainter.HDStrategy.from_value("auto"), base_inpainter.HDStrategy.AUTO)
 
 
 if __name__ == "__main__":

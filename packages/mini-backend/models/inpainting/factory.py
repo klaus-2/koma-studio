@@ -157,8 +157,6 @@ def _resolve_model_key(requested: str | None) -> str:
 def _plain_providers(
     device: DeviceInfo,
 ) -> tuple[OnnxProviderSpec, ...]:
-    # Includes the (CUDAExecutionProvider, options) tuple form on the
-    # CUDA-legacy profile — pass it straight to ORT, never stringify.
     return get_provider_specs(device)
 
 
@@ -177,6 +175,7 @@ def _build(
         providers=providers,
         key=spec.key,
         name=spec.name,
+        output_range=spec.output_range,
     )
 
 

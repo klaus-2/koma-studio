@@ -26,6 +26,7 @@ from schemas.inpainting import (
     INPAINT_CROP_FIELD,
     INPAINT_CROP_TRIGGER_FIELD,
     INPAINT_DILATION_FIELD,
+    INPAINT_ESCALATION_THRESHOLD_FIELD,
     INPAINT_MASK_DILATION_FIELD,
     INPAINT_RESIZE_LIMIT_FIELD,
     InpaintMaskForm,
@@ -57,12 +58,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["inpainting"])
 
 PNG_MEDIA_TYPE = "image/png"
-AUTO_SEGMENTER_KEY = "baka_content_cc"
+AUTO_SEGMENTER_KEY = "auto"
 
 
-# --------------------------------------------------------------------------- #
-# Boundary helpers
-# --------------------------------------------------------------------------- #
 def _parse_regions(raw_regions: str | None) -> list[InpaintRegionRequest] | None:
     if raw_regions is None:
         return None
@@ -137,9 +135,6 @@ async def _inpaint_and_respond(
     )
 
 
-# --------------------------------------------------------------------------- #
-# Auto-detection (only when the client sent neither regions nor a brush mask)
-# --------------------------------------------------------------------------- #
 async def _auto_detect_regions(
     *, image_bytes: bytes, rgb_image: RGBImage, has_gpu: bool
 ) -> list[InpaintRegionRequest]:
@@ -176,8 +171,7 @@ async def _auto_detect_regions(
     try:
         segmenter = get_segmenter(has_gpu=has_gpu, model_key=AUTO_SEGMENTER_KEY)
         segmented = await segmenter.segment(image_bytes=image_bytes, regions=segment_inputs)
-    except Exception:  # noqa: BLE001 — model boundary; segmentation is best-effort enrichment
-        # bounding boxes alone still produce a valid mask.
+    except Exception:  # noqa: BLE001
         logger.warning(
             "inpaint.auto_segment_failed",
             extra={"segmenter": AUTO_SEGMENTER_KEY, "regions": len(base_regions)},
@@ -213,10 +207,6 @@ def _to_mask_regions(regions: Sequence[InpaintRegionRequest]) -> list[MaskRegion
     ]
 
 
-# --------------------------------------------------------------------------- #
-# Form extractors (spread multipart fields → typed options; constraints on the
-# Form() declarations turn out-of-range input into 422 instead of a silent clamp)
-# --------------------------------------------------------------------------- #
 def parse_inpaint_regions_form(
     model_key: str | None = Form(None),
     mask_dilation: INPAINT_DILATION_FIELD = None,
@@ -225,6 +215,8 @@ def parse_inpaint_regions_form(
     hd_strategy_crop_margin: INPAINT_CROP_FIELD = None,
     hd_strategy_crop_trigger_size: INPAINT_CROP_TRIGGER_FIELD = None,
     use_gpu: bool | None = Form(None),
+    escalation_model_key: str | None = Form(None),
+    escalation_complexity_threshold: INPAINT_ESCALATION_THRESHOLD_FIELD = None,
     regions: str | None = Form(None),
 ) -> InpaintRegionsForm:
     kwargs: dict[str, object] = {"regions": regions}
@@ -242,6 +234,10 @@ def parse_inpaint_regions_form(
         kwargs["hd_strategy_crop_trigger_size"] = hd_strategy_crop_trigger_size
     if use_gpu is not None:
         kwargs["use_gpu"] = use_gpu
+    if escalation_model_key is not None:
+        kwargs["escalation_model_key"] = escalation_model_key
+    if escalation_complexity_threshold is not None:
+        kwargs["escalation_complexity_threshold"] = escalation_complexity_threshold
     return InpaintRegionsForm(**kwargs)  # type: ignore[arg-type]
 
 
@@ -253,6 +249,8 @@ def parse_inpaint_mask_form(
     hd_strategy_crop_margin: INPAINT_CROP_FIELD = None,
     hd_strategy_crop_trigger_size: INPAINT_CROP_TRIGGER_FIELD = None,
     use_gpu: bool | None = Form(None),
+    escalation_model_key: str | None = Form(None),
+    escalation_complexity_threshold: INPAINT_ESCALATION_THRESHOLD_FIELD = None,
 ) -> InpaintMaskForm:
     kwargs: dict[str, object] = {}
     if model_key is not None:
@@ -269,12 +267,13 @@ def parse_inpaint_mask_form(
         kwargs["hd_strategy_crop_trigger_size"] = hd_strategy_crop_trigger_size
     if use_gpu is not None:
         kwargs["use_gpu"] = use_gpu
+    if escalation_model_key is not None:
+        kwargs["escalation_model_key"] = escalation_model_key
+    if escalation_complexity_threshold is not None:
+        kwargs["escalation_complexity_threshold"] = escalation_complexity_threshold
     return InpaintMaskForm(**kwargs)  # type: ignore[arg-type]
 
 
-# --------------------------------------------------------------------------- #
-# Endpoints
-# --------------------------------------------------------------------------- #
 @router.get("/inpaint/models")
 async def inpaint_models() -> dict[str, object]:
     device = get_device_info()

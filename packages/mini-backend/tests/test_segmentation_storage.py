@@ -60,6 +60,25 @@ class SegmentationStorageTests(unittest.TestCase):
             if old is not None:
                 os.environ["KOMA_MODELS_ROOT"] = old
 
+    def test_ctd_text_seg_follows_comic_detector_readiness(self) -> None:
+        with patch.object(storage, "detection_runtime_ready", return_value=True) as mock_ready:
+            self.assertTrue(storage.segmentation_runtime_ready("ctd_text_seg"))
+            mock_ready.assert_called_with("comic_text_detector")
+
+    def test_comic_text_mask_readiness_checks_exact_size(self) -> None:
+        with _models_root() as tmp:
+            self.assertFalse(storage.segmentation_runtime_ready("comic_text_mask"))
+            weights = tmp / "comic_text_mask" / "model.onnx"
+            weights.parent.mkdir(parents=True, exist_ok=True)
+            weights.write_bytes(b"short")
+            self.assertFalse(storage.segmentation_runtime_ready("comic_text_mask"))
+            with patch.object(
+                storage,
+                "manifest_assets_by_path",
+                return_value={"model.onnx": {"size": 5}},
+            ):
+                self.assertTrue(storage.segmentation_runtime_ready("comic_text_mask"))
+
 
 if __name__ == "__main__":
     unittest.main()

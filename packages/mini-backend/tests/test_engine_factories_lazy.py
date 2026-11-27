@@ -19,7 +19,7 @@ try:
     from models.inpainting.registry import INPAINT_MODEL_SPECS
     from models.segmentation import factory as segmentation_factory
     from models.segmentation.baka_segmenter import BakaContentSegmenter
-except Exception as exc:  # pragma: no cover - optional runtime deps
+except Exception as exc:  # pragma: no cover
     IMPORT_ERROR = exc
 
 
@@ -62,8 +62,6 @@ class InpaintingFactoryLazyImportTests(unittest.TestCase):
         self.assertIn("LAZY-OK", result.stdout)
 
     def test_builder_honors_engine_module_patch(self) -> None:
-        # Reset the historical attribute surface so the engine-module patch
-        # is honored regardless of test ordering in the same process.
         vars(inpainting_factory).pop("LaMaInpainter", None)
         vars(inpainting_factory).pop("AOTInpainter", None)
         spec = INPAINT_MODEL_SPECS["lama_manga"]
@@ -81,6 +79,7 @@ class InpaintingFactoryLazyImportTests(unittest.TestCase):
             providers=("CPUExecutionProvider",),
             key=spec.key,
             name=spec.name,
+            output_range=spec.output_range,
         )
 
     def test_builder_honors_factory_attribute_patch(self) -> None:

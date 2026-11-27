@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 
+from models.detection.bubble.contour_extractor import extract_bubble_mask_in_crop
 from schemas.typography import TypographyShapeDetection
 from utils.image_codec import RGBImage
 
@@ -50,6 +51,24 @@ def _external_contours(mask: GrayMask) -> list[Contour]:
     return [np.asarray(contour, dtype=np.int32) for contour in contours]
 
 
+def _foreground_bright_contours(mask: GrayMask) -> list[Contour]:
+    """Return foreground bright contours (even hierarchy depth) so bubbles inside dark bordered frames are kept."""
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours or hierarchy is None:
+        return []
+    tree = hierarchy[0]
+    selected: list[Contour] = []
+    for idx, contour in enumerate(contours):
+        depth = 0
+        parent = int(tree[idx][3])
+        while parent >= 0:
+            depth += 1
+            parent = int(tree[parent][3])
+        if depth % 2 == 0:
+            selected.append(np.asarray(contour, dtype=np.int32))
+    return selected
+
+
 def _classify(contour: Contour) -> tuple[ShapeKind, float]:
     area = float(cv2.contourArea(contour))
     perimeter = float(cv2.arcLength(contour, True))
@@ -77,6 +96,38 @@ def _inner_box(width: int, height: int, kind: ShapeKind) -> list[int]:
         h_pad = max(2, min(8, int(width * 0.02)))
         v_pad = max(6, min(30, int(height * 0.15)))
     return [h_pad, v_pad, max(h_pad + 1, width - h_pad), max(v_pad + 1, height - v_pad)]
+
+
+def _inner_box_from_mask(mask: GrayMask, kind: ShapeKind) -> list[int]:
+    """Compute inscribed usable text box via distance transform, avoiding diagonal corner bleed."""
+    height, width = mask.shape[:2]
+    if height < 12 or width < 12 or not np.any(mask):
+        return _inner_box(width, height, kind)
+
+    padded = cv2.copyMakeBorder(
+        (mask > 0).astype(np.uint8),
+        1,
+        1,
+        1,
+        1,
+        cv2.BORDER_CONSTANT,
+        value=0,
+    )
+    dist = cv2.distanceTransform(padded, cv2.DIST_L2, 5)[1:-1, 1:-1]
+    max_d = float(dist.max())
+    if max_d < 5.0:
+        return _inner_box(width, height, kind)
+
+    for ratio in (0.45, 0.30, 0.20):
+        ys, xs = np.nonzero(dist >= ratio * max_d)
+        if ys.size == 0 or xs.size == 0:
+            continue
+        x1, y1 = int(xs.min()), int(ys.min())
+        x2, y2 = int(xs.max()) + 1, int(ys.max()) + 1
+        if (x2 - x1) >= max(8, int(width * 0.28)) and (y2 - y1) >= max(8, int(height * 0.28)):
+            return [x1, y1, max(x1 + 1, x2), max(y1 + 1, y2)]
+
+    return _inner_box(width, height, kind)
 
 
 def _fit_profile(mask: GrayMask) -> list[float]:
@@ -135,7 +186,7 @@ def _detection_from_contour(
         bbox=[x + offset_x, y + offset_y, x + w + offset_x, y + h + offset_y],
         shape_kind=kind,
         corner_radius=_corner_radius(w, h, kind),
-        inner_box=_inner_box(w, h, kind),
+        inner_box=_inner_box_from_mask(mask, kind),
         fit_profile=_fit_profile(mask) if kind == "rounded" else FLAT_PROFILE,
         confidence=round(confidence, 4),
         foreground_rgb=_foreground_rgb(rgb[y : y + h, x : x + w], mask),
@@ -158,10 +209,58 @@ def _fallback_detection(bbox: Bbox, kind: ShapeKind) -> TypographyShapeDetection
     )
 
 
+def _is_full_page_gutter(contour: Contour, width: int, height: int) -> bool:
+    if width <= 0 or height <= 0:
+        return False
+    x, y, bw, bh = cv2.boundingRect(contour)
+    borders_touched = (
+        int(x <= 2)
+        + int(y <= 2)
+        + int((x + bw) >= width - 2)
+        + int((y + bh) >= height - 2)
+    )
+    area_ratio = float(cv2.contourArea(contour)) / float(max(1, width * height))
+    return borders_touched >= 3 and area_ratio > 0.45
+
+
 def detect_shapes(rgb: RGBImage) -> list[TypographyShapeDetection]:
-    contours = sorted(_external_contours(_binary_mask(rgb)), key=cv2.contourArea, reverse=True)
+    try:
+        from models.detection.factory import get_optional_bubble_segmenter
+
+        segmenter = get_optional_bubble_segmenter()
+        if segmenter is not None:
+            instances = segmenter.segment(rgb)
+            if instances:
+                yolo_shapes: list[TypographyShapeDetection] = []
+                for idx, inst in enumerate(instances, start=1):
+                    x1, y1, x2, y2 = inst.bbox
+                    contours = _external_contours(inst.mask_crop)
+                    if not contours:
+                        continue
+                    detection = _detection_from_contour(
+                        detection_id=f"shape-{idx}",
+                        contour=max(contours, key=cv2.contourArea),
+                        rgb=rgb[y1:y2, x1:x2],
+                        offset_x=x1,
+                        offset_y=y1,
+                        preferred=None,
+                    )
+                    if detection is not None:
+                        yolo_shapes.append(detection)
+                if yolo_shapes:
+                    return yolo_shapes
+    except Exception:  # noqa: BLE001
+        pass
+
+    height, width = rgb.shape[:2]
+    contours = sorted(
+        _foreground_bright_contours(_binary_mask(rgb)), key=cv2.contourArea, reverse=True
+    )
     shapes: list[TypographyShapeDetection] = []
-    for index, contour in enumerate(contours, start=1):
+    index = 1
+    for contour in contours:
+        if _is_full_page_gutter(contour, width, height):
+            continue
         detection = _detection_from_contour(
             detection_id=f"shape-{index}",
             contour=contour,
@@ -172,6 +271,7 @@ def detect_shapes(rgb: RGBImage) -> list[TypographyShapeDetection]:
         )
         if detection is not None:
             shapes.append(detection)
+            index += 1
     return shapes
 
 
@@ -182,7 +282,10 @@ def refine_shape(
     region contains a blob too small to describe."""
     x1, y1, x2, y2 = bbox
     crop = rgb[y1:y2, x1:x2]
-    contours = _external_contours(_binary_mask(crop))
+    lab_mask = extract_bubble_mask_in_crop(crop, allow_full_crop=True)
+    contours = _external_contours(lab_mask) if lab_mask is not None else []
+    if not contours:
+        contours = _external_contours(_binary_mask(crop))
     if not contours:
         return _fallback_detection(bbox, preferred or "square")
     return _detection_from_contour(

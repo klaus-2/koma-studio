@@ -29,6 +29,10 @@
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
+    "comic_text_mask": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
     "easyocr": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
@@ -207,6 +211,10 @@
     "waifu2x_swin_unet_art_scan_4x": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
+    },
+    "yolo_bubble": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
     }
   },
   "models": {
@@ -230,6 +238,16 @@
         }
       ],
       "totalBytes": 94669756
+    },
+    "comic_text_mask": {
+      "assets": [
+        {
+          "path": "model.onnx",
+          "sha256": "39bc654215441407f2df02177af0143c176af338770ae0da6cd9fad3197dc853",
+          "size": 57312337
+        }
+      ],
+      "totalBytes": 57312337
     },
     "easyocr": {
       "detection": {
@@ -2370,6 +2388,16 @@
         }
       ],
       "totalBytes": 18905524
+    },
+    "yolo_bubble": {
+      "assets": [
+        {
+          "path": "manga109_segmentation_bubble_1024.onnx",
+          "sha256": "593cae61f4c9ffc773fee34d55c28069390d19415c24dc04600f983311618ea3",
+          "size": 11845329
+        }
+      ],
+      "totalBytes": 11845329
     }
   },
   "sources": {

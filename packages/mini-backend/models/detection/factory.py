@@ -21,6 +21,7 @@ from core.device import (
 from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.detection.base_detector import BaseDetector
+from models.detection.bubble import YoloBubbleDetector, YoloBubbleSegmenter
 from models.detection.comic_text_detector import ComicTextDetector
 from models.detection.errors import DetectionModelNotInstalledError
 from models.detection.font import (
@@ -84,8 +85,6 @@ class DetectionModelOption(TypedDict):
 
 
 def _font_weights_ready() -> bool:
-    # The managed source installs detector.onnx; the repaired manifest plus
-    # payload check IS the readiness contract for this model.
     installed = model_is_installed(DEFAULT_DETECTOR_KEY)
     if not installed:
         installed = repair_font_detector_manifest_if_payload_present()
@@ -103,6 +102,13 @@ def _bundled_weights_ready() -> bool:
     return detection_runtime_ready("comic_text_detector")
 
 
+def _yolo_bubble_weights_ready() -> bool:
+    return (
+        model_is_installed("yolo_bubble")
+        and detection_runtime_ready("yolo_bubble")
+    )
+
+
 def _not_installable() -> bool:
     return False
 
@@ -110,8 +116,6 @@ def _not_installable() -> bool:
 def _plain_providers(
     device_info: DeviceInfo,
 ) -> tuple[OnnxProviderSpec, ...]:
-    # Includes the (CUDAExecutionProvider, options) tuple form on the
-    # CUDA-legacy profile — pass it straight to ORT, never stringify.
     return get_provider_specs(device_info)
 
 
@@ -151,6 +155,18 @@ def _build_pp_doclayout_detector(
     )
 
 
+def _build_yolo_bubble_detector(
+    device_info: DeviceInfo,
+    confidence: float | None,
+    nms_threshold: float | None,
+) -> BaseDetector:
+    return YoloBubbleDetector(
+        confidence_threshold=0.35 if confidence is None else confidence,
+        nms_threshold=nms_threshold,
+        providers=_plain_providers(device_info),
+    )
+
+
 DETECTION_MODELS: Final[Mapping[str, DetectionModelSpec]] = MappingProxyType(
     {
         spec.key: spec
@@ -160,7 +176,7 @@ DETECTION_MODELS: Final[Mapping[str, DetectionModelSpec]] = MappingProxyType(
                 name="RT-DETR v2 (ONNX)",
                 device="cpu_gpu",
                 source="huggingface:ogkalu/comic-text-and-bubble-detector/detector.onnx",
-                use_case="Text detection",
+                use_case="Recommended single-pass detector + automatic bubble shape classification",
                 builder=_build_font_detector,
                 weights_ready=_font_weights_ready,
             ),
@@ -178,7 +194,7 @@ DETECTION_MODELS: Final[Mapping[str, DetectionModelSpec]] = MappingProxyType(
                 name="Comic Text Detector",
                 device="cpu_gpu",
                 source="dmMaze/comic-text-detector",
-                use_case="Alternative comic text detector",
+                use_case="Classic fast manga text box detector (shares weights with CTD Text Mask)",
                 builder=_build_comic_detector,
                 weights_ready=_bundled_weights_ready,
             ),
@@ -186,17 +202,17 @@ DETECTION_MODELS: Final[Mapping[str, DetectionModelSpec]] = MappingProxyType(
                 key="yolo_bubble",
                 name="YOLO Bubble Seg",
                 device="cpu_gpu",
-                source="huyvux3005/manga109-segmentation-bubble",
-                use_case="Speech-bubble segmentation",
-                builder=None,
-                weights_ready=_not_installable,
+                source="mednasserallah/manga109-segmentation-bubble-onnx",
+                use_case="Speech-bubble polygon instance segmentation for overlapping or irregular panels",
+                builder=_build_yolo_bubble_detector,
+                weights_ready=_yolo_bubble_weights_ready,
             ),
             DetectionModelSpec(
                 key="pp_doclayout_v3",
                 name="PP-DocLayout V3",
                 device="cpu_gpu",
                 source="PaddlePaddle/PP-DocLayoutV3_safetensors",
-                use_case="Layout and text detection",
+                use_case="Full-page layout and reading-order detector for skewed scans or multi-column spreads",
                 builder=_build_pp_doclayout_detector,
                 weights_ready=_pp_doclayout_weights_ready,
             ),
@@ -205,6 +221,29 @@ DETECTION_MODELS: Final[Mapping[str, DetectionModelSpec]] = MappingProxyType(
 )
 
 _CACHE: Final[LruEngineCache[CacheKey, BaseDetector]] = LruEngineCache(4)
+_BUBBLE_SEG_CACHE: Final[
+    LruEngineCache[tuple[FrozenOnnxProviderSpec, ...], YoloBubbleSegmenter]
+] = LruEngineCache(2)
+
+
+def get_optional_bubble_segmenter(
+    *,
+    has_gpu: bool = True,
+    device_info: DeviceInfo | None = None,
+) -> YoloBubbleSegmenter | None:
+    """Return a cached ``YoloBubbleSegmenter`` when weights are installed locally, else ``None``."""
+    if not _yolo_bubble_weights_ready():
+        return None
+    device = device_info if device_info is not None else get_device_info()
+    if not has_gpu and device.has_gpu:
+        device = build_cpu_device_info(device, fallback_reason="gpu_disabled_for_bubble_seg")
+    providers = _plain_providers(device)
+    if not providers:
+        return None
+    key = freeze_provider_specs(providers)
+    return _BUBBLE_SEG_CACHE.get_or_build(
+        key, lambda: YoloBubbleSegmenter(providers=providers)
+    )
 
 
 def list_detection_models(has_gpu: bool) -> list[DetectionModelOption]:
@@ -301,6 +340,7 @@ def resolve_detector_key(
 @register_gpu_cache_releaser
 def clear_detector_cache() -> None:
     _CACHE.clear()
+    _BUBBLE_SEG_CACHE.clear()
 
 
 register_idle_cache("detector", _CACHE)

@@ -60,14 +60,30 @@ class SegmentationFactoryTests(unittest.TestCase):
         self.addCleanup(factory.clear_segmenter_cache)
 
     def test_default_request_resolves_to_default_key(self) -> None:
-        cases = [(None, False), ("", False), ("  ", True), ("auto", False),
-                 ("auto", True)]
+        cases = [(None, False), ("", False), ("  ", True)]
         for requested, has_gpu in cases:
             with self.subTest(requested=requested, has_gpu=has_gpu):
                 self.assertEqual(
                     factory.resolve_segmentation_model_key(requested, has_gpu),
                     "baka_content_cc",
                 )
+
+    def test_auto_request_prefers_installed_neural_segmenters(self) -> None:
+        for has_gpu in (False, True):
+            with self.subTest(has_gpu=has_gpu):
+                self.assertEqual(
+                    factory.resolve_segmentation_model_key("auto", has_gpu),
+                    "comic_text_mask",
+                )
+        with patch.object(
+            factory,
+            "model_is_installed",
+            side_effect=lambda key: key in {"ctd_text_seg", "comic_text_detector", "baka_content_cc"},
+        ):
+            self.assertEqual(
+                factory.resolve_segmentation_model_key("auto", False),
+                "ctd_text_seg",
+            )
 
     def test_explicit_unservable_selection_refuses(self) -> None:
         cases = [
@@ -81,7 +97,10 @@ class SegmentationFactoryTests(unittest.TestCase):
                 self.assertEqual(ctx.exception.code, code)
                 self.assertEqual(ctx.exception.model_key, requested)
                 self.assertEqual(ctx.exception.stage, "segment")
-                self.assertEqual(ctx.exception.alternatives, ("baka_content_cc",))
+                self.assertEqual(
+                    ctx.exception.alternatives,
+                    ("baka_content_cc", "ctd_text_seg", "comic_text_mask"),
+                )
 
     def test_fallback_with_warning_is_preserved_for_gpu_only_reason(self) -> None:
         gpu_only = factory.SegmentationModelMeta(

@@ -59,7 +59,6 @@ def decode_grayscale(image_bytes: bytes) -> GrayArray:
                     "Decoded image exceeds the pixel budget"
                 )
 
-            # EXIF orientation is intentionally left unchanged to preserve coordinates.
             with source.convert("L") as grayscale:
                 return np.array(grayscale, dtype=np.uint8, copy=True)
     except (UnidentifiedImageError, Image.DecompressionBombError) as exc:
@@ -155,6 +154,20 @@ def _components(
     return boxes, mask
 
 
+def _infer_border_polarities(crop: GrayArray) -> tuple[bool, ...]:
+    h, w = crop.shape[:2]
+    if h < 4 or w < 4:
+        return (True, False)
+    border = np.concatenate((crop[0, :], crop[-1, :], crop[1:-1, 0], crop[1:-1, -1]))
+    med = float(np.median(border))
+    iqr = float(np.percentile(border, 85) - np.percentile(border, 15))
+    if med >= 185.0 and iqr <= 25.0:
+        return (True,)
+    if med <= 70.0 and iqr <= 25.0:
+        return (False,)
+    return (True, False)
+
+
 def _detect_content(crop: GrayArray) -> tuple[list[BBox], MaskArray]:
     threshold, _ = cv2.threshold(
         crop,
@@ -165,7 +178,7 @@ def _detect_content(crop: GrayArray) -> tuple[list[BBox], MaskArray]:
     mask = np.zeros_like(crop)
     boxes: list[BBox] = []
 
-    for dark in (True, False):
+    for dark in _infer_border_polarities(crop):
         polarity = crop <= threshold if dark else crop > threshold
         binary = np.where(polarity, np.uint8(255), np.uint8(0))
         polarity_boxes, polarity_mask = _components(
@@ -250,7 +263,11 @@ def _merge_boxes_baka_style(
 
 
 def _encode_png_base64(mask: MaskArray) -> str:
-    ok, encoded = cv2.imencode(".png", mask)
+    ok, encoded = cv2.imencode(
+        ".png",
+        mask,
+        [int(cv2.IMWRITE_PNG_COMPRESSION), 1],
+    )
     if not ok:
         raise InferenceError("Segmentation mask encoding failed")
 

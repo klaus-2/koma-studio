@@ -8,10 +8,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from models.detection.bubble.contour_extractor import extract_bubble_mask_in_crop
+
 
 _REFERENCE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 _REFERENCE_SOURCE = "reference_images"
-# monorepo: shared resource lives inside the package (production receives it via KOMA_* env)
 _DEV_REFERENCE_IMAGES_DIR = Path(__file__).resolve().parents[3] / "resources" / "reference_images"
 
 
@@ -188,9 +189,15 @@ def _extract_candidate_bubble_contour(crop: np.ndarray) -> np.ndarray | None:
     dark_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
     dark_mask = cv2.morphologyEx(dark_mask, cv2.MORPH_CLOSE, dark_kernel, iterations=2)
     dark_component = _largest_component_mask(dark_mask, exclude_border=False)
-    if dark_component is None:
+    if dark_component is not None:
+        contour = _extract_largest_contour(dark_component)
+        if contour is not None:
+            return contour
+
+    lab_mask = extract_bubble_mask_in_crop(crop, allow_full_crop=True)
+    if lab_mask is None:
         return None
-    return _extract_largest_contour(dark_component)
+    return _extract_largest_contour(lab_mask)
 
 
 def _build_search_masks(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

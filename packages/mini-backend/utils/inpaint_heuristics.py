@@ -53,6 +53,7 @@ class _RingStatistics:
     gray_std: float
     max_channel_std: float
     saturation_mean: float
+    channel_span_p90_p10: float
 
 
 def _validate_inputs(image_rgb: RGBImage, mask: MaskImage) -> None:
@@ -82,7 +83,6 @@ def _ring_statistics(
         ),
         dtype=np.uint8,
     )
-    # Every masked component is excluded, not only the component being filled.
     ring_pixels = roi_rgb[(dilated > 0) & (roi_mask == 0)]
     if ring_pixels.shape[0] < MIN_RING_PIXELS:
         return None
@@ -91,11 +91,14 @@ def _ring_statistics(
     column = ring_pixels.reshape(-1, 1, 3)
     gray = np.asarray(cv2.cvtColor(column, cv2.COLOR_RGB2GRAY), dtype=np.float32)
     hsv = np.asarray(cv2.cvtColor(column, cv2.COLOR_RGB2HSV), dtype=np.uint8)
+    p90 = np.percentile(pixels, 90, axis=0)
+    p10 = np.percentile(pixels, 10, axis=0)
     return _RingStatistics(
         fill_rgb=np.rint(np.median(pixels, axis=0)).astype(np.uint8),
         gray_std=float(np.std(gray)),
         max_channel_std=float(np.max(np.std(pixels, axis=0))),
         saturation_mean=float(np.mean(hsv[:, :, 1])),
+        channel_span_p90_p10=float(np.max(p90 - p10)),
     )
 
 
@@ -149,12 +152,16 @@ def apply_need_inpaint_heuristic(
     background_std_threshold: float = 8.0,
     color_std_threshold: float = 9.0,
     saturation_threshold: float = 18.0,
+    flat_color_std_threshold: float = 4.0,
+    flat_color_span_threshold: float = 10.0,
 ) -> HeuristicInpaintPreparation:
     _validate_inputs(image_rgb, mask)
     _validate_thresholds(
         background_std_threshold,
         color_std_threshold,
         saturation_threshold,
+        flat_color_std_threshold,
+        flat_color_span_threshold,
     )
 
     binary: MaskImage = (mask > 0).astype(np.uint8)
@@ -198,12 +205,20 @@ def apply_need_inpaint_heuristic(
             component,
             binary[y0:y1, x0:x1],
         )
-        if (
-            ring is None
-            or ring.gray_std > background_std_threshold
-            or ring.max_channel_std > color_std_threshold
-            or ring.saturation_mean > saturation_threshold
-        ):
+        if ring is None:
+            continue
+
+        is_flat_neutral = (
+            ring.saturation_mean <= saturation_threshold
+            and ring.gray_std <= background_std_threshold
+            and ring.max_channel_std <= color_std_threshold
+        )
+        is_flat_colored = (
+            ring.saturation_mean > saturation_threshold
+            and ring.max_channel_std <= flat_color_std_threshold
+            and ring.channel_span_p90_p10 <= flat_color_span_threshold
+        )
+        if not (is_flat_neutral or is_flat_colored):
             continue
 
         prepared[y0:y1, x0:x1][component] = ring.fill_rgb
@@ -220,6 +235,8 @@ async def apply_need_inpaint_heuristic_async(
     background_std_threshold: float = 8.0,
     color_std_threshold: float = 9.0,
     saturation_threshold: float = 18.0,
+    flat_color_std_threshold: float = 4.0,
+    flat_color_span_threshold: float = 10.0,
 ) -> HeuristicInpaintPreparation:
     return await run_native(
         apply_need_inpaint_heuristic,
@@ -228,4 +245,6 @@ async def apply_need_inpaint_heuristic_async(
         background_std_threshold=background_std_threshold,
         color_std_threshold=color_std_threshold,
         saturation_threshold=saturation_threshold,
+        flat_color_std_threshold=flat_color_std_threshold,
+        flat_color_span_threshold=flat_color_span_threshold,
     )

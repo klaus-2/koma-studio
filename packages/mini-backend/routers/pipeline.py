@@ -266,7 +266,7 @@ async def get_batch_cleaned_page(batch_id: str, index: int) -> Response:
 
 
 @router.post("/pipeline/batch")
-async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the endpoint
+async def pipeline_batch(  # noqa: PLR0913
     request: Request,
     files: Annotated[Sequence[UploadFile], File(...)],
     source_language: Annotated[str, Form()] = "ja",
@@ -343,7 +343,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
                 hd_strategy_resize_limit, fallback=960, minimum=256, maximum=4096
             ),
             hd_strategy_crop_margin=_clamp_int(
-                hd_strategy_crop_margin, fallback=512, minimum=0, maximum=4096
+                hd_strategy_crop_margin, fallback=192, minimum=0, maximum=4096
             ),
             hd_strategy_crop_trigger_size=_clamp_int(
                 hd_strategy_crop_trigger_size, fallback=512, minimum=64, maximum=4096

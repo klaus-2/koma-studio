@@ -22,6 +22,7 @@ from services.device_fallback import (
     ExecutionFailedError,
     run_with_cpu_fallback,
 )
+from services.generative_crop_escalation import escalate_complex_clusters
 from utils.image_codec import MaskImage, RGBImage
 from utils.inpaint_heuristics import apply_need_inpaint_heuristic
 
@@ -128,13 +129,28 @@ async def inpaint_masked_image(
         device=device,
         has_gpu=resolve_has_gpu(device, options.use_gpu),
     )
+    output_rgb = execution.image_rgb
     model_label = (
         execution.model_key
         if heuristic.filled_components == 0
         else f"hybrid:{execution.model_key}"
     )
+
+    escalation_model_key = getattr(options, "escalation_model_key", None)
+    if escalation_model_key:
+        escalated = await escalate_complex_clusters(
+            orig_rgb=rgb_image,
+            base_inpainted_rgb=output_rgb,
+            mask=heuristic.remaining_mask,
+            model_key=str(escalation_model_key),
+            complexity_threshold=float(getattr(options, "escalation_complexity_threshold", 0.65)),
+        )
+        if escalated.escalated_clusters > 0:
+            output_rgb = escalated.image_rgb
+            model_label = f"{model_label}+escalated"
+
     return InpaintOutcome(
-        image_rgb=execution.image_rgb,
+        image_rgb=output_rgb,
         model_label=model_label,
         hd_strategy_label=config.hd_strategy.value,
         executed_model_key=execution.model_key,
@@ -215,14 +231,8 @@ async def _run_inpainter(
     except FileNotFoundError as exc:
         raise InpaintModelMissingError(str(exc)) from exc
     except InferenceBusyError:
-        # Admission saturation must not be classified as an invalid request
-        # (busy is a RuntimeError subclass): it reaches the HTTP boundary as
-        # the named busy signal, not as a 400.
         raise
-    except Exception as exc:  # noqa: BLE001 — system boundary: torch/onnxruntime raise
-        # heterogeneous types (torch.cuda.OutOfMemoryError is a RuntimeError,
-        # onnxruntime's RuntimeException is not). Classify once, here, and
-        # nowhere else.
+    except Exception as exc:  # noqa: BLE001
         if is_insufficient_memory_error(exc):
             raise GpuOutOfMemoryError(exc) from exc
         if isinstance(exc, RuntimeError):

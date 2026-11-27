@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +21,7 @@ from PIL import Image
 from core.device import OnnxProviderSpec
 from core.models_store import resolve_model_dir
 from models.detection.base_detector import BaseDetector, TextDetection
+from models.detection.font.classify import classify_text_regions
 from models.geometry import greedy_nms
 
 if TYPE_CHECKING:
@@ -51,7 +52,6 @@ def _is_text_label(label: str) -> bool:
 
 @dataclass(slots=True)
 class _Runtime:
-    # transformers has no complete stubs; Any keeps the protocol surface honest
     model: Any
     processor: Any
     device: str
@@ -71,10 +71,6 @@ class PPDocLayoutV3Detector(BaseDetector):
     ) -> None:
         self._confidence = _DEFAULT_CONFIDENCE if confidence_threshold is None else confidence_threshold
         self._nms_iou = _DEFAULT_NMS_IOU if nms_threshold is None else nms_threshold
-        # The pipeline expresses "run on CPU" as a provider list headed by the
-        # CPU provider. The old check ("CPU" not in self._providers[:1]) did a
-        # list-membership test against a substring, so it was always False and
-        # the detector never honoured the CPU fallback after OOM.
         self._prefer_cpu = bool(providers) and providers[0] == _CPU_PROVIDER
         self._runtime: _Runtime | None = None
         self._load_lock = threading.Lock()
@@ -170,7 +166,7 @@ class PPDocLayoutV3Detector(BaseDetector):
         else:
             keep = list(range(len(candidate_boxes)))
 
-        return [
+        kept_detections = [
             TextDetection(
                 bbox=candidate_boxes[i],
                 score=candidate_scores[i],
@@ -179,4 +175,22 @@ class PPDocLayoutV3Detector(BaseDetector):
                 model_key=self.key,
             )
             for i in keep
+        ]
+        rgb = np.asarray(image.convert("RGB"))
+        classified = classify_text_regions(
+            image=rgb,
+            text_boxes=np.asarray([det.bbox for det in kept_detections], dtype=int),
+            use_optional_segmenter=True,
+        )
+        return [
+            replace(
+                det,
+                label=region.label if region.bubble_bbox is not None else det.label,
+                foreground_rgb=region.foreground_rgb,
+                structural_type=region.structural_type,
+                structural_confidence=region.structural_confidence,
+                structural_source=region.structural_source,
+                matched_reference_image=region.matched_reference_image,
+            )
+            for det, region in zip(kept_detections, classified, strict=True)
         ]

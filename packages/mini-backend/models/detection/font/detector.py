@@ -78,7 +78,6 @@ def _update_manifest_status(model_path: Path, status: ManifestStatus) -> None:
 
     payload["status"] = status
     payload.setdefault("modelId", model_path.parent.name)
-    # Write-then-rename so a crash mid-write can never leave a truncated manifest.
     temp_path = manifest_path.with_suffix(".json.tmp")
     try:
         temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -155,25 +154,81 @@ def merge_overlapping_boxes(
     containment_threshold: float = 0.3,
     overlap_threshold: float = 0.5,
 ) -> np.ndarray:
+    merged, _, _ = merge_overlapping_boxes_with_metadata(
+        bboxes,
+        containment_threshold=containment_threshold,
+        overlap_threshold=overlap_threshold,
+    )
+    return merged
+
+
+def merge_overlapping_boxes_with_metadata(
+    bboxes: np.ndarray,
+    scores: np.ndarray | None = None,
+    class_ids: np.ndarray | None = None,
+    *,
+    containment_threshold: float = 0.3,
+    overlap_threshold: float = 0.5,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if bboxes.size == 0:
-        return np.empty((0, 4), dtype=int)
+        return (
+            np.empty((0, 4), dtype=int),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.int64),
+        )
 
     boxes: list[list[float]] = [[float(v) for v in row] for row in bboxes.tolist()]
+    score_list: list[float] = (
+        [float(v) for v in np.asarray(scores, dtype=np.float32).reshape(-1)]
+        if scores is not None and len(scores) == len(boxes)
+        else [1.0] * len(boxes)
+    )
+    class_list: list[int] = (
+        [int(v) for v in np.asarray(class_ids, dtype=np.int64).reshape(-1)]
+        if class_ids is not None and len(class_ids) == len(boxes)
+        else [1] * len(boxes)
+    )
+
     accepted: list[list[float]] = []
+    accepted_scores: list[float] = []
+    accepted_classes: list[int] = []
     for i, box in enumerate(boxes):
         merged = list(box)
+        merged_score = score_list[i]
+        merged_class = class_list[i]
         for j, other in enumerate(boxes):
             if i == j:
                 continue
             if is_mostly_contained(merged, other, containment_threshold) or is_mostly_contained(
                 other, merged, containment_threshold
             ):
+                if class_ids is not None and class_list[j] != merged_class:
+                    if not (
+                        is_mostly_contained(merged, other, 0.7)
+                        or is_mostly_contained(other, merged, 0.7)
+                    ):
+                        continue
                 merged = merge_boxes(merged, other)
+                if score_list[j] > merged_score:
+                    merged_class = class_list[j]
+                    merged_score = score_list[j]
         if any(do_rectangles_overlap(merged, acc, overlap_threshold) for acc in accepted):
             continue
         accepted.append(merged)
+        accepted_scores.append(merged_score)
+        accepted_classes.append(merged_class)
 
-    return np.array(accepted, dtype=int) if accepted else np.empty((0, 4), dtype=int)
+    if not accepted:
+        return (
+            np.empty((0, 4), dtype=int),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.int64),
+        )
+    return (
+        np.array(accepted, dtype=int),
+        np.array(accepted_scores, dtype=np.float32),
+        np.array(accepted_classes, dtype=np.int64),
+    )
 
 
 def filter_and_fix_bboxes(
@@ -182,12 +237,28 @@ def filter_and_fix_bboxes(
     width_tolerance: int = 5,
     height_tolerance: int = 5,
 ) -> np.ndarray:
+    cleaned, _ = filter_and_fix_bboxes_with_indices(
+        bboxes,
+        image_shape,
+        width_tolerance=width_tolerance,
+        height_tolerance=height_tolerance,
+    )
+    return cleaned
+
+
+def filter_and_fix_bboxes_with_indices(
+    bboxes: np.ndarray,
+    image_shape: tuple[int, int] | tuple[int, int, int],
+    width_tolerance: int = 5,
+    height_tolerance: int = 5,
+) -> tuple[np.ndarray, np.ndarray]:
     if bboxes is None or len(bboxes) == 0:
-        return np.empty((0, 4), dtype=int)
+        return np.empty((0, 4), dtype=int), np.empty((0,), dtype=np.int64)
 
     img_h, img_w = image_shape[:2]
     cleaned: list[list[int]] = []
-    for box in np.asarray(bboxes):
+    kept_indices: list[int] = []
+    for idx, box in enumerate(np.asarray(bboxes)):
         x1, y1, x2, y2 = [int(v) for v in box[:4]]
 
         x1 = max(0, min(x1, img_w))
@@ -200,10 +271,11 @@ def filter_and_fix_bboxes(
         if w <= width_tolerance or h <= height_tolerance:
             continue
         cleaned.append([x1, y1, x2, y2])
+        kept_indices.append(idx)
 
     if not cleaned:
-        return np.empty((0, 4), dtype=int)
-    return np.array(cleaned, dtype=int)
+        return np.empty((0, 4), dtype=int), np.empty((0,), dtype=np.int64)
+    return np.array(cleaned, dtype=int), np.array(kept_indices, dtype=np.int64)
 
 
 class ImageSlicer:
@@ -250,10 +322,34 @@ class ImageSlicer:
     def merge_overlapping_boxes(
         self, boxes: np.ndarray, image_height: int
     ) -> np.ndarray:
+        merged, _, _ = self.merge_overlapping_boxes_with_metadata(boxes, image_height)
+        return merged
+
+    def merge_overlapping_boxes_with_metadata(
+        self,
+        boxes: np.ndarray,
+        image_height: int,
+        scores: np.ndarray | None = None,
+        class_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         if boxes.size == 0:
-            return boxes
+            return (
+                boxes,
+                np.empty((0,), dtype=np.float32),
+                np.empty((0,), dtype=np.int64),
+            )
 
         box_list = boxes.tolist()
+        score_list: list[float] = (
+            [float(v) for v in np.asarray(scores, dtype=np.float32).reshape(-1)]
+            if scores is not None and len(scores) == len(box_list)
+            else [1.0] * len(box_list)
+        )
+        class_list: list[int] = (
+            [int(v) for v in np.asarray(class_ids, dtype=np.int64).reshape(-1)]
+            if class_ids is not None and len(class_ids) == len(box_list)
+            else [1] * len(box_list)
+        )
         y_distance_threshold = self.merge_y_distance_threshold * image_height
 
         i = 0
@@ -274,16 +370,24 @@ class ImageSlicer:
                 is_contained, _, which_contains = self.box_contained(box1, box2)
                 if is_contained:
                     if which_contains == 1:
-                        box_list.pop(j)
+                        score_list[i] = max(score_list[i], score_list[j])
                     else:
                         box_list[i] = box2
-                        box_list.pop(j)
+                        score_list[i] = max(score_list[i], score_list[j])
+                        class_list[i] = class_list[j]
+                    box_list.pop(j)
+                    score_list.pop(j)
+                    class_list.pop(j)
                     continue
 
                 if iou >= self.duplicate_iou_threshold:
                     if box2_area > box1_area:
                         box_list[i] = box2
+                        class_list[i] = class_list[j]
+                    score_list[i] = max(score_list[i], score_list[j])
                     box_list.pop(j)
+                    score_list.pop(j)
+                    class_list.pop(j)
                     continue
 
                 y_dist = min(abs(box1[1] - box2[3]), abs(box1[3] - box2[1]))
@@ -294,8 +398,10 @@ class ImageSlicer:
                     max(1, max(box1_area, box2_area))
                 )
 
+                same_class = class_ids is None or class_list[i] == class_list[j]
                 should_merge = (
-                    y_dist < local_y_threshold
+                    same_class
+                    and y_dist < local_y_threshold
                     and x_overlap_ratio > self.merge_iou_threshold
                     and size_ratio > 0.3
                     and abs(box1[0] - box2[0]) < 0.5 * max(box1_w, box2_w)
@@ -315,12 +421,19 @@ class ImageSlicer:
                         j += 1
                         continue
                     box_list[i] = merged
+                    score_list[i] = max(score_list[i], score_list[j])
                     box_list.pop(j)
+                    score_list.pop(j)
+                    class_list.pop(j)
                 else:
                     j += 1
             i += 1
 
-        return np.array(box_list, dtype=int)
+        return (
+            np.array(box_list, dtype=int),
+            np.array(score_list, dtype=np.float32),
+            np.array(class_list, dtype=np.int64),
+        )
 
     @staticmethod
     def _shift_y(boxes: np.ndarray, offset: int) -> np.ndarray:
@@ -328,18 +441,22 @@ class ImageSlicer:
         shifted[:, [1, 3]] += offset
         return shifted
 
+    def _compute_slices(self, image: np.ndarray) -> list[tuple[int, int]]:
+        height, width = image.shape[:2]
+        bounds = compute_slice_bounds(height, width, self.slice_params)
+        if len(bounds) <= 1:
+            return []
+        gray = image if image.ndim == 2 else np.mean(image[..., :3], axis=2)
+        return filter_slices_through_content(bounds, detect_blank_bands(gray))
+
     def process_slices_for_detection(
         self,
         image: np.ndarray,
         detect_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray]],
     ) -> tuple[np.ndarray, np.ndarray]:
-        height, width = image.shape[:2]
-        bounds = compute_slice_bounds(height, width, self.slice_params)
-        if len(bounds) <= 1:
+        slices = self._compute_slices(image)
+        if not slices:
             return detect_func(image)
-        gray = image if image.ndim == 2 else np.mean(image[..., :3], axis=2)
-        filtered = filter_slices_through_content(bounds, detect_blank_bands(gray))
-        slices = filtered
 
         bubble_parts: list[np.ndarray] = []
         text_parts: list[np.ndarray] = []
@@ -353,11 +470,50 @@ class ImageSlicer:
         empty = np.empty((0, 4), dtype=int)
         bubbles = np.vstack(bubble_parts) if bubble_parts else empty
         texts = np.vstack(text_parts) if text_parts else empty
+        height = image.shape[0]
         if bubbles.size > 0:
             bubbles = self.merge_overlapping_boxes(bubbles, image_height=height)
         if texts.size > 0:
             texts = self.merge_overlapping_boxes(texts, image_height=height)
         return bubbles, texts
+
+    def process_slices_for_detection_detailed(
+        self,
+        image: np.ndarray,
+        detect_func: Callable[
+            [np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        slices = self._compute_slices(image)
+        if not slices:
+            return detect_func(image)
+
+        bubble_parts: list[np.ndarray] = []
+        text_parts: list[np.ndarray] = []
+        score_parts: list[np.ndarray] = []
+        class_parts: list[np.ndarray] = []
+        for start_y, end_y in slices:
+            bubble_boxes, text_boxes, text_scores, text_classes = detect_func(image[start_y:end_y])
+            if bubble_boxes.size > 0:
+                bubble_parts.append(self._shift_y(bubble_boxes, start_y))
+            if text_boxes.size > 0:
+                text_parts.append(self._shift_y(text_boxes, start_y))
+                score_parts.append(text_scores)
+                class_parts.append(text_classes)
+
+        empty = np.empty((0, 4), dtype=int)
+        bubbles = np.vstack(bubble_parts) if bubble_parts else empty
+        texts = np.vstack(text_parts) if text_parts else empty
+        scores = np.concatenate(score_parts) if score_parts else np.empty((0,), dtype=np.float32)
+        classes = np.concatenate(class_parts) if class_parts else np.empty((0,), dtype=np.int64)
+        height = image.shape[0]
+        if bubbles.size > 0:
+            bubbles = self.merge_overlapping_boxes(bubbles, image_height=height)
+        if texts.size > 0:
+            texts, scores, classes = self.merge_overlapping_boxes_with_metadata(
+                texts, image_height=height, scores=scores, class_ids=classes
+            )
+        return bubbles, texts, scores, classes
 
 
 class FontRTDetrV2Detector(BaseDetector):
@@ -403,8 +559,6 @@ class FontRTDetrV2Detector(BaseDetector):
             _update_manifest_status(self.model_path, "incomplete")
             raise DetectionModelCorruptedError(self.key, self.model_path, str(exc)) from exc
         except (AttributeError, *_SESSION_RUNTIME_ERRORS) as exc:
-            # AttributeError covers a broken onnxruntime install where the
-            # module exists but has no usable InferenceSession.
             raise DetectionRuntimeError(self.key, str(exc)) from exc
 
         _update_manifest_status(self.model_path, "installed")
@@ -417,25 +571,39 @@ class FontRTDetrV2Detector(BaseDetector):
         self._ensure_session()
 
         rgb_image = np.asarray(image.convert("RGB"))
-        bubble_boxes, text_boxes = self.image_slicer.process_slices_for_detection(
-            rgb_image, self._detect_single_image
+        bubble_boxes, text_boxes, text_scores, text_class_ids = (
+            self.image_slicer.process_slices_for_detection_detailed(
+                rgb_image, self._detect_single_image_detailed
+            )
         )
 
-        text_boxes = filter_and_fix_bboxes(text_boxes, rgb_image.shape)
-        text_boxes = merge_overlapping_boxes(text_boxes)
+        text_boxes, kept = filter_and_fix_bboxes_with_indices(text_boxes, rgb_image.shape)
+        if kept.size > 0 and len(text_scores) >= int(kept.max()) + 1:
+            text_scores = text_scores[kept]
+            text_class_ids = text_class_ids[kept]
+        else:
+            text_scores = np.ones((len(text_boxes),), dtype=np.float32)
+            text_class_ids = np.ones((len(text_boxes),), dtype=np.int64)
+
+        text_boxes, text_scores, text_class_ids = merge_overlapping_boxes_with_metadata(
+            text_boxes, text_scores, text_class_ids
+        )
+        text_is_free = [int(cls_id) == 2 for cls_id in text_class_ids.tolist()]
 
         classified_regions = classify_text_regions(
             image=rgb_image,
             text_boxes=text_boxes,
             bubble_boxes=bubble_boxes,
+            text_is_free=text_is_free,
         )
         detections: list[TextDetection] = []
-        for region in classified_regions:
+        for idx, region in enumerate(classified_regions):
             x1, y1, x2, y2 = region.bbox
+            score = float(text_scores[idx]) if idx < len(text_scores) else 1.0
             detections.append(
                 TextDetection(
                     bbox=(x1, y1, x2, y2),
-                    score=1.0,
+                    score=score,
                     label=region.label,
                     source="model",
                     model_key=self.key,
@@ -449,9 +617,17 @@ class FontRTDetrV2Detector(BaseDetector):
         return sort_detections_in_reading_order(detections)
 
     def _detect_single_image(self, image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        empty = np.empty((0, 4), dtype=int)
+        bubble_boxes, text_boxes, _, _ = self._detect_single_image_detailed(image)
+        return bubble_boxes, text_boxes
+
+    def _detect_single_image_detailed(
+        self, image: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        empty_boxes = np.empty((0, 4), dtype=int)
+        empty_scores = np.empty((0,), dtype=np.float32)
+        empty_classes = np.empty((0,), dtype=np.int64)
         if self.session is None:
-            return empty, empty
+            return empty_boxes, empty_boxes, empty_scores, empty_classes
 
         pil_image = Image.fromarray(image)
         resized = pil_image.resize((640, 640), Image.Resampling.BICUBIC)
@@ -465,12 +641,15 @@ class FontRTDetrV2Detector(BaseDetector):
 
         outputs = self.session.run(None, feed)
         if len(outputs) < 3:
-            return empty, empty
+            return empty_boxes, empty_boxes, empty_scores, empty_classes
 
         labels = np.asarray(outputs[0]).reshape(-1)
         boxes = np.asarray(outputs[1]).reshape(-1, 4)
-        scores = np.asarray(outputs[2]).reshape(-1)
+        scores = np.asarray(outputs[2]).reshape(-1).astype(np.float32)
 
         confident = scores >= self.confidence_threshold
-        labels, boxes = labels[confident], boxes[confident].astype(int)
-        return boxes[labels == 0], boxes[np.isin(labels, (1, 2))]
+        labels = labels[confident].astype(np.int64)
+        boxes = boxes[confident].astype(int)
+        scores = scores[confident]
+        text_mask = np.isin(labels, (1, 2))
+        return boxes[labels == 0], boxes[text_mask], scores[text_mask], labels[text_mask]

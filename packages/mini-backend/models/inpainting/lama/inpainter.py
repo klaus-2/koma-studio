@@ -14,6 +14,7 @@ from models.inpainting.base_inpainter import (
     ImageU8,
     InpaintConfig,
     MaskU8,
+    resize_max_size,
 )
 from models.onnx_utils import ImageMaskOnnxModel, OutputRange, output_to_u8
 
@@ -30,6 +31,9 @@ class LaMaInpainter(BaseInpainter):
     key: str = "lama_manga"
     name: str = "LaMa Manga Dynamic (ONNX)"
     pad_mod: ClassVar[int] = 8
+    max_crop_edge: ClassVar[int | None] = 640
+    max_batch_edge: ClassVar[int | None] = 640
+    enable_border_drift_fix: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -56,6 +60,11 @@ class LaMaInpainter(BaseInpainter):
             model_key=self.key,
             output_range=output_range,
         )
+
+    def _effective_max_batch_edge(self) -> int | None:
+        if self.key == "lama_fp32":
+            return 0
+        return self.max_batch_edge
 
     def forward(
         self,
@@ -84,6 +93,22 @@ class LaMaInpainter(BaseInpainter):
                     (target_w, target_h),
                     interpolation=cv2.INTER_AREA,
                 ),
+                dtype=np.uint8,
+            )
+            run_mask = np.where(coverage > 0, np.uint8(255), np.uint8(0))
+        elif loaded.fixed_hw is None and self.max_crop_edge is not None and max(height, width) > self.max_crop_edge:
+            capped_img = resize_max_size(image, self.max_crop_edge, cv2.INTER_AREA)
+            th = max(self.pad_mod, (capped_img.shape[0] // self.pad_mod) * self.pad_mod)
+            tw = max(self.pad_mod, (capped_img.shape[1] // self.pad_mod) * self.pad_mod)
+            if (th, tw) != (capped_img.shape[0], capped_img.shape[1]):
+                run_image = np.asarray(
+                    cv2.resize(image, (tw, th), interpolation=cv2.INTER_AREA),
+                    dtype=np.uint8,
+                )
+            else:
+                run_image = capped_img
+            coverage = np.asarray(
+                cv2.resize(mask, (tw, th), interpolation=cv2.INTER_AREA),
                 dtype=np.uint8,
             )
             run_mask = np.where(coverage > 0, np.uint8(255), np.uint8(0))

@@ -446,6 +446,21 @@ def _local_image_edit_models(verify: bool) -> dict[str, dict[str, Any]]:
     return models
 
 
+def _segmentation_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.segmentation.storage import (
+        COMIC_TEXT_MASK_MODEL_ID,
+        _COMIC_TEXT_MASK_FILE,
+        _COMIC_TEXT_MASK_REPO,
+        _COMIC_TEXT_MASK_SHA256,
+    )
+
+    asset = _hf_bundle(_COMIC_TEXT_MASK_REPO, [_COMIC_TEXT_MASK_FILE], verify=verify)[0]
+    asset["sha256"] = _COMIC_TEXT_MASK_SHA256
+    models: dict[str, dict[str, Any]] = {COMIC_TEXT_MASK_MODEL_ID: {"assets": [asset]}}
+    _model_total(models)
+    return models
+
+
 BUILDERS = (
     ("paddleocr", _paddleocr_models),
     ("meiki", _meiki_models),
@@ -457,6 +472,7 @@ BUILDERS = (
     ("translation", _translation_models),
     ("pororo", _pororo_models),
     ("detection", _detection_models),
+    ("segmentation", _segmentation_models),
     ("transformers_vlm", _transformers_vlm_models),
     ("easyocr", _easyocr_models),
     ("image_edit", _local_image_edit_models),

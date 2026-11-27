@@ -48,6 +48,7 @@ class HDStrategy(StrEnum):
     ORIGINAL = "original"
     RESIZE = "resize"
     CROP = "crop"
+    AUTO = "auto"
 
     @classmethod
     def from_value(cls, value: str | None) -> HDStrategy:
@@ -60,6 +61,8 @@ class HDStrategy(StrEnum):
             "hd_resize": cls.RESIZE,
             "crop": cls.CROP,
             "hd_crop": cls.CROP,
+            "auto": cls.AUTO,
+            "hd_auto": cls.AUTO,
         }
         try:
             return aliases[normalized]
@@ -70,8 +73,8 @@ class HDStrategy(StrEnum):
 class InpaintConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    hd_strategy: HDStrategy = HDStrategy.RESIZE
-    hd_strategy_crop_margin: Annotated[int, Field(strict=True, ge=0, le=8192)] = 512
+    hd_strategy: HDStrategy = HDStrategy.CROP
+    hd_strategy_crop_margin: Annotated[int, Field(strict=True, ge=0, le=8192)] = 192
     hd_strategy_crop_trigger_size: Annotated[
         int, Field(strict=True, ge=1, le=65536)
     ] = 512
@@ -158,6 +161,39 @@ def boxes_from_mask(mask: MaskU8) -> list[Box]:
     return sorted(boxes, key=lambda box: (box[1], box[0], box[3], box[2]))
 
 
+def cluster_mask_boxes(mask: MaskU8, max_gap: int = 28) -> list[Box]:
+    """Group nearby masked components into tightly bounded block boxes."""
+    if max_gap <= 0:
+        return boxes_from_mask(mask)
+    binary = np.where(mask >= 128, np.uint8(255), np.uint8(0))
+    if not binary.any():
+        return []
+    kernel_side = max_gap + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_side, kernel_side))
+    grouped = cv2.dilate(binary, kernel, iterations=1)
+    contours, _ = cv2.findContours(
+        grouped,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+    boxes: list[Box] = []
+    for contour in contours:
+        x, y, width, height = cv2.boundingRect(contour)
+        sub = binary[y : y + height, x : x + width]
+        ys, xs = np.nonzero(sub)
+        if xs.size == 0:
+            continue
+        boxes.append(
+            (
+                x + int(xs.min()),
+                y + int(ys.min()),
+                x + int(xs.max()) + 1,
+                y + int(ys.max()) + 1,
+            )
+        )
+    return sorted(boxes, key=lambda box: (box[1], box[0], box[3], box[2]))
+
+
 def expand_crop_box(box: Box, img_w: int, img_h: int, margin: int) -> Box:
     if img_w < 1 or img_h < 1 or margin < 0:
         raise ValueError("Invalid image dimensions or crop margin")
@@ -179,26 +215,24 @@ def blend_with_mask(original: ImageU8, inpainted: ImageU8, mask: MaskU8, feather
     if feather < 0:
         raise ValueError("feather must be non-negative")
 
-    if feather:
-        kernel_size = feather * 2 + 1
-        soft_mask = np.asarray(
-            cv2.GaussianBlur(mask, (kernel_size, kernel_size), 0),
-            dtype=np.uint8,
-        )
-    else:
-        soft_mask = mask
+    binary = mask >= 128
+    alpha_full: npt.NDArray[np.float32] | None = None
+    if feather > 0 and binary.any():
+        dist = cv2.distanceTransform(binary.astype(np.uint8), cv2.DIST_L2, 3)
+        ramp = float(min(feather, 2) + 1)
+        alpha_full = np.clip(dist / ramp, 0.0, 1.0).astype(np.float32)
 
     result = original.copy()
     for top in range(0, original.shape[0], _BLEND_ROWS):
         bottom = min(top + _BLEND_ROWS, original.shape[0])
-        support = mask[top:bottom] >= 128
+        support = binary[top:bottom]
         if not support.any():
             continue
 
-        alpha = soft_mask[top:bottom].astype(np.float32)
-        alpha *= np.float32(1.0 / 255.0)
-        alpha *= support
-        alpha = alpha[:, :, np.newaxis]
+        if alpha_full is None:
+            alpha = support.astype(np.float32)[:, :, np.newaxis]
+        else:
+            alpha = (alpha_full[top:bottom] * support)[:, :, np.newaxis]
 
         blended = inpainted[top:bottom].astype(np.float32)
         blended -= original[top:bottom]
@@ -250,8 +284,12 @@ def _normalize_mask(
     return np.where(active, np.uint8(255), np.uint8(0))
 
 
-def _batch_canvas_groups(crops: Sequence[Box]) -> list[list[Box]]:
-    """Bin similar-sized crops, splitting bins that exceed the pixel budget."""
+def _batch_canvas_groups(
+    crops: Sequence[Box],
+    *,
+    max_batch_edge: int | None = None,
+) -> list[list[Box]]:
+    """Bin similar-sized crops, splitting bins that exceed pixel or edge budgets."""
     groups: list[list[Box]] = []
     for box in sorted(crops, key=lambda box: max(box[2] - box[0], box[3] - box[1])):
         span = max(box[2] - box[0], box[3] - box[1])
@@ -264,12 +302,19 @@ def _batch_canvas_groups(crops: Sequence[Box]) -> list[list[Box]]:
         group = groups.pop(0)
         width = sum(b[2] - b[0] for b in group) + _BATCH_CROP_PADDING * (len(group) - 1)
         height = max(b[3] - b[1] for b in group)
-        if len(group) > 1 and width * height > _MAX_IMAGE_PIXELS:
+        exceeds_edge = (
+            max_batch_edge is not None
+            and (width > max_batch_edge or height > max_batch_edge)
+        )
+        if len(group) > 1 and (width * height > _MAX_IMAGE_PIXELS or exceeds_edge):
             middle = len(group) // 2
             groups[0:0] = [group[:middle], group[middle:]]
         else:
             ready.append(group)
     return ready
+
+
+_DRIFT_RING_KERNEL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
 
 
 class BaseInpainter(ABC):
@@ -278,6 +323,44 @@ class BaseInpainter(ABC):
     pad_mod: ClassVar[int] = 8
     min_size: ClassVar[int | None] = None
     pad_to_square: ClassVar[bool] = False
+    max_crop_edge: ClassVar[int | None] = None
+    max_batch_edge: ClassVar[int | None] = None
+    enable_border_drift_fix: ClassVar[bool] = False
+
+    def _effective_max_batch_edge(self) -> int | None:
+        return self.max_batch_edge
+
+    def _effective_crop_margin(self, config: InpaintConfig) -> int:
+        if self.max_crop_edge is None:
+            return config.hd_strategy_crop_margin
+        return min(config.hd_strategy_crop_margin, max(96, self.max_crop_edge // 3))
+
+    def _compensate_border_drift(
+        self,
+        original_crop: ImageU8,
+        predicted_crop: ImageU8,
+        mask_crop: MaskU8,
+    ) -> ImageU8:
+        if not self.enable_border_drift_fix:
+            return predicted_crop
+        active = mask_crop >= 128
+        if not active.any():
+            return predicted_crop
+        dilated = cv2.dilate(active.astype(np.uint8), _DRIFT_RING_KERNEL, iterations=1)
+        ring = (dilated > 0) & (~active)
+        if int(ring.sum()) < 50:
+            return predicted_crop
+        diff = np.median(
+            original_crop[ring].astype(np.float32) - predicted_crop[ring].astype(np.float32),
+            axis=0,
+        )
+        max_abs = float(np.max(np.abs(diff)))
+        if max_abs <= 0.5 or max_abs > 15.0:
+            return predicted_crop
+        shifted = predicted_crop.astype(np.float32) + diff[np.newaxis, np.newaxis, :]
+        np.rint(shifted, out=shifted)
+        np.clip(shifted, 0.0, 255.0, out=shifted)
+        return shifted.astype(np.uint8)
 
     async def inpaint(
         self,
@@ -326,15 +409,49 @@ class BaseInpainter(ABC):
     ) -> ImageU8:
         height, width = image.shape[:2]
         longest = max(height, width)
+        aspect = longest / float(max(1, min(height, width)))
+        webtoon_oversized = (
+            self.max_crop_edge is not None
+            and aspect > 2.5
+            and longest > self.max_crop_edge * 2
+        )
+
+        if config.hd_strategy is HDStrategy.AUTO:
+            if longest > config.hd_strategy_crop_trigger_size or aspect > 2.2:
+                return self._inpaint_crops_batched(
+                    image,
+                    mask,
+                    cluster_mask_boxes(mask, max_gap=28),
+                    config,
+                )
+            pred = self._pad_forward(image, mask, config)
+            return self._compensate_border_drift(image, pred, mask)
 
         if (
             config.hd_strategy is HDStrategy.CROP
             and longest > config.hd_strategy_crop_trigger_size
         ):
+            boxes = (
+                cluster_mask_boxes(mask, max_gap=28)
+                if self.max_crop_edge is not None
+                else boxes_from_mask(mask)
+            )
             return self._inpaint_crops_batched(
                 image,
                 mask,
-                boxes_from_mask(mask),
+                boxes,
+                config,
+            )
+
+        if config.hd_strategy is HDStrategy.ORIGINAL and webtoon_oversized:
+            logger.info(
+                "inpainting.webtoon_auto_crop",
+                extra={"key": self.key, "width": width, "height": height},
+            )
+            return self._inpaint_crops_batched(
+                image,
+                mask,
+                cluster_mask_boxes(mask, max_gap=28),
                 config,
             )
 
@@ -353,7 +470,6 @@ class BaseInpainter(ABC):
                 cv2.INTER_NEAREST,
             )
 
-            # Conservative downsampling retains thin masked regions.
             coverage = np.asarray(
                 cv2.resize(
                     mask,
@@ -368,7 +484,7 @@ class BaseInpainter(ABC):
                 np.uint8(0),
             )
             down_result = self._pad_forward(down_image, down_mask, config)
-            return np.asarray(
+            upscaled = np.asarray(
                 cv2.resize(
                     down_result,
                     (width, height),
@@ -376,12 +492,15 @@ class BaseInpainter(ABC):
                 ),
                 dtype=np.uint8,
             )
+            return self._compensate_border_drift(image, upscaled, mask)
 
-        return self._pad_forward(image, mask, config)
+        pred = self._pad_forward(image, mask, config)
+        return self._compensate_border_drift(image, pred, mask)
 
     def _crop_boxes(self, image: ImageU8, boxes: Sequence[Box], config: InpaintConfig) -> list[Box]:
         height, width = image.shape[:2]
-        return sorted({expand_crop_box(box, width, height, config.hd_strategy_crop_margin) for box in boxes}, key=lambda box: (box[1], box[0], box[3], box[2]))
+        margin = self._effective_crop_margin(config)
+        return sorted({expand_crop_box(box, width, height, margin) for box in boxes}, key=lambda box: (box[1], box[0], box[3], box[2]))
 
     def _inpaint_crops(
         self,
@@ -399,11 +518,14 @@ class BaseInpainter(ABC):
             if not owned.any():
                 continue
 
+            crop_img = canvas[top:bottom, left:right]
+            crop_mask = np.where(owned, mask[top:bottom, left:right], np.uint8(0))
             prediction = self._pad_forward(
-                image[top:bottom, left:right],
-                mask[top:bottom, left:right],
+                crop_img,
+                crop_mask,
                 config,
             )
+            prediction = self._compensate_border_drift(crop_img, prediction, crop_mask)
             np.copyto(
                 canvas[top:bottom, left:right],
                 prediction,
@@ -418,17 +540,35 @@ class BaseInpainter(ABC):
         if len(crops) <= 1:
             return self._inpaint_crops(image, mask, boxes, config)
 
+        max_edge = self._effective_max_batch_edge()
+        if max_edge == 0:
+            return self._inpaint_crops(image, mask, boxes, config)
+
         image_height, image_width = image.shape[:2]
+        margin = self._effective_crop_margin(config)
         raw_box_by_crop: dict[Box, Box] = {}
         for box in boxes:
             raw_box_by_crop.setdefault(
-                expand_crop_box(box, image_width, image_height, config.hd_strategy_crop_margin),
+                expand_crop_box(box, image_width, image_height, margin),
                 box,
             )
 
         canvas = image.copy()
         remaining = mask >= 128
-        for group in _batch_canvas_groups(crops):
+        for group in _batch_canvas_groups(crops, max_batch_edge=max_edge):
+            if len(group) == 1:
+                left, top, right, bottom = group[0]
+                owned = remaining[top:bottom, left:right]
+                if not owned.any():
+                    continue
+                crop_img = canvas[top:bottom, left:right]
+                crop_mask = np.where(owned, mask[top:bottom, left:right], np.uint8(0))
+                prediction = self._pad_forward(crop_img, crop_mask, config)
+                prediction = self._compensate_border_drift(crop_img, prediction, crop_mask)
+                np.copyto(canvas[top:bottom, left:right], prediction, where=owned[:, :, np.newaxis])
+                owned[:] = False
+                continue
+
             tile_width = sum(r - l for l, t, r, b in group) + _BATCH_CROP_PADDING * (len(group) - 1)
             tile_height = max(b - t for l, t, r, b in group)
             tile = np.zeros((tile_height, tile_width, 3), dtype=np.uint8)
@@ -456,7 +596,13 @@ class BaseInpainter(ABC):
                 continue
             for offset, (left, top, right, bottom) in placements:
                 owned = remaining[top:bottom, left:right]
-                np.copyto(canvas[top:bottom, left:right], prediction[:bottom - top, offset:offset + right - left], where=owned[:, :, np.newaxis])
+                if not owned.any():
+                    continue
+                crop_img = canvas[top:bottom, left:right]
+                crop_mask = np.where(owned, mask[top:bottom, left:right], np.uint8(0))
+                crop_pred = prediction[:bottom - top, offset:offset + right - left]
+                crop_pred = self._compensate_border_drift(crop_img, crop_pred, crop_mask)
+                np.copyto(canvas[top:bottom, left:right], crop_pred, where=owned[:, :, np.newaxis])
                 owned[:] = False
         return canvas
 

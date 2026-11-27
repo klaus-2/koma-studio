@@ -44,6 +44,13 @@ _DETECTION_MODEL_SOURCES: dict[str, dict[str, Any]] = {
         "files": ["config.json", "preprocessor_config.json", "model.safetensors"],
         "kind": "hf_bundle",
     },
+    "yolo_bubble": {
+        "target": "manga109_segmentation_bubble_1024.onnx",
+        "sha256": "593cae61f4c9ffc773fee34d55c28069390d19415c24dc04600f983311618ea3",
+        "urls": [
+            "https://huggingface.co/mednasserallah/manga109-segmentation-bubble-onnx/resolve/main/manga109_segmentation_bubble_1024.onnx",
+        ],
+    },
 }
 
 

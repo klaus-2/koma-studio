@@ -88,6 +88,18 @@ class InpaintHeuristicsTests(unittest.TestCase):
 
         self.assertEqual(detect_background_complexity(image, mask), "complex")
 
+    def test_flat_saturated_colored_panel_uses_solid_fill(self) -> None:
+        image = np.full((64, 64, 3), (38, 132, 220), dtype=np.uint8)
+        image[22:40, 18:46] = (255, 255, 255)
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        mask[20:42, 16:48] = 255
+
+        result = apply_need_inpaint_heuristic(image, mask)
+
+        self.assertFalse(result.needs_model_inpaint)
+        self.assertEqual(result.method_label, "solid_fill")
+        self.assertTrue(np.all(result.image_rgb[30, 30] == np.array([38, 132, 220])))
+
 
 if __name__ == "__main__":
     unittest.main()

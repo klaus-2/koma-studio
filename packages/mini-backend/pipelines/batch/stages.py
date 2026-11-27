@@ -80,8 +80,6 @@ type MaskArray = NDArray[np.uint8]
 class StageOutput[T]:
     model_used: str
     regions: list[T]
-    # Set when the stage chose CPU before loading (the OCR device decision);
-    # None on the normal path. A GPU-OOM retry is reported by the orchestrator.
     fallback_reason: str | None = None
 
 
@@ -102,9 +100,6 @@ class CleanStageResult:
     hd_strategy: str
 
 
-# --------------------------------------------------------------------------- image
-
-
 async def open_rgb_image(image_bytes: bytes) -> Image.Image:
     try:
         return await asyncio.to_thread(decode_pil, image_bytes, "RGB")
@@ -117,9 +112,6 @@ def _encode_png(rgb: RGBArray) -> bytes:
     if not ok:
         raise ImageEncodeError("Failed to encode image as PNG")
     return encoded.tobytes()
-
-
-# --------------------------------------------------------------------------- detect
 
 
 def detection_to_record(det: object, index: int, fallback_model: str) -> DetectionRecord:
@@ -248,9 +240,6 @@ async def run_detect_stage(
     return StageOutput(model_used=model_used, regions=records)
 
 
-# --------------------------------------------------------------------------- ocr
-
-
 async def run_ocr_stage(
     *,
     image: Image.Image,
@@ -293,9 +282,6 @@ async def run_ocr_stage(
     )
 
 
-# --------------------------------------------------------------------------- translate
-
-
 async def run_translation_stage(
     *,
     model_key: str | None,
@@ -327,9 +313,6 @@ async def run_translation_stage(
         )
     )
     return StageOutput(model_used=result.model_used, regions=list(result.records))
-
-
-# --------------------------------------------------------------------------- segment
 
 
 def _mask_base64(result: object) -> str | None:
@@ -440,20 +423,20 @@ async def run_segment_stage(
     return StageOutput(model_used=segmenter.key, regions=records)
 
 
-# --------------------------------------------------------------------------- clean
-
-
 def mask_regions_from_records(records: Sequence[Mapping[str, object]]) -> list[MaskRegion]:
     regions: list[MaskRegion] = []
     for record in records:
         bbox = normalize_bbox(record.get("bbox"))
         if bbox is None:
             continue
+        raw_mask = record.get("mask_base64")
+        mask_base64 = raw_mask if isinstance(raw_mask, str) else ""
         regions.append(
             MaskRegion(
                 bbox=bbox,
                 segment_boxes=normalize_boxes(record.get("segment_boxes")),
                 merged_boxes=normalize_boxes(record.get("merged_boxes")),
+                mask_base64=mask_base64,
             )
         )
     return regions
@@ -470,6 +453,10 @@ class _InpaintJob:
 def _resolve_hd_strategy(requested: str | None, rgb: RGBArray, mask: MaskArray) -> str:
     if requested is not None and requested.strip():
         return requested
+    height, width = rgb.shape[:2]
+    aspect = max(height, width) / float(max(1, min(height, width)))
+    if aspect > 2.2:
+        return "crop"
     return "crop" if detect_background_complexity(rgb, mask) == "complex" else "resize"
 
 

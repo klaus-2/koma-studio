@@ -38,6 +38,7 @@ class MaskRegion:
     segment_boxes: tuple[BBox, ...] = ()
     merged_boxes: tuple[BBox, ...] = ()
     mask_base64: str = ""
+    bubble_bbox: BBox | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "segment_boxes", tuple(self.segment_boxes))
@@ -114,11 +115,58 @@ def _rasterize_boxes(mask: MaskImage, boxes: Sequence[BBox]) -> None:
         mask[y1:y2, x1:x2] = 255
 
 
+def _resolve_region_wall_bound(
+    raw_region: MaskImage,
+    region: MaskRegion,
+    size: PixelSize,
+    bubble_masks: Sequence[MaskImage] | None,
+) -> MaskImage | None:
+    """Return an eroded bubble interior bound mask if any bubble strictly encloses this text."""
+    raw_bool = raw_region > 0
+    if not np.any(raw_bool):
+        return None
+
+    erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    combined_bound: MaskImage | None = None
+
+    if bubble_masks:
+        for bmask in bubble_masks:
+            if bmask.shape[:2] != raw_region.shape[:2]:
+                continue
+            if not np.any(raw_bool & (bmask > 0)):
+                continue
+            eroded = cv2.erode((bmask > 0).astype(np.uint8) * 255, erode_kernel, iterations=1)
+            if not np.any(eroded):
+                continue
+            if combined_bound is None:
+                combined_bound = eroded
+            else:
+                np.maximum(combined_bound, eroded, out=combined_bound)
+
+    if combined_bound is None and region.bubble_bbox is not None:
+        clipped = clip_bbox(region.bubble_bbox, size)
+        if clipped is not None:
+            bx1, by1, bx2, by2 = clipped
+            if (bx2 - bx1) > 8 and (by2 - by1) > 8:
+                combined_bound = np.zeros_like(raw_region)
+                combined_bound[by1 + 2 : by2 - 2, bx1 + 2 : bx2 - 2] = 255
+
+    if combined_bound is None:
+        return None
+
+    overflow_pixels = int(np.count_nonzero(raw_bool & (combined_bound == 0)))
+    total_pixels = int(np.count_nonzero(raw_bool))
+    if overflow_pixels > max(12, int(0.08 * total_pixels)):
+        return None
+    return combined_bound
+
+
 def generate_baka_style_mask(
     image_width: int,
     image_height: int,
     regions: Sequence[MaskRegion],
     mask_dilation: int = 5,
+    bubble_masks: Sequence[MaskImage] | None = None,
 ) -> MaskImage:
     shape = validate_shape((image_height, image_width))
     radius = validate_radius(mask_dilation)
@@ -130,19 +178,37 @@ def generate_baka_style_mask(
     ) > _MAX_BOXES:
         raise ValueError("Box count exceeds the rasterization budget")
 
-    mask: MaskImage = np.zeros(shape, dtype=np.uint8)
     size: PixelSize = image_width, image_height
+    use_wall_bounds = bool(bubble_masks) or any(r.bubble_bbox is not None for r in regions)
+    if not use_wall_bounds:
+        mask: MaskImage = np.zeros(shape, dtype=np.uint8)
+        for region in regions:
+            if region.mask_base64:
+                segment = _decode_region_mask(region.mask_base64, target_shape=shape)
+                if segment is not None:
+                    np.maximum(mask, segment, out=mask)
+                    continue
+            _rasterize_boxes(mask, _region_boxes(region, size))
+        return dilate_mask(mask, radius=radius)
 
+    mask = np.zeros(shape, dtype=np.uint8)
     for region in regions:
+        region_raw: MaskImage | None = None
         if region.mask_base64:
-            segment = _decode_region_mask(region.mask_base64, target_shape=shape)
-            if segment is not None:
-                np.maximum(mask, segment, out=mask)
-                continue
+            region_raw = _decode_region_mask(region.mask_base64, target_shape=shape)
+        if region_raw is None:
+            region_raw = np.zeros(shape, dtype=np.uint8)
+            _rasterize_boxes(region_raw, _region_boxes(region, size))
 
-        _rasterize_boxes(mask, _region_boxes(region, size))
+        dilated_region = dilate_mask(region_raw, radius=radius)
+        bound = _resolve_region_wall_bound(region_raw, region, size, bubble_masks)
+        if bound is not None:
+            bounded = cv2.bitwise_and(dilated_region, bound)
+            np.maximum(bounded, region_raw, out=bounded)
+            dilated_region = bounded
+        np.maximum(mask, dilated_region, out=mask)
 
-    return dilate_mask(mask, radius=radius)
+    return mask
 
 
 async def generate_baka_style_mask_async(
@@ -150,6 +216,7 @@ async def generate_baka_style_mask_async(
     image_height: int,
     regions: Sequence[MaskRegion],
     mask_dilation: int = 5,
+    bubble_masks: Sequence[MaskImage] | None = None,
 ) -> MaskImage:
     return await run_native(
         generate_baka_style_mask,
@@ -157,4 +224,5 @@ async def generate_baka_style_mask_async(
         image_height,
         regions,
         mask_dilation,
+        bubble_masks,
     )

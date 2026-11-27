@@ -16,6 +16,7 @@ from core.device import (
 )
 from models.detection.base_detector import BaseDetector, TextDetection
 from models.detection.blank_bands import detect_blank_bands, filter_slices_through_content
+from models.detection.font.classify import classify_text_regions
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import compute_slice_bounds
 from models.detection.storage import resolve_detection_model_path
@@ -102,14 +103,31 @@ class ComicTextDetector(BaseDetector):
             return []
         merged = self._merge_text_lines(candidates, width=rgb.shape[1], height=rgb.shape[0])
 
-        # Recall pass: if only one block was found, retry with a lower threshold
-        # to recover secondary text areas (e.g. credits/watermarks at the bottom).
         if len(merged) < 2 and recall_enabled:
             merged = self._merge_text_lines(
                 candidates + pool, width=rgb.shape[1], height=rgb.shape[0]
             )
 
-        return sort_detections_in_reading_order(self._apply_nms(merged))
+        filtered = sort_detections_in_reading_order(self._apply_nms(merged))
+        if not filtered:
+            return []
+        classified = classify_text_regions(
+            image=rgb,
+            text_boxes=np.asarray([det.bbox for det in filtered], dtype=int),
+            use_optional_segmenter=True,
+        )
+        return [
+            replace(
+                det,
+                label=region.label,
+                foreground_rgb=region.foreground_rgb,
+                structural_type=region.structural_type,
+                structural_confidence=region.structural_confidence,
+                structural_source=region.structural_source,
+                matched_reference_image=region.matched_reference_image,
+            )
+            for det, region in zip(filtered, classified, strict=True)
+        ]
 
     def _detect_with_slicing(self, rgb: np.ndarray, score_threshold: float) -> list[TextDetection]:
         height, width = rgb.shape[:2]
