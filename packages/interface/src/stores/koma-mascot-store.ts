@@ -22,12 +22,19 @@ export interface KomaMascotReaction {
   readonly expiresAt: number;
 }
 
+export interface KomaCompanionPosition {
+  readonly right: number;
+  readonly bottom: number;
+}
+
 interface KomaMascotStore {
   companionVisible: boolean;
+  companionPosition: KomaCompanionPosition | null;
   petStreak: number;
   lastPetAt: number;
   reaction: KomaMascotReaction | null;
   setCompanionVisible: (visible: boolean) => void;
+  setCompanionPosition: (position: KomaCompanionPosition | null) => void;
   toggleCompanionVisible: () => void;
   triggerReaction: (pose: KomaPose, note?: string | null, durationMs?: number) => void;
   clearReaction: () => void;
@@ -43,11 +50,13 @@ export const useKomaMascotStore = create<KomaMascotStore>()(
   persist(
     (set, get) => ({
       companionVisible: true,
+      companionPosition: null,
       petStreak: 0,
       lastPetAt: 0,
       reaction: null,
 
       setCompanionVisible: (visible) => set({ companionVisible: visible }),
+      setCompanionPosition: (position) => set({ companionPosition: position }),
       toggleCompanionVisible: () =>
         set((state) => ({ companionVisible: !state.companionVisible })),
 
@@ -92,7 +101,10 @@ export const useKomaMascotStore = create<KomaMascotStore>()(
     }),
     {
       name: 'koma-studio.mascot.v1',
-      partialize: (state) => ({ companionVisible: state.companionVisible }),
+      partialize: (state) => ({
+        companionVisible: state.companionVisible,
+        companionPosition: state.companionPosition,
+      }),
     },
   ),
 );

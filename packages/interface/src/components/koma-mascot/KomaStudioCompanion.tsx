@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
 import { Eye, EyeOff, Heart } from 'lucide-react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
@@ -7,16 +8,52 @@ import { useModelManagerLiveState } from '../../hooks/useModelManager';
 import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
-import { useKomaMascotStore, type KomaPose } from '../../stores/koma-mascot-store';
+import {
+  useKomaMascotStore,
+  type KomaCompanionPosition,
+  type KomaPose,
+} from '../../stores/koma-mascot-store';
 import { KomaNekoRig } from './KomaNekoRig';
 
 const IDLE_SLEEP_MS = 90_000;
 const EASE = [0.22, 1, 0.36, 1] as const;
+const FALLBACK_POSITION: KomaCompanionPosition = { right: 16, bottom: 44 };
+const ANCHOR_CLASS = 'pointer-events-none absolute bottom-11 right-4 h-0 w-0';
+const DRAG_THRESHOLD_PX = 4;
+const KEY_STEP_PX = 16;
+const LAYER_CLASS = 'pointer-events-none fixed z-[1200]';
 
 interface PetBurst {
   readonly id: number;
   readonly dx: number;
 }
+
+interface DragSession {
+  readonly pointerId: number;
+  readonly startX: number;
+  readonly startY: number;
+  readonly origin: KomaCompanionPosition;
+  moved: boolean;
+  last: KomaCompanionPosition;
+}
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const clampPosition = (
+  position: KomaCompanionPosition,
+  element: HTMLElement | null,
+): KomaCompanionPosition => {
+  const width = element?.offsetWidth ?? 0;
+  const height = element?.offsetHeight ?? 0;
+  return {
+    right: Math.round(clamp(position.right, 0, Math.max(0, window.innerWidth - width))),
+    bottom: Math.round(clamp(position.bottom, 0, Math.max(0, window.innerHeight - height))),
+  };
+};
+
+const samePosition = (a: KomaCompanionPosition, b: KomaCompanionPosition): boolean =>
+  a.right === b.right && a.bottom === b.bottom;
 
 export const KomaStudioCompanion: React.FC = React.memo(() => {
   const prefersReducedMotion = useReducedMotion() === true;
@@ -25,6 +62,8 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
 
   const visible = useKomaMascotStore((s) => s.companionVisible);
   const toggleVisible = useKomaMascotStore((s) => s.toggleCompanionVisible);
+  const storedPosition = useKomaMascotStore((s) => s.companionPosition);
+  const setStoredPosition = useKomaMascotStore((s) => s.setCompanionPosition);
   const reaction = useKomaMascotStore((s) => s.reaction);
   const clearReaction = useKomaMascotStore((s) => s.clearReaction);
   const triggerReaction = useKomaMascotStore((s) => s.triggerReaction);
@@ -47,10 +86,50 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
   const [isSleeping, setIsSleeping] = useState(false);
   const [gaze, setGaze] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [bursts, setBursts] = useState<readonly PetBurst[]>([]);
+  const [livePosition, setLivePosition] = useState<KomaCompanionPosition | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const prevToneRef = useRef(statusTone);
   const prevBusyRef = useRef(false);
   const burstSeqRef = useRef(0);
+  const dragRef = useRef<DragSession | null>(null);
+  const suppressClickRef = useRef(false);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [anchorPosition, setAnchorPosition] = useState<KomaCompanionPosition | null>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const measure = (): void => {
+      const rect = anchor.getBoundingClientRect();
+      const next: KomaCompanionPosition = {
+        right: Math.round(window.innerWidth - rect.right),
+        bottom: Math.round(window.innerHeight - rect.bottom),
+      };
+      setAnchorPosition((prev) => (prev && samePosition(prev, next) ? prev : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (anchor.parentElement) observer.observe(anchor.parentElement);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  const position = livePosition ?? storedPosition ?? anchorPosition ?? FALLBACK_POSITION;
+
+  useEffect(() => {
+    if (!storedPosition) return;
+    const reclamp = (): void => {
+      const next = clampPosition(storedPosition, containerRef.current);
+      if (!samePosition(next, storedPosition)) setStoredPosition(next);
+    };
+    reclamp();
+    window.addEventListener('resize', reclamp);
+    return () => window.removeEventListener('resize', reclamp);
+  }, [setStoredPosition, storedPosition, visible]);
 
   useEffect(() => {
     if (!reaction) return;
@@ -166,9 +245,97 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
     }, 950);
   }, [isSleeping, pet]);
 
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      suppressClickRef.current = false;
+      if (event.button !== 0) return;
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        origin: position,
+        moved: false,
+        last: position,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [position],
+  );
+
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      drag.moved = true;
+      setIsDragging(true);
+    }
+    drag.last = clampPosition(
+      { right: drag.origin.right - dx, bottom: drag.origin.bottom - dy },
+      containerRef.current,
+    );
+    setLivePosition(drag.last);
+  }, []);
+
+  const finishDrag = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      dragRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (!drag.moved) return;
+      suppressClickRef.current = true;
+      setStoredPosition(drag.last);
+      setLivePosition(null);
+      setIsDragging(false);
+    },
+    [setStoredPosition],
+  );
+
+  const handleClick = useCallback(() => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    handlePet();
+  }, [handlePet]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      const step = event.shiftKey ? KEY_STEP_PX * 4 : KEY_STEP_PX;
+      const delta: Record<string, readonly [number, number]> = {
+        ArrowLeft: [step, 0],
+        ArrowRight: [-step, 0],
+        ArrowUp: [0, step],
+        ArrowDown: [0, -step],
+      };
+      const move = delta[event.key];
+      if (!move) return;
+      event.preventDefault();
+      setStoredPosition(
+        clampPosition(
+          { right: position.right + move[0], bottom: position.bottom + move[1] },
+          containerRef.current,
+        ),
+      );
+    },
+    [position, setStoredPosition],
+  );
+
+  const layerStyle: React.CSSProperties = { right: position.right, bottom: position.bottom };
+
+  const anchor = <div ref={anchorRef} aria-hidden className={ANCHOR_CLASS} />;
+
   if (!visible) {
     return (
-      <div className="pointer-events-none absolute bottom-11 right-4 z-40">
+      <>
+        {anchor}
+        {createPortal(
+      <div className={LAYER_CLASS} style={layerStyle}>
         <button
           type="button"
           onClick={toggleVisible}
@@ -183,17 +350,23 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
           <Eye size={12} />
           <span>KOMA</span>
         </button>
-      </div>
+      </div>,
+      document.body,
+        )}
+      </>
     );
   }
 
   return (
+    <>
+      {anchor}
+      {createPortal(
     <div
       ref={containerRef}
-      className="pointer-events-none absolute bottom-11 right-4 z-40 flex flex-col items-end"
+      className={`${LAYER_CLASS} flex flex-col items-end`}
+      style={layerStyle}
       data-testid="koma-studio-companion"
     >
-
       <div className="relative h-6 w-full">
         <AnimatePresence>
           {reaction?.note && (
@@ -251,12 +424,19 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
 
         <m.button
           type="button"
-          onClick={handlePet}
+          onClick={handleClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishDrag}
+          onPointerCancel={finishDrag}
+          onKeyDown={handleKeyDown}
           aria-label="Pet Koma Neeko"
-          whileHover={prefersReducedMotion ? undefined : { scale: 1.07, y: -2 }}
-          whileTap={prefersReducedMotion ? undefined : { scale: 0.93 }}
+          aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+          title="Click to pet · drag to move"
+          whileHover={prefersReducedMotion || isDragging ? undefined : { scale: 1.07, y: -2 }}
+          whileTap={prefersReducedMotion || isDragging ? undefined : { scale: 0.93 }}
           transition={{ type: 'spring', stiffness: 360, damping: 20 }}
-          className="relative flex h-[74px] w-[74px] cursor-pointer items-center justify-center rounded-full bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
+          className={`relative flex h-[74px] w-[74px] touch-none select-none items-center justify-center rounded-full bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           <KomaNekoRig
             pose={activePose}
@@ -266,7 +446,10 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
           />
         </m.button>
       </div>
-    </div>
+    </div>,
+    document.body,
+      )}
+    </>
   );
 });
 
