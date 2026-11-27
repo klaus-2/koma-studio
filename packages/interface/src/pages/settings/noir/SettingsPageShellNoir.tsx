@@ -121,7 +121,7 @@ export const SettingsPageShellNoir = ({
 
         <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
           <nav role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('settings.tabs.ariaLabel')}
-            className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+            className="flex gap-1 overflow-x-auto lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:flex-col lg:self-start lg:overflow-y-auto">
             {TABS.map((tab) => {
               const active = activeTab === tab.id;
               const meta = tabMeta[tab.id];

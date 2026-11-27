@@ -10032,10 +10032,14 @@ body {
 }
 
 .koma-stg-tabs {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
   display: flex;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(10, 12, 24, 0.88);
+  backdrop-filter: blur(14px) saturate(1.2);
   padding: 3px;
   margin-bottom: 20px;
   gap: 2px;
@@ -13107,7 +13111,7 @@ html[data-theme="light"] #root {
 }
 
 [data-theme="light"] .koma-stg-tabs {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.9);
   border-color: rgba(0, 0, 0, 0.06);
 }
 
