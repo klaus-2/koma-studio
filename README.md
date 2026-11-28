@@ -154,7 +154,7 @@ details.
 | [`apps/electron`](./apps/electron) | `@koma/electron` | Legacy desktop shell **v1** (frozen) |
 | [`apps/landing`](./apps/landing) | `@koma/landing` | Landing page (Next.js + React 19) |
 | [`apps/auth-server`](./apps/auth-server) | `@koma/auth-server` | Auth API (Express + Better Auth + Drizzle + Postgres/Redis) |
-| [`apps/discord-support-bot`](./apps/discord-support-bot) | — | Discord support bot (Python, RAG) |
+| [`apps/discord-support-bot`](./apps/discord-support-bot) | — | Discord support bot (Rust, Serenity + SQLite FTS5/Vector RAG) |
 
 ### Packages
 
