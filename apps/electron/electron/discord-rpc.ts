@@ -389,7 +389,6 @@ const readClientIdFromEnvFile = (filePath: string): string | null => {
       }
     }
   } catch {
-    // ignore malformed/locked files
   }
 
   return null;
@@ -408,7 +407,6 @@ const resolveDiscordRuntimeConfig = (): DiscordRuntimeConfig | null => {
         return cachedDiscordRuntimeConfig;
       }
     } catch {
-      // try next config dir
     }
   }
 
@@ -807,7 +805,6 @@ export class DiscordRPCService {
           return parsed;
         }
       } catch {
-        // try next module
       }
     }
 
@@ -819,8 +816,6 @@ export class DiscordRPCService {
 
   private attachClientListeners(client: DiscordRpcClient): void {
     client.on("ready", () => {
-      // Some clients emit 'ready' before they are fully request-ready.
-      // Activity is set only after login() resolves and isClientReady() passes.
     });
 
     client.on("disconnected", () => {
@@ -850,13 +845,11 @@ export class DiscordRPCService {
     try {
       this.client.clearActivity?.();
     } catch {
-      // ignore
     }
 
     try {
       this.client.destroy?.();
     } catch {
-      // ignore
     }
 
     this.client = null;
@@ -877,7 +870,6 @@ export class DiscordRPCService {
     try {
       this.client.clearActivity?.();
     } catch {
-      // best effort — a clear failure must never take the app down
     }
   }
 
@@ -935,8 +927,6 @@ export class DiscordRPCService {
     }
 
     const sanitized = sanitizeActivity(activity);
-    // Dedup must be based on a plain serializable shape.
-    // PresenceBuilder payloads may not stringify deterministically across RPC libs.
     const fingerprint = JSON.stringify(sanitized);
       const payload = this.rpcFlavor === "nich87"
         ? toNich87ActivityPayload(sanitized)
@@ -994,6 +984,7 @@ export class DiscordRPCService {
       largeImageText: base.largeImageText,
       smallImageKey: base.smallImageKey,
       smallImageText: base.smallImageText,
+      startTimestamp: APP_START_TIMESTAMP,
       buttons: DEFAULT_BUTTONS,
       ...overrides,
     });
@@ -1012,15 +1003,15 @@ export class DiscordRPCService {
     const modeLabel = normalizedMode === "advanced" ? "Advanced" : "Basic";
 
     await this.setPresetActivity("cleaner_redraw_mode", {
-      details: `Limpando imagem - ${truncateFileName(fileName)}`,
-      state: `Modo: ${modeLabel}`,
+      details: `Cleaning image - ${truncateFileName(fileName)}`,
+      state: `Mode: ${modeLabel}`,
       startTimestamp: Date.now(),
     });
   }
 
   async setTranslatingActivity(fileName: string, fromLang: string, toLang: string): Promise<void> {
     await this.setPresetActivity("translator_mode", {
-      details: `Traduzindo - ${truncateFileName(fileName)}`,
+      details: `Translating - ${truncateFileName(fileName)}`,
       state: `${toSafeText(fromLang, 12) ?? "?"} -> ${toSafeText(toLang, 12) ?? "?"}`,
       startTimestamp: Date.now(),
     });
@@ -1028,15 +1019,15 @@ export class DiscordRPCService {
 
   async setTypingActivity(fileName: string): Promise<void> {
     await this.setPresetActivity("typesetter_mode", {
-      details: `Editando texto - ${truncateFileName(fileName)}`,
-      state: "Typesetting",
+      details: `Typesetting - ${truncateFileName(fileName)}`,
+      state: "Typesetter Mode",
       startTimestamp: Date.now(),
     });
   }
 
   async setRedrawingActivity(fileName: string): Promise<void> {
     await this.setPresetActivity("cleaner_redraw_mode", {
-      details: `Redesenhando - ${truncateFileName(fileName)}`,
+      details: `Redrawing - ${truncateFileName(fileName)}`,
       state: "Redraw Tool",
       startTimestamp: Date.now(),
     });
@@ -1050,8 +1041,8 @@ export class DiscordRPCService {
     const safeFileCount = Math.max(1, fileCount);
     const safeCurrentIndex = Math.min(Math.max(currentIndex, 1), safeFileCount);
     const details = currentFile
-      ? `Processando lote - ${truncateFileName(currentFile)}`
-      : "Processando lote";
+      ? `Batch processing - ${truncateFileName(currentFile)}`
+      : "Batch processing";
 
     await this.setPresetActivity("batch_mode", {
       details,

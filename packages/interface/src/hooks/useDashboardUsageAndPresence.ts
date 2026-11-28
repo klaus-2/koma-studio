@@ -19,6 +19,7 @@ interface UseDashboardUsageAndPresenceArgs {
   authLoading: boolean;
   user: DashboardUser;
   mode: ToolMode;
+  subMode?: 'auto' | 'manual';
   activeImageFileName?: string;
   imagesLength: number;
   translatorWorkspaceMode: 'text' | 'visual';
@@ -33,6 +34,7 @@ export function useDashboardUsageAndPresence({
   authLoading,
   user,
   mode,
+  subMode = 'auto',
   activeImageFileName,
   imagesLength,
   translatorWorkspaceMode,
@@ -98,7 +100,7 @@ export function useDashboardUsageAndPresence({
 
   const syncDiscordForTab = useCallback(async () => {
     const processing = useUiShellStore.getState().processing;
-    if (!authUser || processing) return;
+    if (processing) return;
     const currentFileName =
       activeImageFileName ??
       (imagesLength > 0
@@ -112,16 +114,33 @@ export function useDashboardUsageAndPresence({
       await setDiscordPreset('resources_materials');
       return;
     }
+    if (mode === 'aio') {
+      const aioPreset: DiscordActivityPreset =
+        subMode === 'manual' ? 'aio_pipeline_manual' : 'aio_pipeline_automatic';
+      const aioState =
+        subMode === 'manual'
+          ? t('discord.presence.mode.manual')
+          : t('discord.presence.mode.automatic');
+      await setDiscordPreset(aioPreset, {
+        details: activeImageFileName
+          ? `${modeLabels.aio} - ${activeImageFileName}`
+          : t('discord.presence.aio.details'),
+        state: aioState,
+      });
+      return;
+    }
     if (mode === 'cleaner') {
       await setDiscordPreset('cleaner_redraw_mode', {
-        details: t('discord.presence.cleaner.details' as any),
-        state: t('discord.presence.cleaner.state.basic' as any),
+        details: activeImageFileName
+          ? t('discord.presence.cleaner.fileDetails', { fileName: activeImageFileName })
+          : t('discord.presence.cleaner.details'),
+        state: t('discord.presence.cleaner.state.basic'),
       });
       return;
     }
     if (mode === 'translator') {
       await setDiscordPreset('translator_mode', {
-        details: t('discord.presence.translator.fileDetails' as any, {
+        details: t('discord.presence.translator.fileDetails', {
           fileName:
             translatorWorkspaceMode === 'text' ? t('dashboard.status.freeText') : currentFileName,
         }),
@@ -130,7 +149,6 @@ export function useDashboardUsageAndPresence({
       return;
     }
     const presetByMode: Partial<Record<ToolMode, DiscordActivityPreset>> = {
-      aio: 'aio_pipeline_automatic',
       typesetter: 'typesetter_mode',
       raw: 'raw_provider_mode',
       proofreader: 'proofreader_qc_mode',
@@ -150,15 +168,15 @@ export function useDashboardUsageAndPresence({
     });
   }, [
     activeImageFileName,
-    authUser,
     imagesLength,
     mode,
+    modeLabels,
     setDiscordPreset,
     srcLang,
-    tgtLang,
+    subMode,
     t,
+    tgtLang,
     translatorWorkspaceMode,
-    modeLabels,
   ]);
 
   return {

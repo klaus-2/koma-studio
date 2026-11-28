@@ -1,11 +1,3 @@
-//! KŌMA Studio v2 — Tauri shell library entry.
-//!
-//! Decomposed by domain:
-//!   - `commands::*`   → IPC commands exposed to the renderer
-//!   - `sidecar::*`    → mini-backend lifecycle and IPC
-//!   - `security::*`   → cert pinning, integrity validation, hardware identity
-//!   - `workspace::*`  → autosave, import/export `.komaproj`
-
 mod commands;
 mod error;
 mod models;
@@ -23,13 +15,8 @@ mod win32;
 pub fn run() {
     use tauri::Manager;
 
-    // rustls 0.23: aws-lc-rs (default) and ring both enter the feature graph
-    // through reqwest/rustls-platform-verifier — the auto-select panics when
-    // both are present. Pin ring (the same backend reqwest's rustls-tls uses).
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    // koma-image:// / koma-font:// — serve image/font bytes from disk with
-    // scope allowlisting, Range and ETag (see protocol::media docs).
     let hotswap_handle = updater::ui_hotswap::HotswapHandle::default();
     let mut context: tauri::Context<tauri::Wry> = tauri::generate_context!();
     let embedded_assets = context.set_assets(Box::new(updater::ui_hotswap::NoopAssets));
@@ -39,20 +26,11 @@ pub fn run() {
     )));
 
     protocol::media::register(tauri::Builder::default())
-        // Must stay the first registered plugin: it exits duplicate processes
-        // before any other plugin or window spawns. When the OS protocol
-        // handler launched a second instance (e.g. the user clicked
-        // komastudio://confirm-email?token=... in their email client), apply
-        // the route here in Rust — driving the SPA hash directly via eval is
-        // deterministic and observable, unlike hopping through the webview
-        // event listener.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
                 log::info!("single-instance: focusing existing window");
                 if let Some(url) =
                     commands::api::integrations::extract_deep_link_from_args(argv.iter().cloned())
                 {
-                    // Log only the scheme, never the full URL: deep links can
-                    // carry tokens in their query string.
                     tracing::info!(
                         scheme = url.split(':').next().unwrap_or("unknown"),
                         "single-instance deep link received"
@@ -120,9 +98,7 @@ pub fn run() {
         .manage(commands::desktop_updater::InstallerUpdaterStore::default())
         .manage(hotswap_handle)
         .manage(
-            commands::discord::DiscordPresence::spawn(
-                commands::discord::DEFAULT_DISCORD_CLIENT_ID.to_owned(),
-            )
+            commands::discord::DiscordPresence::spawn(commands::discord::resolve_client_id())
             .unwrap_or_else(|error| {
                 log::warn!(
                     "failed to spawn the Discord presence worker; continuing with Discord RPC disabled: {error}"
@@ -268,11 +244,6 @@ pub fn run() {
             });
             Ok(())
         })
-        // Kill the python sidecar when the user closes the window or the app
-        // exits through any path (Alt+F4, task manager, tray quit). Without
-        // these hooks the spawned python.exe orphans and keeps port 8001 bound,
-        // so the next launch sees a healthy health-check and "reuses" the dead
-        // process instead of starting a fresh backend.
         .on_window_event(|window, event| {
             protocol::media::on_window_event(window, event);
             match event {
@@ -292,8 +263,9 @@ pub fn run() {
         .run(|app_handle, event| {
             match event {
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-                    // Latched before the kill so the sidecar's own exit event
-                    // cannot schedule a recovery attempt into a dying process.
+                    let _ = app_handle
+                        .state::<commands::discord::DiscordPresence>()
+                        .disable();
                     let updater_store =
                         app_handle.state::<commands::desktop_updater::InstallerUpdaterStore>();
                     commands::desktop::updater::install_on_quit_if_staged(

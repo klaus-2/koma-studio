@@ -66,9 +66,6 @@ interface AppRouteContentProps {
   route: RoutePath;
 }
 
-// Route picker, extracted so AppShell's restricted-production early return
-// happens before this tree is built at all (react-doctor:
-// rerender-memo-before-early-return).
 const AppRouteContent = ({
   activeBan,
   handleBannedBackLogin,
@@ -234,11 +231,14 @@ const AppShell = () => {
   const themeFamily = useThemeStore(
     (s: { family: import("@koma/ui/stores/theme-store").KomaThemeFamily }) => s.family,
   );
+  const noirAccent = useThemeStore(
+    (s: { noirAccent: string | null }) => s.noirAccent,
+  );
   const discord = useDiscordRPC(user);
 
   useEffect(() => {
-    applyTheme(theme, themeFamily);
-  }, [theme, themeFamily]);
+    applyTheme(theme, themeFamily, noirAccent);
+  }, [theme, themeFamily, noirAccent]);
   useUiScaleEffect();
   const {
     isActive: isTransitionActive,
@@ -287,11 +287,6 @@ const AppShell = () => {
           }
 
           runNavigation(() => {
-            // Synchronous commit: the new route must be on screen in the same frame
-            // the navigation indicator ends, otherwise the previous route flashes.
-            // ponytail: leaving flushSync as-is — it is load-bearing for this
-            // frame-atomic overlay handoff; startTransition/rAF would
-            // reintroduce the route flash it exists to prevent.
             flushSync(() => {
               updateRoute();
             });
@@ -358,9 +353,6 @@ const AppShell = () => {
   }, [endOverlayTransition, navigateInstant, refreshSession, startOverlayTransition, t]);
 
   const handleConfirmSuccess = useCallback(async () => {
-    // Optimistic first so the dashboard banner clears even when the session
-    // refresh below fails transiently; the refresh then reconciles with the
-    // server state.
     markEmailVerified();
     await refreshSession();
   }, [markEmailVerified, refreshSession]);
@@ -442,6 +434,10 @@ const AppShell = () => {
     }
 
     const syncRoutePresence = async (): Promise<void> => {
+      if (route === "dashboard" && isAuthenticated) {
+        return;
+      }
+
       const presence = resolveRoutePresence(route, isAuthenticated);
 
       if (presence.kind === "preset") {
@@ -466,7 +462,6 @@ const AppShell = () => {
     setDiscordIdle,
     setDiscordPreset,
   ]);
-
 
   if (isProductionEnvironment && !isDesktopRuntime) {
     if (isLegalRoutePath(route)) {
@@ -544,8 +539,6 @@ const App = () => {
   const aioRunning = useAioPipelineStore((s) => s.aioExecutionStatus !== null);
 
   return (
-    // Root motion feature provider: every animated component uses `m` against
-    // this single domMax bundle instead of shipping the full `motion` runtime.
     <LazyMotion features={domMax} strict>
       <MotionConfig reducedMotion={economicHidden || aioRunning ? "always" : "user"}>
         <UpdaterProvider>

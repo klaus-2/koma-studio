@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { AuthUser } from "../contexts/AuthContext";
 import { useI18n } from "../i18n";
@@ -7,36 +7,35 @@ import type {
   DiscordProcessingMode,
   IDiscordRpcBridge,
 } from "../types";
+import {
+  acquireDiscordRpcLifecycle,
+  refreshDiscordRpcConnection,
+  syncDiscordRpcEnabled,
+  useDiscordRpcStore,
+} from "../stores/discord-rpc-store";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
-const DISCORD_RPC_STORAGE_KEY = "discord-rpc-enabled";
-const CONNECTION_POLL_INTERVAL_MS = 15_000;
-const DISCORD_MODE_LABEL_KEYS = {
-  aio: "dashboard.mode.aio",
-  cleaner: "dashboard.mode.cleaner",
-  typesetter: "dashboard.mode.typesetter",
-  translator: "dashboard.mode.translator",
-  raw: "dashboard.mode.raw",
-  proofreader: "dashboard.mode.proofreader",
-  stitch: "dashboard.mode.stitch",
-  split: "dashboard.mode.split",
-  watermark: "dashboard.mode.watermark",
-  enhance: "dashboard.mode.enhance",
-  optimizer: "dashboard.mode.optimizer",
-  blogger: "dashboard.mode.blogger",
-  imgur: "dashboard.mode.imgur",
-  guides: "dashboard.mode.guides",
-  resources: "dashboard.mode.resources",
-} as const;
 
 type DiscordDashboardUser = Pick<AuthUser, "name" | "email"> | null;
-type DiscordModeLabel = keyof typeof DISCORD_MODE_LABEL_KEYS;
 type TranslateFn = ReturnType<typeof useI18n>["t"];
 
-const getDiscordModeLabels = (t: TranslateFn): Record<DiscordModeLabel, string> => {
-  const entries = Object.entries(DISCORD_MODE_LABEL_KEYS).map(([mode, key]) => [mode, t(key)] as const);
-  return Object.fromEntries(entries) as Record<DiscordModeLabel, string>;
-};
+const getDiscordModeLabels = (t: TranslateFn) => ({
+  aio: t("dashboard.mode.aio"),
+  cleaner: t("dashboard.mode.cleaner"),
+  typesetter: t("dashboard.mode.typesetter"),
+  translator: t("dashboard.mode.translator"),
+  raw: t("dashboard.mode.raw"),
+  proofreader: t("dashboard.mode.proofreader"),
+  stitch: t("dashboard.mode.stitch"),
+  split: t("dashboard.mode.split"),
+  watermark: t("dashboard.mode.watermark"),
+  enhance: t("dashboard.mode.enhance"),
+  optimizer: t("dashboard.mode.optimizer"),
+  blogger: t("dashboard.mode.blogger"),
+  imgur: t("dashboard.mode.imgur"),
+  guides: t("dashboard.mode.guides"),
+  resources: t("dashboard.mode.resources"),
+});
 
 const toDashboardName = (user: DiscordDashboardUser, fallbackLabel: string): string => {
   const displayName = user?.name?.trim();
@@ -56,7 +55,6 @@ const runSilently = async (callback: () => Promise<void>): Promise<void> => {
   try {
     await callback();
   } catch {
-    // Discord RPC failure must never break app flow
   }
 };
 
@@ -82,85 +80,38 @@ export interface DiscordRpcController {
 
 export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController => {
   const { t } = useI18n();
-  const bridge = useMemo<IDiscordRpcBridge | null>(() => desktopBridge.desktop?.discordRPC ?? null, []);
-  const [enabled, setEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem(DISCORD_RPC_STORAGE_KEY);
-    return saved !== "false";
-  });
-  const [isConnected, setIsConnected] = useState(false);
-  const [presetAssets, setPresetAssets] = useState<Record<string, string>>({});
+  const bridge = useMemo<IDiscordRpcBridge | null>(
+    () => desktopBridge.desktop?.discordRPC ?? null,
+    [],
+  );
+  const enabled = useDiscordRpcStore((s) => s.enabled);
+  const isConnected = useDiscordRpcStore((s) => s.isConnected);
+  const presetAssets = useDiscordRpcStore((s) => s.presetAssets);
   const modeLabels = useMemo(() => getDiscordModeLabels(t), [t]);
   const routePresetLabels = useMemo(
     () => ({
-      settings: t("discord.presence.settings.label" as any),
-      rankings: t("discord.presence.rankings.label" as any),
-      scanlationFeed: t("discord.presence.scanlationFeed.label" as any),
-      loginRegister: t("discord.presence.loginRegister.label" as any),
+      settings: t("discord.presence.settings.label"),
+      rankings: t("discord.presence.rankings.label"),
+      scanlationFeed: t("discord.presence.scanlationFeed.label"),
+      loginRegister: t("discord.presence.loginRegister.label"),
     }),
     [t],
   );
-  const refreshConnection = useCallback(async (): Promise<boolean> => {
-    if (!bridge) {
-      setIsConnected(false);
-      return false;
-    }
 
-    try {
-      const connected = await bridge.isConnected();
-      setIsConnected(connected);
-      return connected;
-    } catch {
-      setIsConnected(false);
-      return false;
-    }
-  }, [bridge]);
+  useEffect(() => acquireDiscordRpcLifecycle(bridge), [bridge]);
 
-  useEffect(() => {
-    if (!bridge) {
-      return;
-    }
-
-    void refreshConnection();
-
-    const interval = window.setInterval(() => {
-      void refreshConnection();
-    }, CONNECTION_POLL_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [bridge, refreshConnection]);
-
-  useEffect(() => {
-    if (!bridge) {
-      return;
-    }
-
-    const syncToggle = async () => {
-      const connected = await bridge.setEnabled(enabled);
-      setIsConnected(connected);
-    };
-
-    void runSilently(syncToggle);
-  }, [bridge, enabled]);
-
-  useEffect(() => {
-    if (!bridge) {
-      return;
-    }
-
-    void runSilently(async () => {
-      const assets = await bridge.getPresetAssets();
-      setPresetAssets(assets);
-    });
-  }, [bridge]);
+  const refreshConnection = useCallback(
+    () => refreshDiscordRpcConnection(bridge),
+    [bridge],
+  );
 
   const toggleRPC = useCallback(
     async (nextValue: boolean): Promise<void> => {
-      setEnabled(nextValue);
-      localStorage.setItem(DISCORD_RPC_STORAGE_KEY, String(nextValue));
+      await runSilently(async () => {
+        await syncDiscordRpcEnabled(bridge, nextValue);
+      });
     },
-    [],
+    [bridge],
   );
 
   const callWhenEnabled = useCallback(
@@ -177,239 +128,177 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   );
 
   const buildPresetOverrides = useCallback(
-    (preset: DiscordActivityPreset, overrides: Record<string, unknown> = {}): Record<string, unknown> => {
-      const appName = t("discord.presence.appName" as any);
+    (
+      preset: DiscordActivityPreset,
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> => {
+      const appName = t("discord.presence.appName");
+      const defaultButtons = [
+        { label: t("discord.presence.button.website"), url: "https://koma-studio.site" },
+        { label: t("discord.presence.button.download"), url: "https://koma-studio.site/download/windows" },
+      ];
 
       const defaults: Record<DiscordActivityPreset, Record<string, unknown>> = {
         idle: {
-          details: t("discord.presence.idle.details" as any),
-          state: t("discord.presence.idle.state" as any),
+          details: t("discord.presence.idle.details"),
+          state: t("discord.presence.idle.state"),
           largeImageText: appName,
-          smallImageText: t("discord.presence.idle.state" as any),
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          smallImageText: t("discord.presence.idle.state"),
+          buttons: defaultButtons,
         },
         workspace_idle: {
-          details: t("discord.presence.workspace.details" as any),
+          details: t("discord.presence.workspace.details"),
           state: appName,
           largeImageText: appName,
           smallImageText: appName,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         aio_pipeline_automatic: {
-          details: t("discord.presence.aio.details" as any),
-          state: t("discord.presence.mode.automatic" as any),
+          details: t("discord.presence.aio.details"),
+          state: t("discord.presence.mode.automatic"),
           largeImageText: appName,
-          smallImageText: t("discord.presence.mode.automatic" as any),
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          smallImageText: t("discord.presence.mode.automatic"),
+          buttons: defaultButtons,
         },
         aio_pipeline_manual: {
-          details: t("discord.presence.aio.details" as any),
-          state: t("discord.presence.mode.manual" as any),
+          details: t("discord.presence.aio.details"),
+          state: t("discord.presence.mode.manual"),
           largeImageText: appName,
-          smallImageText: t("discord.presence.mode.manual" as any),
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          smallImageText: t("discord.presence.mode.manual"),
+          buttons: defaultButtons,
         },
         translator_mode: {
-          details: t("discord.presence.translator.details" as any),
+          details: t("discord.presence.translator.details"),
           state: modeLabels.translator,
           largeImageText: appName,
           smallImageText: modeLabels.translator,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         typesetter_mode: {
-          details: t("discord.presence.typesetter.details" as any),
+          details: t("discord.presence.typesetter.details"),
           state: modeLabels.typesetter,
           largeImageText: appName,
           smallImageText: modeLabels.typesetter,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         cleaner_redraw_mode: {
-          details: t("discord.presence.cleaner.details" as any),
+          details: t("discord.presence.cleaner.details"),
           state: modeLabels.cleaner,
           largeImageText: appName,
           smallImageText: modeLabels.cleaner,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         raw_provider_mode: {
-          details: t("discord.presence.raw.details" as any),
+          details: t("discord.presence.raw.details"),
           state: modeLabels.raw,
           largeImageText: appName,
           smallImageText: modeLabels.raw,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         proofreader_qc_mode: {
-          details: t("discord.presence.proofreader.details" as any),
+          details: t("discord.presence.proofreader.details"),
           state: modeLabels.proofreader,
           largeImageText: appName,
           smallImageText: modeLabels.proofreader,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         stitcher_mode: {
-          details: t("discord.presence.stitch.details" as any),
+          details: t("discord.presence.stitch.details"),
           state: modeLabels.stitch,
           largeImageText: appName,
           smallImageText: modeLabels.stitch,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         splitter_mode: {
-          details: t("discord.presence.split.details" as any),
+          details: t("discord.presence.split.details"),
           state: modeLabels.split,
           largeImageText: appName,
           smallImageText: modeLabels.split,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         watermark_mode: {
-          details: t("discord.presence.watermark.details" as any),
+          details: t("discord.presence.watermark.details"),
           state: modeLabels.watermark,
           largeImageText: appName,
           smallImageText: modeLabels.watermark,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         enhance_mode: {
-          details: t("discord.presence.enhance.details" as any),
+          details: t("discord.presence.enhance.details"),
           state: modeLabels.enhance,
           largeImageText: appName,
           smallImageText: modeLabels.enhance,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         chapter_optimizer_mode: {
-          details: t("discord.presence.optimizer.details" as any),
+          details: t("discord.presence.optimizer.details"),
           state: modeLabels.optimizer,
           largeImageText: appName,
           smallImageText: modeLabels.optimizer,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         blogger_cdn_mode: {
-          details: t("discord.presence.blogger.details" as any),
+          details: t("discord.presence.blogger.details"),
           state: modeLabels.blogger,
           largeImageText: appName,
           smallImageText: modeLabels.blogger,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         image_upload_mode: {
-          details: t("discord.presence.imgur.details" as any),
+          details: t("discord.presence.imgur.details"),
           state: modeLabels.imgur,
           largeImageText: appName,
           smallImageText: modeLabels.imgur,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         guides_tutorials: {
-          details: t("discord.presence.guides.details" as any),
+          details: t("discord.presence.guides.details"),
           state: modeLabels.guides,
           largeImageText: appName,
           smallImageText: modeLabels.guides,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         resources_materials: {
-          details: t("discord.presence.resources.details" as any),
+          details: t("discord.presence.resources.details"),
           state: modeLabels.resources,
           largeImageText: appName,
           smallImageText: modeLabels.resources,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         settings: {
-          details: t("discord.presence.settings.details" as any),
+          details: t("discord.presence.settings.details"),
           state: routePresetLabels.settings,
           largeImageText: appName,
           smallImageText: routePresetLabels.settings,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         rankings: {
-          details: t("discord.presence.rankings.details" as any),
+          details: t("discord.presence.rankings.details"),
           state: routePresetLabels.rankings,
           largeImageText: appName,
           smallImageText: routePresetLabels.rankings,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         scanlation_feed: {
-          details: t("discord.presence.scanlationFeed.details" as any),
+          details: t("discord.presence.scanlationFeed.details"),
           state: routePresetLabels.scanlationFeed,
           largeImageText: appName,
           smallImageText: routePresetLabels.scanlationFeed,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         login_register: {
-          details: t("discord.presence.loginRegister.details" as any),
+          details: t("discord.presence.loginRegister.details"),
           state: routePresetLabels.loginRegister,
           largeImageText: appName,
           smallImageText: routePresetLabels.loginRegister,
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          buttons: defaultButtons,
         },
         batch_mode: {
-          details: t("discord.presence.batch.details" as any),
-          state: t("discord.presence.batch.state" as any, { current: 1, total: 1 }),
+          details: t("discord.presence.batch.details"),
+          state: t("discord.presence.batch.state", { current: 1, total: 1 }),
           largeImageText: appName,
-          smallImageText: t("discord.presence.batch.label" as any),
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
+          smallImageText: t("discord.presence.batch.label"),
+          buttons: defaultButtons,
         },
       };
 
@@ -434,23 +323,29 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   const setDashboard = useCallback(async (): Promise<void> => {
     if (user) {
       await setPreset("workspace_idle", {
-        details: t("discord.presence.workspace.details" as any),
-        state: toDashboardName(user, t("dashboard.user.defaultName" as any)),
+        details: t("discord.presence.workspace.details"),
+        state: toDashboardName(user, t("dashboard.user.defaultName")),
       });
       return;
     }
     await setPreset("idle", {
-      details: t("discord.presence.idle.details" as any),
-      state: t("discord.presence.idle.state" as any),
+      details: t("discord.presence.idle.details"),
+      state: t("discord.presence.idle.state"),
     });
   }, [setPreset, t, user]);
 
   const setCleaning = useCallback(
-    async (_fileName: string, mode: DiscordProcessingMode): Promise<void> => {
+    async (fileName: string, mode: DiscordProcessingMode): Promise<void> => {
+      const trimmedFile = fileName.trim();
       await setPreset("cleaner_redraw_mode", {
-      details: t("discord.presence.cleaner.details" as any),
-      state: t(`discord.presence.cleaner.state.${mode === "advanced" ? "advanced" : "basic"}` as any),
-    });
+        details: trimmedFile
+          ? t("discord.presence.cleaner.fileDetails", { fileName: trimmedFile })
+          : t("discord.presence.cleaner.details"),
+        state:
+          mode === "advanced"
+            ? t("discord.presence.cleaner.state.advanced")
+            : t("discord.presence.cleaner.state.basic"),
+      });
     },
     [setPreset, t],
   );
@@ -458,7 +353,7 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   const setTranslating = useCallback(
     async (fileName: string, from: string, to: string): Promise<void> => {
       await setPreset("translator_mode", {
-        details: t("discord.presence.translator.fileDetails" as any, { fileName }),
+        details: t("discord.presence.translator.fileDetails", { fileName }),
         state: `${from} -> ${to}`,
       });
     },
@@ -468,7 +363,7 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   const setTyping = useCallback(
     async (fileName: string): Promise<void> => {
       await setPreset("typesetter_mode", {
-        details: t("discord.presence.typesetter.fileDetails" as any, { fileName }),
+        details: t("discord.presence.typesetter.fileDetails", { fileName }),
         state: modeLabels.typesetter,
       });
     },
@@ -478,7 +373,7 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   const setRedrawing = useCallback(
     async (fileName: string): Promise<void> => {
       await setPreset("cleaner_redraw_mode", {
-        details: t("discord.presence.redraw.fileDetails" as any, { fileName }),
+        details: t("discord.presence.redraw.fileDetails", { fileName }),
         state: modeLabels.cleaner,
       });
     },
@@ -489,9 +384,9 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
     async (fileCount: number, currentIndex: number, fileName?: string): Promise<void> => {
       await setPreset("batch_mode", {
         details: fileName
-          ? t("discord.presence.batch.fileDetails" as any, { fileName })
-          : t("discord.presence.batch.details" as any),
-        state: t("discord.presence.batch.state" as any, {
+          ? t("discord.presence.batch.fileDetails", { fileName })
+          : t("discord.presence.batch.details"),
+        state: t("discord.presence.batch.state", {
           current: currentIndex,
           total: fileCount,
         }),
@@ -501,10 +396,10 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
   );
 
   const setIdle = useCallback(async (): Promise<void> => {
-      await setPreset("idle", {
-        details: t("discord.presence.idle.details" as any),
-        state: t("discord.presence.idle.state" as any),
-      });
+    await setPreset("idle", {
+      details: t("discord.presence.idle.details"),
+      state: t("discord.presence.idle.state"),
+    });
   }, [setPreset, t]);
 
   return useMemo(
