@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type MutableRefObject } from 'react';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 import {
   LEFT_SIDEBAR_DEFAULT_WIDTH,
@@ -143,7 +144,7 @@ export function useDashboardShellLayout({
     let pendingWidth = startWidth;
 
     const handlePointerMove = (event: globalThis.MouseEvent) => {
-      const deltaX = event.clientX - startX;
+      const deltaX = (event.clientX - startX) / getEffectiveCssRootZoom();
       let nextWidth: number;
       if (side === 'left') {
         nextWidth = Math.max(

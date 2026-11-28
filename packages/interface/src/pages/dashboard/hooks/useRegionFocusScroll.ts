@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import type { LoadedImage } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
-import { useUiScaleStore } from '@koma/ui/stores/ui-scale-store';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 export interface FocusIndexSignal {
   readonly index: number;
@@ -128,14 +128,12 @@ export const useRegionFocusScroll = (): RegionFocusScrollApi => {
       const container = findScrollContainer(overlay);
       if (!container) return;
       const zoom = useUiShellStore.getState().zoom;
-      // The stage's CSS zoom multiplies with the root UI scale (style.zoom on
-      // documentElement), so the visual delta must be divided by the product.
-      const uiScale = useUiScaleStore.getState().uiScale;
+      const cssRootZoom = getEffectiveCssRootZoom();
       container.scrollTop = computeZoomCorrectedScrollTop({
         container,
         regionRect: overlay.getBoundingClientRect(),
         containerRect: container.getBoundingClientRect(),
-        zoom: zoom * uiScale,
+        zoom: zoom * cssRootZoom,
       });
     },
     [],

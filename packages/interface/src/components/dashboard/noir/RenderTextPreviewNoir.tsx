@@ -47,6 +47,7 @@ import { overlayVisibleSet, useViewportCull } from '../render-text-preview/useVi
 import { useRenderTextPreviewCanvasRegions } from '../render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from '../render-text-preview/useRenderTextPreviewOverlayWheel';
 import { PeekOriginalLayer, usePeekOriginalOverlayHidden } from '../render-text-preview/PeekOriginalLayer';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -506,8 +507,6 @@ const RenderTextPreviewNoir = ({
   });
   const previewOverride = usePresetPreviewOverride(active ? (multiSelectedRegionIds[0] ?? selectedRegionId) : null, canvasDrawRegions, fallbackStyle, availableTypographyPresets);
 
-  // Keeps the contentEditable's DOM (native formatting spans, trailing <br>
-  // sentinel) in sync with the draft; needs the layout-aware selection mode.
   useInlineEditorSpanSync({
     inlineEditor,
     canvasSelection: inlineEditorUsesCanvasSelection,
@@ -519,9 +518,6 @@ const RenderTextPreviewNoir = ({
     inlineEditorDisplayScale: rotationScaleFactor,
   });
 
-  // Paint the rendered text of every display region onto the preview canvas.
-  // Coalesced onto one animation frame: a style click can commit more than once
-  // and every draw re-runs the effect layers.
   const renderFrameRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
@@ -735,13 +731,11 @@ const RenderTextPreviewNoir = ({
           </div>
         </div>
 
-        {/* history hint */}
         <div className="flex items-center gap-1.5 px-1 font-mono text-[9px] uppercase tracking-wider text-paper-dim">
           <span className="h-px w-3 bg-crimson/40" aria-hidden="true" />
           {historyHint ?? t('dashboard.renderText.noHistory')}
         </div>
 
-        {/* ═══ CANVAS FRAME — panel-cut manga panel ═══ */}
         <div
           className={cn(
             'panel-cut relative overflow-hidden bg-ink transition-all',
@@ -893,10 +887,9 @@ const RenderTextPreviewNoir = ({
                 if (!overlayRect) {
                   return <div ref={dockRef} className="koma-type-dock" style={{ display: 'none' }} />;
                 }
-                // Viewport coordinates: the dock is portaled to <body> so the
-                // stage's overflow cannot clip it against the sidebars.
-                const dockLeft = overlayRect.left + dockAnchor.x;
-                const dockTop = overlayRect.top + dockAnchor.y;
+                const cssZoom = getEffectiveCssRootZoom();
+                const dockLeft = overlayRect.left / cssZoom + dockAnchor.x;
+                const dockTop = overlayRect.top / cssZoom + dockAnchor.y;
                 return (
                   <RenderTextPreviewTypeDockNoir
                     dockLeft={dockLeft}
@@ -947,7 +940,6 @@ const RenderTextPreviewNoir = ({
   );
 };
 
-/* ── Tooltip line ── */
 function TooltipLine({ label, value, tone }: { label: string; value: string; tone: 'azure' | 'mint' | 'gold' }) {
   const toneCls = { azure: 'text-azure', mint: 'text-mint', gold: 'text-gold' }[tone];
   return (
@@ -957,8 +949,6 @@ function TooltipLine({ label, value, tone }: { label: string; value: string; ton
     </div>
   );
 }
-
-// ── Main Component ──
 
 function areEqual(
   prev: Parameters<typeof RenderTextPreviewNoir>[0],

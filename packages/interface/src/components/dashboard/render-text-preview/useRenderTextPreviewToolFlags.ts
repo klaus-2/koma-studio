@@ -1,8 +1,6 @@
-// Manual-tool derived flags + brush cursor positioning for RenderTextPreview.
-// Moved verbatim from RenderTextPreview.tsx (T07 split); hook order preserved.
-
 import { useCallback, useMemo } from 'react';
 import type React from 'react';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 import type { ManualImageEditTool } from '../../../types/dashboard.types';
 import type { SegmentEditTool } from '../../../types/dashboard.types';
 
@@ -91,14 +89,13 @@ export const useRenderTextPreviewToolFlags = ({
       if (!cursor) return;
       const diameter = activeBrushCursorSize * rotationScaleFactor * zoom;
       const r = diameter / 2;
-      // Size: only update if changed (avoids layout thrash)
       if (cursor.dataset.size !== String(diameter)) {
         cursor.style.width = `${diameter}px`;
         cursor.style.height = `${diameter}px`;
         cursor.dataset.size = String(diameter);
       }
-      // Position: use transform for GPU-composited movement
-      cursor.style.transform = `translate(${e.clientX - r}px, ${e.clientY - r}px)`;
+      const cssZoom = getEffectiveCssRootZoom();
+      cursor.style.transform = `translate(${e.clientX / cssZoom - r}px, ${e.clientY / cssZoom - r}px)`;
       cursor.style.display = 'block';
     },
     [activeBrushCursorSize, rotationScaleFactor, zoom],

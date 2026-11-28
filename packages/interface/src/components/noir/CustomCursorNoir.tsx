@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toCssViewportCoord } from "@koma/ui/utils/applyUiScale";
 
 type CursorVariant = "default" | "hover" | "click" | "text" | "grab" | "loading" | "hidden";
 
@@ -10,7 +11,6 @@ const TEXT_SELECTOR =
 
 const GRAB_SELECTOR = ".koma-range, input[type='range']";
 
-// Pointer capability cannot change mid-session — match once instead of on every render.
 const IS_TOUCH_DEVICE =
   typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
@@ -52,7 +52,7 @@ export const CustomCursorNoir = () => {
     if (!dot) {
       return;
     }
-    dot.style.transform = `translate3d(${pointerRef.current.x}px, ${pointerRef.current.y}px, 0)`;
+    dot.style.transform = `translate3d(${toCssViewportCoord(pointerRef.current.x)}px, ${toCssViewportCoord(pointerRef.current.y)}px, 0)`;
   }, []);
 
   const scheduleDotPosition = useCallback(() => {
@@ -165,7 +165,6 @@ export const CustomCursorNoir = () => {
       aria-hidden="true"
     >
       <div ref={dotRef} className="koma-cursor__dot">
-        {/* Crosshair de registro (crop mark) */}
         <span className="koma-cursor__core" />
         <span className="koma-cursor__bracket koma-cursor__bracket--tl" />
         <span className="koma-cursor__bracket koma-cursor__bracket--tr" />

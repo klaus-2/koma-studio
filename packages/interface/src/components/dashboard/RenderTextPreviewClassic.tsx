@@ -53,6 +53,7 @@ import { useRenderTextPreviewCanvasRegions } from './render-text-preview/useRend
 import { useRenderTextPreviewOverlayWheel } from './render-text-preview/useRenderTextPreviewOverlayWheel';
 import RenderRegionOverlayBox from './render-text-preview/RenderRegionOverlayBox';
 import { PeekOriginalLayer, usePeekOriginalOverlayHidden } from './render-text-preview/PeekOriginalLayer';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -514,8 +515,6 @@ const RenderTextPreviewClassic = ({
 
   const previewOverride = usePresetPreviewOverride(active ? (multiSelectedRegionIds[0] ?? selectedRegionId) : null, canvasDrawRegions, fallbackStyle, availableTypographyPresets);
 
-  // Keeps the contentEditable's DOM (native formatting spans, trailing <br>
-  // sentinel) in sync with the draft; needs the layout-aware selection mode.
   useInlineEditorSpanSync({
     inlineEditor,
     canvasSelection: inlineEditorUsesCanvasSelection,
@@ -527,8 +526,6 @@ const RenderTextPreviewClassic = ({
     inlineEditorDisplayScale: rotationScaleFactor,
   });
 
-  // Coalesced onto one animation frame: a style click can commit more than once
-  // and every draw re-runs the effect layers.
   const renderFrameRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
@@ -889,10 +886,9 @@ const RenderTextPreviewClassic = ({
                 if (!overlayRect) {
                   return <div ref={dockRef} className="koma-type-dock" style={{ display: 'none' }} />;
                 }
-                // Viewport coordinates: the dock is portaled to <body> so the
-                // stage's overflow cannot clip it against the sidebars.
-                const dockLeft = overlayRect.left + dockAnchor.x;
-                const dockTop = overlayRect.top + dockAnchor.y;
+                const cssZoom = getEffectiveCssRootZoom();
+                const dockLeft = overlayRect.left / cssZoom + dockAnchor.x;
+                const dockTop = overlayRect.top / cssZoom + dockAnchor.y;
                 return (
                   <RenderTextPreviewTypeDock
                     dockLeft={dockLeft}
@@ -941,8 +937,6 @@ const RenderTextPreviewClassic = ({
     </>
   );
 };
-
-// ── Main Component ──
 
 function areEqual(
   prev: Parameters<typeof RenderTextPreviewClassic>[0],

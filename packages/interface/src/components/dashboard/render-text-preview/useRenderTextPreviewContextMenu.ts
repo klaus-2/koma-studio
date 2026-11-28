@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useId } from 'react';
 import type React from 'react';
 import { useExclusiveOverlay } from '@koma/ui/stores/overlay-coordinator';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import type { useI18n } from '../../../i18n';
@@ -170,24 +171,25 @@ export const useRenderTextPreviewContextMenu = ({
       onCardSelect();
       if (!areaSelectionEnabled) return;
       onSelectRegion(region.id);
+      const cssZoom = getEffectiveCssRootZoom();
       const viewportW =
-        typeof window !== 'undefined' && window.innerWidth > 0
+        (typeof window !== 'undefined' && window.innerWidth > 0
           ? window.innerWidth
-          : 1280;
+          : 1280) / cssZoom;
       const viewportH =
-        typeof window !== 'undefined' && window.innerHeight > 0
+        (typeof window !== 'undefined' && window.innerHeight > 0
           ? window.innerHeight
-          : 800;
+          : 800) / cssZoom;
       const menuWidth = 232;
       const menuHeight = 368;
       const margin = 8;
       const x = clamp(
-        event.clientX,
+        event.clientX / cssZoom,
         margin,
         Math.max(margin, viewportW - menuWidth - margin),
       );
       const y = clamp(
-        event.clientY,
+        event.clientY / cssZoom,
         margin,
         Math.max(margin, viewportH - menuHeight - margin),
       );

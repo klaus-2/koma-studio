@@ -1,9 +1,6 @@
-// Type dock behavior for RenderTextPreview: dock visibility tracking,
-// selected-region style/shape mutation with inline-selection patch support,
-// and the dock anchor placement solver.
-
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 import type { AioTextRegion, LoadedImage } from '../../../types/dashboard.types';
 import type {
   TypographyShape,
@@ -100,8 +97,6 @@ export const useRenderTextPreviewTypeDock = ({
     if (!showRenderDock || !dockAnchor) return;
     const node = dockRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
-    // Compare dimensions before bumping revision — otherwise the
-    // position→resize→observe→reposition cycle can loop forever.
     let lastWidth = node.offsetWidth;
     let lastHeight = node.offsetHeight;
     const observer = new ResizeObserver(() => {
@@ -125,22 +120,20 @@ export const useRenderTextPreviewTypeDock = ({
     const overlay = overlayRef.current;
     if (!overlay) return;
 
-    // The dock lives in a body portal with viewport coordinates, so a stage
-    // scroll has to re-anchor it imperatively (no React render per tick).
     const updateDockVisibility = () => {
       const rect = overlay.getBoundingClientRect();
+      const cssZoom = getEffectiveCssRootZoom();
+      const rectTop = rect.top / cssZoom;
+      const rectBottom = rect.bottom / cssZoom;
+      const viewportHeight = window.innerHeight / cssZoom;
       const dockHeight = dockRef.current?.offsetHeight ?? 120;
-      const dockBottom = rect.top + dockAnchor.y + dockHeight;
-      const dockTop = rect.top + dockAnchor.y;
-      const cardBottom = rect.bottom;
-      const cardTop = rect.top;
-      const dockWithinCard = dockTop >= cardTop && dockBottom <= cardBottom;
-      const cardInViewport = cardTop < window.innerHeight && cardBottom > 0;
+      const dockTop = rectTop + dockAnchor.y;
+      const dockBottom = dockTop + dockHeight;
+      const dockWithinCard = dockTop >= rectTop && dockBottom <= rectBottom;
+      const cardInViewport = rectTop < viewportHeight && rectBottom > 0;
       setDockVisible(dockWithinCard && cardInViewport);
     };
 
-    // One frame per scroll/resize burst: batch every layout read before the
-    // style writes, otherwise each event forces a reflow mid-handler.
     let frameId: number | null = null;
 
     const applyDockFrame = () => {
@@ -148,13 +141,18 @@ export const useRenderTextPreviewTypeDock = ({
       const node = dockRef.current;
       if (!node) return;
       const rect = overlay.getBoundingClientRect();
+      const cssZoom = getEffectiveCssRootZoom();
+      const rectLeft = rect.left / cssZoom;
+      const rectTop = rect.top / cssZoom;
+      const rectBottom = rect.bottom / cssZoom;
+      const viewportHeight = window.innerHeight / cssZoom;
       const dockHeight = node.offsetHeight;
-      node.style.left = `${rect.left + dockAnchor.x}px`;
-      node.style.top = `${rect.top + dockAnchor.y}px`;
-      const dockBottom = rect.top + dockAnchor.y + dockHeight;
-      const dockTop = rect.top + dockAnchor.y;
-      const dockWithinCard = dockTop >= rect.top && dockBottom <= rect.bottom;
-      const cardInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      node.style.left = `${rectLeft + dockAnchor.x}px`;
+      node.style.top = `${rectTop + dockAnchor.y}px`;
+      const dockTop = rectTop + dockAnchor.y;
+      const dockBottom = dockTop + dockHeight;
+      const dockWithinCard = dockTop >= rectTop && dockBottom <= rectBottom;
+      const cardInViewport = rectTop < viewportHeight && rectBottom > 0;
       setDockVisible(dockWithinCard && cardInViewport);
     };
 
@@ -185,8 +183,6 @@ export const useRenderTextPreviewTypeDock = ({
         && selectedRegion
         && inlineEditor.regionId === selectedRegionId;
 
-
-      // Check if we have a saved selection from before the popover opened
       const saved = savedSelectionRef.current;
       const hasSavedSelection = saved
         && saved.start !== saved.end
@@ -202,10 +198,6 @@ export const useRenderTextPreviewTypeDock = ({
           ? inlineEditor.selectionEnd
           : saved!.end;
 
-        // The style patch is applied against the store text. If the draft has
-        // new text, flush it first so the offsets address the same string.
-        // CRITICAL: Use the ORIGINAL style (not selectedRegionStyle which may already be modified)
-        // to compute the diff correctly
         const selectionPatch = buildInlineSelectionStylePatch(
           selectedRegionStyle,
           updater,
@@ -391,10 +383,6 @@ export const useRenderTextPreviewTypeDock = ({
 
     const minVisible = 14;
 
-    // On desktop the tools panel sits immediately to the right of the
-    // overlay, so the dock must not overflow past the overlay width.
-    // On compact/mobile the tools panel is a fixed overlay — full
-    // freedom to the right.
     const maxDockRightEdge = isCompactViewport
       ? width + dockWidth - minVisible
       : width;
@@ -418,7 +406,6 @@ export const useRenderTextPreviewTypeDock = ({
       );
     };
 
-    // Clamp helpers — keep the dock within the safe area.
     const clampX = (x: number): number =>
       Math.max(-dockWidth + minVisible, Math.min(x, maxDockRightEdge - dockWidth));
     const clampY = (y: number): number =>

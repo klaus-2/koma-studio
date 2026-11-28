@@ -3,5 +3,11 @@
   "identifier": "default",
   "description": "Default permissions for the main window. Phase 1.0 baseline; expanded as commands ship.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:default", "core:webview:default", "core:event:default"]
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:webview:allow-set-webview-zoom",
+    "core:event:default"
+  ]
 }

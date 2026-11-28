@@ -19,6 +19,7 @@ import type {
 import { findRegionAtPoint as findRegionAtPointInRegions } from './render-text-preview/regionGeometry';
 import { useRegionPickerState } from './render-text-preview/RegionPickerMount';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 export type {
   TextDetectionPreviewController,
@@ -58,8 +59,6 @@ export const useTextDetectionPreviewController = (
 
   const { picker: regionPicker, openRegionPicker, closeRegionPicker } = useRegionPickerState();
 
-  // Zoom is subscribed here instead of forwarded as a prop, so a Ctrl+wheel
-  // gesture re-renders only this preview leaf and not the whole stage chain.
   const zoom = useUiShellStore((s) => s.zoom);
 
   const imageMaxWidth = viewMode === 'paginated' ? 420 : 960;
@@ -93,7 +92,8 @@ export const useTextDetectionPreviewController = (
         cursor.style.height = `${diameter}px`;
         cursor.dataset.size = String(diameter);
       }
-      cursor.style.transform = `translate(${e.clientX - radius}px, ${e.clientY - radius}px)`;
+      const cssZoom = getEffectiveCssRootZoom();
+      cursor.style.transform = `translate(${e.clientX / cssZoom - radius}px, ${e.clientY / cssZoom - radius}px)`;
       cursor.style.display = 'block';
     },
     [brushCursorRef, rotationScaleFactor, segmentBrushSize, zoom],

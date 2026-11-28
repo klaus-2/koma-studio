@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
 import { Eye, EyeOff, Heart } from 'lucide-react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { getEffectiveCssRootZoom } from '@koma/ui/utils/applyUiScale';
 
 import { useModelManagerLiveState } from '../../hooks/useModelManager';
 import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
@@ -46,9 +47,12 @@ const clampPosition = (
 ): KomaCompanionPosition => {
   const width = element?.offsetWidth ?? 0;
   const height = element?.offsetHeight ?? 0;
+  const cssZoom = getEffectiveCssRootZoom();
+  const maxRight = Math.max(0, window.innerWidth / cssZoom - width);
+  const maxBottom = Math.max(0, window.innerHeight / cssZoom - height);
   return {
-    right: Math.round(clamp(position.right, 0, Math.max(0, window.innerWidth - width))),
-    bottom: Math.round(clamp(position.bottom, 0, Math.max(0, window.innerHeight - height))),
+    right: Math.round(clamp(position.right, 0, maxRight)),
+    bottom: Math.round(clamp(position.bottom, 0, maxBottom)),
   };
 };
 
@@ -265,8 +269,9 @@ export const KomaStudioCompanion: React.FC = React.memo(() => {
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
+    const cssZoom = getEffectiveCssRootZoom();
+    const dx = (event.clientX - drag.startX) / cssZoom;
+    const dy = (event.clientY - drag.startY) / cssZoom;
     if (!drag.moved) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
       drag.moved = true;
