@@ -83,15 +83,18 @@ export function OnboardingRail({ ctrl }: { ctrl: OnboardingController }) {
           {ONBOARDING_STEPS.map((step, index) => {
             const active = index === ctrl.stepIndex;
             const done = index < ctrl.stepIndex;
+            const toolsGateIdx = ONBOARDING_STEPS.findIndex((s) => s.id === 'tools-healing');
+            const lockedForward = !ctrl.canDismiss && !ctrl.toolsComplete && index > toolsGateIdx;
             return (
               <li key={step.id}>
                 <button
                   type="button"
                   data-onb-step={step.id}
                   aria-current={active ? 'step' : undefined}
+                  disabled={lockedForward}
                   onClick={() => ctrl.setStepIndex(index)}
                   className={cx(
-                    'flex w-full items-center gap-3 px-3 py-2.5 text-left',
+                    'flex w-full items-center gap-3 px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-45',
                     skin.railItem,
                     active ? skin.railItemOn : skin.railItemOff,
                   )}
@@ -137,15 +140,18 @@ export function OnboardingStepStrip({ ctrl }: { ctrl: OnboardingController }) {
         {ONBOARDING_STEPS.map((step, index) => {
           const active = index === ctrl.stepIndex;
           const reached = index <= ctrl.stepIndex;
+          const toolsGateIdx = ONBOARDING_STEPS.findIndex((s) => s.id === 'tools-healing');
+          const lockedForward = !ctrl.canDismiss && !ctrl.toolsComplete && index > toolsGateIdx;
           return (
             <li key={step.id} className="flex-1">
               <button
                 type="button"
                 aria-label={`${index + 1}. ${t(step.shortLabelKey)}`}
                 aria-current={active ? 'step' : undefined}
+                disabled={lockedForward}
                 onClick={() => ctrl.setStepIndex(index)}
                 className={cx(
-                  'block h-6 w-full py-2.5',
+                  'block h-6 w-full py-2.5 disabled:cursor-not-allowed disabled:opacity-45',
                   skin.noir ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson' : 'koma-onb-c-stripBtn',
                 )}
               >

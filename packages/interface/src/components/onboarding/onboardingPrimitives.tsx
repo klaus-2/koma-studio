@@ -33,15 +33,15 @@ export function OnbSection({
   const titleId = titleIdProp ?? generatedId;
   return (
     <section aria-labelledby={titleId} className={cx(skin.section, className)}>
-      <header className={cx('flex flex-wrap items-start justify-between gap-3', children ? 'mb-4' : '')}>
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          {icon ? <span aria-hidden="true" className={skin.sectionIcon}>{icon}</span> : null}
-          <div className="min-w-0">
-            <h3 id={titleId} className={skin.sectionTitle}>{title}</h3>
-            {desc ? <p className={skin.sectionDesc}>{desc}</p> : null}
+      <header className={cx('flex flex-col gap-1.5', children ? 'mb-4' : '')}>
+        <div className="flex flex-wrap items-start justify-between gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            {icon ? <span aria-hidden="true" className={skin.sectionIcon}>{icon}</span> : null}
+            <h3 id={titleId} className={cx('min-w-0', skin.sectionTitle)}>{title}</h3>
           </div>
+          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {desc ? <p className={cx(skin.sectionDesc, icon ? 'sm:pl-11' : false)}>{desc}</p> : null}
       </header>
       {children}
     </section>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -13,7 +13,11 @@ import {
 import { useI18n } from '../../../i18n';
 import { SOURCE_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import { estimateModelRequiredDiskBytes } from '../../../models/model-storage';
-import type { AioLocalModelStage, ModelInstallLifecycleStatus, ModelInstallState } from '../../../models/types';
+import type {
+  AioLocalModelStage,
+  ModelInstallLifecycleStatus,
+  ModelInstallState,
+} from '../../../models/types';
 import { useModelManagerLiveState } from '../../../hooks/useModelManager';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { ModelProgressBar } from '../../ModelManagerModal/ModelProgressBar';
@@ -23,6 +27,7 @@ import {
   buildMultiStageInstallSummary,
   getRecommendedModelIdsForStage,
 } from '../../ModelManagerModal/recommendedInstall';
+import { OnbSegmented } from '../onboardingChoiceControls';
 import {
   OnbBadge,
   OnbCheckbox,
@@ -43,12 +48,19 @@ export interface OnboardingInstallModelsStepProps {
   onOpenModelManager?: () => void;
 }
 
-const CORE_STAGES: readonly AioLocalModelStage[] = [
+type CleanProfileId = 'lama_manga' | 'lama_fp32' | 'aot';
+
+const NON_CLEAN_CORE_STAGES: readonly AioLocalModelStage[] = [
   'detectText',
   'recognizeText',
   'translation',
   'segmentText',
-  'cleanImage',
+];
+
+const CLEAN_PROFILE_OPTIONS: readonly { value: CleanProfileId; labelKey: string }[] = [
+  { value: 'lama_manga', labelKey: 'onboarding.install.cleanProfile.lamaManga' },
+  { value: 'lama_fp32', labelKey: 'onboarding.install.cleanProfile.lamaFp32' },
+  { value: 'aot', labelKey: 'onboarding.install.cleanProfile.aot' },
 ];
 
 const STAGE_LABEL_KEYS: Record<AioLocalModelStage, string> = {
@@ -86,20 +98,68 @@ export function OnboardingInstallModelsStep({
   const { t, translateDynamic } = useI18n();
   const skin = useOnbSkin();
   const listTitleId = useId();
+  const cleanProfileLabelId = useId();
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const setAioSrcLang = useAioPipelineStore((s) => s.setAioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const setAioTgtLang = useAioPipelineStore((s) => s.setAioTgtLang);
-  const vramGb = useAioPipelineStore((s) => s.aioDeviceInfo?.vram_gb ?? null);
+  const deviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
+  const vramGb = deviceInfo?.vram_gb ?? null;
   const { entries, diskSpace, initialized } = useModelManagerLiveState();
 
+  const recommendedCleanProfile: CleanProfileId =
+    deviceInfo && !deviceInfo.has_gpu && Boolean(entries.lama_fp32)
+      ? 'lama_fp32'
+      : 'lama_manga';
+
+  const [cleanProfile, setCleanProfile] = useState<CleanProfileId>(recommendedCleanProfile);
+  const profileTouchedRef = useRef(false);
   const [includeEnhance, setIncludeEnhance] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const syncBenchmarkDefaults = useCallback(
+    (profile: CleanProfileId): void => {
+      const store = useAioPipelineStore.getState();
+      const resolvedClean = entries[profile] ? profile : 'lama_manga';
+      store.setAioStageSelection((prev) => ({
+        ...prev,
+        detectText: entries.font_rtdetr_v2 ? 'font_rtdetr_v2' : prev.detectText,
+        segmentText: entries.ctd_text_seg ? 'ctd_text_seg' : prev.segmentText,
+        cleanImage: resolvedClean,
+      }));
+      store.setAioHdStrategy('crop');
+      store.setAioHdCropMargin(192);
+      store.setAioHdCropTriggerSize(512);
+      store.setAioMaskDilation(5);
+    },
+    [entries],
+  );
+
+  useEffect(() => {
+    if (profileTouchedRef.current) return;
+    setCleanProfile(recommendedCleanProfile);
+  }, [recommendedCleanProfile]);
+
+  const handleCleanProfileChange = (next: CleanProfileId): void => {
+    profileTouchedRef.current = true;
+    setCleanProfile(next);
+    syncBenchmarkDefaults(next);
+  };
+
   const stages = useMemo<readonly AioLocalModelStage[]>(
-    () => (includeEnhance ? [...CORE_STAGES, 'enhanceImage'] : CORE_STAGES),
+    () => (includeEnhance ? [...NON_CLEAN_CORE_STAGES, 'enhanceImage'] : NON_CLEAN_CORE_STAGES),
     [includeEnhance],
+  );
+
+  const resolvedCleanId = useMemo(
+    () =>
+      entries[cleanProfile]
+        ? cleanProfile
+        : entries.lama_manga
+          ? 'lama_manga'
+          : (getRecommendedModelIdsForStage('cleanImage', aioSrcLang, aioTgtLang)?.[0] ?? 'lama_manga'),
+    [aioSrcLang, aioTgtLang, cleanProfile, entries],
   );
 
   const recommendedIds = useMemo(() => {
@@ -109,16 +169,27 @@ export function OnboardingInstallModelsStep({
         if (entries[id]) ids.add(id);
       }
     }
+    if (entries[resolvedCleanId]) {
+      ids.add(resolvedCleanId);
+    }
     return [...ids];
-  }, [aioSrcLang, aioTgtLang, entries, stages]);
+  }, [aioSrcLang, aioTgtLang, entries, resolvedCleanId, stages]);
 
-  const eligibleKey = buildMultiStageInstallSummary(
-    entries,
-    stages,
-    aioSrcLang,
-    aioTgtLang,
-    estimateModelRequiredDiskBytes,
-  ).eligibleModelIds.join(',');
+  const eligibleKey = useMemo(() => {
+    const base = buildMultiStageInstallSummary(
+      entries,
+      stages,
+      aioSrcLang,
+      aioTgtLang,
+      estimateModelRequiredDiskBytes,
+    ).eligibleModelIds;
+    const merged = new Set(base);
+    const cleanEntry = entries[resolvedCleanId];
+    if (cleanEntry && ELIGIBLE_INSTALL_STATUSES.has(cleanEntry.status)) {
+      merged.add(resolvedCleanId);
+    }
+    return [...merged].join(',');
+  }, [aioSrcLang, aioTgtLang, entries, resolvedCleanId, stages]);
 
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     () => new Set(eligibleKey ? eligibleKey.split(',') : []),
@@ -163,6 +234,7 @@ export function OnboardingInstallModelsStep({
 
   const handleInstall = async (): Promise<void> => {
     if (!onInstallModels || selectedEligibleIds.length === 0) return;
+    syncBenchmarkDefaults(cleanProfile);
     setActionError(null);
     setSubmitting(true);
     try {
@@ -176,6 +248,10 @@ export function OnboardingInstallModelsStep({
 
   const srcOptions = SOURCE_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) }));
   const tgtOptions = TARGET_LANGUAGE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.label) }));
+  const cleanOptions = CLEAN_PROFILE_OPTIONS.map((opt) => ({
+    value: opt.value,
+    label: t(opt.labelKey),
+  }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -187,6 +263,20 @@ export function OnboardingInstallModelsStep({
           <ArrowRight size={16} aria-hidden="true" className={cx('hidden sm:mb-2.5 sm:block', skin.muted)} />
           <OnbField label={t('onboarding.install.targetLangLabel')} htmlFor="koma-onb-tgt-lang">
             <OnbSelect id="koma-onb-tgt-lang" value={aioTgtLang} options={tgtOptions} onChange={setAioTgtLang} />
+          </OnbField>
+        </div>
+        <div className="mt-3">
+          <OnbField
+            label={t('onboarding.install.cleanProfileLabel')}
+            labelId={cleanProfileLabelId}
+            hint={t('onboarding.install.cleanProfileHint')}
+          >
+            <OnbSegmented
+              labelledBy={cleanProfileLabelId}
+              value={cleanProfile}
+              options={cleanOptions}
+              onChange={handleCleanProfileChange}
+            />
           </OnbField>
         </div>
         <div className="mt-3">

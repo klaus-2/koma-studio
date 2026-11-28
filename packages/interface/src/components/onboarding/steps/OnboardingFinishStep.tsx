@@ -32,6 +32,7 @@ export function OnboardingFinishStep({
   const family = useThemeStore((s) => s.family);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
+  const cleanImageModel = useAioPipelineStore((s) => s.aioStageSelection.cleanImage);
   const { entries } = useModelManagerLiveState();
   const [starred, setStarred] = useState(false);
   const [startTour, setStartTour] = useState(true);
@@ -49,7 +50,11 @@ export function OnboardingFinishStep({
       value: `${familyEntry ? t(familyEntry.nameKey) : family} · ${themeLabel}`,
       step: 'welcome',
     },
-    { label: t('onboarding.finish.labelPair'), value: `${aioSrcLang.toUpperCase()} → ${aioTgtLang.toUpperCase()}`, step: 'install-models' },
+    {
+      label: t('onboarding.finish.labelPair'),
+      value: `${aioSrcLang.toUpperCase()} → ${aioTgtLang.toUpperCase()} · ${t('onboarding.finish.cleanProfileTag', { model: cleanImageModel })}`,
+      step: 'install-models',
+    },
     {
       label: t('onboarding.finish.labelModels'),
       value:

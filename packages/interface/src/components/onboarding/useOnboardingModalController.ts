@@ -10,6 +10,13 @@ import {
 import { useModelManagerLiveState } from '../../hooks/useModelManager';
 import type { SettingsTab } from '../../pages/settings/settings.types';
 import type { KomaPose } from '../../stores/koma-mascot-store';
+import {
+  areAllMissionsComplete,
+  countCompletedMissions,
+  createInitialCompletion,
+  type InteractiveMissionId,
+  type InteractiveToolsCompletion,
+} from './interactive-tools/InteractiveToolsTypes';
 import { acquireOnboardingModalLock } from './onboardingOpenState';
 import { writeOnboardingState } from './onboardingStorage';
 import {
@@ -58,6 +65,8 @@ const STEP_POSES: Readonly<Record<OnboardingStepId, KomaPose>> = {
   finish: 'celebrate',
 };
 
+const TOOLS_STEP_INDEX = ONBOARDING_STEPS.findIndex((step) => step.id === 'tools-healing');
+
 export interface OnboardingController {
   stepIndex: number;
   setStepIndex: (index: number) => void;
@@ -67,6 +76,11 @@ export interface OnboardingController {
   currentStepId: OnboardingStepId;
   isFirst: boolean;
   isLast: boolean;
+  isNextLocked: boolean;
+  toolsCompletion: InteractiveToolsCompletion;
+  toolsCompletedCount: number;
+  toolsComplete: boolean;
+  completeToolsMission: (mission: InteractiveMissionId) => void;
   progressPercent: number;
   activeDownloadCount: number;
   komaPose: KomaPose;
@@ -91,7 +105,10 @@ export function useOnboardingModalController({
   onOpenSettingsTab,
 }: OnboardingModalProps): OnboardingController {
   const canDismiss = isReviewing;
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndexState] = useState(0);
+  const [toolsCompletion, setToolsCompletion] = useState<InteractiveToolsCompletion>(() =>
+    createInitialCompletion(false),
+  );
   const [komaPetting, setKomaPetting] = useState(false);
   const petTimerRef = useRef<number | null>(null);
   const { entries } = useModelManagerLiveState();
@@ -101,7 +118,8 @@ export function useOnboardingModalController({
       return;
     }
     const releaseLock = acquireOnboardingModalLock();
-    setStepIndex(0);
+    setStepIndexState(0);
+    setToolsCompletion(createInitialCompletion(false));
     return releaseLock;
   }, [open]);
 
@@ -124,6 +142,25 @@ export function useOnboardingModalController({
   const currentStep: OnboardingStepMeta =
     ONBOARDING_STEPS[stepIndex] ?? ONBOARDING_STEPS[0] ?? fallbackStep;
   const currentStepId: OnboardingStepId = currentStep.id;
+
+  const toolsCompletedCount = countCompletedMissions(toolsCompletion);
+  const toolsComplete = areAllMissionsComplete(toolsCompletion);
+  const isNextLocked = !canDismiss && currentStepId === 'tools-healing' && !toolsComplete;
+
+  const completeToolsMission = useCallback((mission: InteractiveMissionId) => {
+    setToolsCompletion((prev) => (prev[mission] ? prev : { ...prev, [mission]: true }));
+  }, []);
+
+  const setStepIndex = useCallback(
+    (nextIndex: number) => {
+      const bounded = Math.max(0, Math.min(ONBOARDING_STEPS.length - 1, nextIndex));
+      if (!canDismiss && !toolsComplete && bounded > TOOLS_STEP_INDEX) {
+        return;
+      }
+      setStepIndexState(bounded);
+    },
+    [canDismiss, toolsComplete],
+  );
 
   const activeDownloadCount = useMemo(
     () =>
@@ -162,17 +199,28 @@ export function useOnboardingModalController({
   }, []);
 
   const goPrev = useCallback(() => {
-    setStepIndex((prev) => Math.max(0, prev - 1));
+    setStepIndexState((prev) => Math.max(0, prev - 1));
   }, []);
 
-  const goToStep = useCallback((stepId: OnboardingStepId) => {
-    const index = ONBOARDING_STEPS.findIndex((step) => step.id === stepId);
-    if (index >= 0) setStepIndex(index);
-  }, []);
+  const goToStep = useCallback(
+    (stepId: OnboardingStepId) => {
+      const index = ONBOARDING_STEPS.findIndex((step) => step.id === stepId);
+      if (index >= 0) {
+        setStepIndex(index);
+      }
+    },
+    [setStepIndex],
+  );
 
   const goNext = useCallback(() => {
-    setStepIndex((prev) => Math.min(ONBOARDING_STEPS.length - 1, prev + 1));
-  }, []);
+    setStepIndexState((prev) => {
+      const next = Math.min(ONBOARDING_STEPS.length - 1, prev + 1);
+      if (!canDismiss && !toolsComplete && next > TOOLS_STEP_INDEX) {
+        return prev;
+      }
+      return next;
+    });
+  }, [canDismiss, toolsComplete]);
 
   const handleDismiss = useCallback(() => {
     if (!canDismiss) return;
@@ -244,6 +292,11 @@ export function useOnboardingModalController({
     currentStepId,
     isFirst: stepIndex === 0,
     isLast: stepIndex === ONBOARDING_STEPS.length - 1,
+    isNextLocked,
+    toolsCompletion,
+    toolsCompletedCount,
+    toolsComplete,
+    completeToolsMission,
     progressPercent: Math.round(((stepIndex + 1) / ONBOARDING_STEPS.length) * 100),
     activeDownloadCount,
     komaPose,

@@ -416,6 +416,88 @@ html[data-theme-family='noir'] .koma-onb-meter--info { background: var(--color-a
 html[data-theme-family='noir'] .koma-onb-meter--warn { background: var(--color-gold); }
 html[data-theme-family='noir'] .koma-onb-meter--success { background: var(--color-mint); }
 
+@keyframes komaOnbTourPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(168, 85, 247, 0);
+  }
+}
+
+@keyframes komaOnbTourPulseNoir {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 46, 99, 0.58);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(255, 46, 99, 0);
+  }
+}
+
+@keyframes komaOnbBeaconBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.86);
+  }
+}
+
+@keyframes komaOnbGhostStroke {
+  0% {
+    stroke-dashoffset: 160;
+    opacity: 0.25;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: -160;
+    opacity: 0.25;
+  }
+}
+
+@keyframes komaOnbHealSweep {
+  0% {
+    opacity: 0.9;
+    transform: scaleX(0.15);
+    transform-origin: left center;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+.koma-onb-tour-ring--classic {
+  border-radius: 10px;
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+  animation: komaOnbTourPulse 1.5s ease-in-out infinite;
+}
+
+.koma-onb-tour-ring--noir {
+  outline: 2px solid var(--color-crimson, #ff2e63);
+  outline-offset: 2px;
+  animation: komaOnbTourPulseNoir 1.5s ease-in-out infinite;
+}
+
+.koma-onb-tour-beacon {
+  animation: komaOnbBeaconBlink 1.3s ease-in-out infinite;
+}
+
+.koma-onb-ghost-stroke {
+  animation: komaOnbGhostStroke 2.2s linear infinite;
+}
+
+.koma-onb-heal-sweep {
+  animation: komaOnbHealSweep 0.65s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-onboarding-theme] *,
   [data-onboarding-theme] *::before,
@@ -424,4 +506,14 @@ html[data-theme-family='noir'] .koma-onb-meter--success { background: var(--colo
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+body[data-onboarding-open='true'] .koma-type-dock {
+  z-index: 140 !important;
+}
+
+body[data-onboarding-open='true'] .koma-type-dock-popover,
+body[data-onboarding-open='true'] [data-radix-popper-content-wrapper],
+body[data-onboarding-open='true'] .koma-font-select-menu {
+  z-index: 155 !important;
 }

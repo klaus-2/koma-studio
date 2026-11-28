@@ -48,6 +48,14 @@ export function OnboardingModal(props: OnboardingModalProps) {
   const seenStepRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!props.open || typeof document === 'undefined') return;
+    document.body.dataset.onboardingOpen = 'true';
+    return () => {
+      delete document.body.dataset.onboardingOpen;
+    };
+  }, [props.open]);
+
+  useEffect(() => {
     if (!props.open) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
@@ -181,6 +189,11 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <div className="flex shrink-0 items-center gap-2">
               {!ctrl.isLast ? (
                 <>
+                  {ctrl.isNextLocked ? (
+                    <span className={skin.hint} data-testid="onboarding-next-locked-hint">
+                      {t('onboarding.tools.nextLockedHint', { done: ctrl.toolsCompletedCount })}
+                    </span>
+                  ) : null}
                   {ctrl.canDismiss ? (
                     <button
                       type="button"
@@ -192,7 +205,17 @@ export function OnboardingModal(props: OnboardingModalProps) {
                       <span>{t('onboarding.actions.skip')}</span>
                     </button>
                   ) : null}
-                  <button type="button" className={skin.btnPrimary} onClick={ctrl.goNext}>
+                  <button
+                    type="button"
+                    className={skin.btnPrimary}
+                    disabled={ctrl.isNextLocked}
+                    title={
+                      ctrl.isNextLocked
+                        ? t('onboarding.tools.nextLockedHint', { done: ctrl.toolsCompletedCount })
+                        : undefined
+                    }
+                    onClick={ctrl.goNext}
+                  >
                     <span>{t('onboarding.actions.next')}</span>
                     <ChevronRight size={13} aria-hidden="true" />
                   </button>

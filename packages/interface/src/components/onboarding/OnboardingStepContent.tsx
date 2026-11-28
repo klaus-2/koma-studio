@@ -32,7 +32,12 @@ export function OnboardingStepContent({
     case 'aio-stages':
       return <OnboardingAioStagesStep />;
     case 'tools-healing':
-      return <OnboardingToolsHealingStep />;
+      return (
+        <OnboardingToolsHealingStep
+          completion={ctrl.toolsCompletion}
+          onCompleteMission={ctrl.completeToolsMission}
+        />
+      );
     case 'settings':
       return <OnboardingSettingsStep onOpenSettingsTab={ctrl.handleOpenSettingsFromStep} />;
     case 'finish':

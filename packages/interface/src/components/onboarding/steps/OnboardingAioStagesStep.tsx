@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Eraser, Languages, ScanText, Sliders, Sparkles, Type, Wand2 } from 'lucide-react';
+import { Bot, Eraser, ImagePlay, Languages, ScanText, Sliders, Sparkles, Type, Wand2 } from 'lucide-react';
 
 import { AioStageAnimatedPreview } from '../../../features/dashboard/components/AioStageAnimatedPreview';
 import { useI18n } from '../../../i18n';
@@ -34,6 +34,33 @@ const HD_OPTIONS = [
 
 const TABS_ID = 'koma-onb-aio-stages';
 
+const PIPELINE_MODES = [
+  {
+    id: 'auto',
+    Icon: Bot,
+    badgeTone: 'accent' as const,
+    titleKey: 'onboarding.aio.modeAuto.title',
+    badgeKey: 'onboarding.aio.modeAuto.badge',
+    bodyKey: 'onboarding.aio.modeAuto.body',
+  },
+  {
+    id: 'manual',
+    Icon: Sliders,
+    badgeTone: 'info' as const,
+    titleKey: 'onboarding.aio.modeManual.title',
+    badgeKey: 'onboarding.aio.modeManual.badge',
+    bodyKey: 'onboarding.aio.modeManual.body',
+  },
+  {
+    id: 'aioAi',
+    Icon: ImagePlay,
+    badgeTone: 'success' as const,
+    titleKey: 'onboarding.aio.modeAioAi.title',
+    badgeKey: 'onboarding.aio.modeAioAi.badge',
+    bodyKey: 'onboarding.aio.modeAioAi.body',
+  },
+] as const;
+
 export function OnboardingAioStagesStep() {
   const { t } = useI18n();
   const skin = useOnbSkin();
@@ -43,19 +70,19 @@ export function OnboardingAioStagesStep() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <OnbSection
-          icon={<Bot size={14} />}
-          title={t('onboarding.aio.modeAuto.title')}
-          desc={t('onboarding.aio.modeAuto.body')}
-          actions={<OnbBadge tone="accent">{t('onboarding.aio.modeAuto.badge')}</OnbBadge>}
-        />
-        <OnbSection
-          icon={<Sliders size={14} />}
-          title={t('onboarding.aio.modeManual.title')}
-          desc={t('onboarding.aio.modeManual.body')}
-          actions={<OnbBadge tone="info">{t('onboarding.aio.modeManual.badge')}</OnbBadge>}
-        />
+      <div className="grid gap-3 md:grid-cols-3">
+        {PIPELINE_MODES.map(({ id, Icon, badgeTone, titleKey, badgeKey, bodyKey }) => (
+          <section key={id} className={cx(skin.section, 'flex flex-col')}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span aria-hidden="true" className={skin.sectionIcon}>
+                <Icon size={14} />
+              </span>
+              <OnbBadge tone={badgeTone}>{t(badgeKey)}</OnbBadge>
+            </div>
+            <h3 className={cx('mt-3', skin.sectionTitle)}>{t(titleKey)}</h3>
+            <p className={cx('mt-1.5 leading-relaxed', skin.sectionDesc)}>{t(bodyKey)}</p>
+          </section>
+        ))}
       </div>
 
       <OnbSection title={t('onboarding.aio.pipelineTitle')} desc={t('onboarding.aio.pipelineDesc')}>

@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { Cloud, Cpu, Flame, Settings2, Zap } from 'lucide-react';
+import { Cloud, Cpu, Flame, Layers, Settings2, Zap } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
 import type { SettingsTab } from '../../../pages/settings/settings.types';
@@ -51,6 +51,7 @@ export function OnboardingModelsGuideStep({ onOpenSettingsTab }: OnboardingModel
   const hasGpu = deviceInfo?.has_gpu ?? false;
   const vramGb = deviceInfo?.vram_gb ?? null;
   const provider = deviceInfo?.provider || 'cpu';
+  const isCpuOnly = deviceInfo !== null && !hasGpu;
   const recommended: TierId = hasGpu && vramGb !== null && vramGb >= 8 ? 'heavy' : 'light';
   const [focused, setFocused] = useState<TierId>(recommended);
   const focusedTier = TIERS.find((tier) => tier.id === focused) ?? TIERS[0];
@@ -75,7 +76,18 @@ export function OnboardingModelsGuideStep({ onOpenSettingsTab }: OnboardingModel
           </>
         }
       >
-        <OnbNotice tone={hasGpu ? 'info' : 'warn'}>{t(adviceKeyFor(hasGpu, vramGb))}</OnbNotice>
+        <div className="flex flex-col gap-2.5">
+          <OnbNotice tone={hasGpu ? 'info' : 'warn'}>{t(adviceKeyFor(hasGpu, vramGb))}</OnbNotice>
+          <div className={cx('flex flex-wrap items-center justify-between gap-2', skin.item, skin.itemOn)}>
+            <span className="flex items-center gap-2">
+              <Layers size={13} aria-hidden="true" className={skin.noir ? 'text-crimson' : 'koma-onb-c-accent'} />
+              <span className={skin.label}>{t('onboarding.modelsGuide.stackSummaryLabel')}</span>
+            </span>
+            <span className={skin.mono}>
+              {t(isCpuOnly ? 'onboarding.modelsGuide.stackCpu' : 'onboarding.modelsGuide.stackGpu')}
+            </span>
+          </div>
+        </div>
       </OnbSection>
 
       <OnbSection

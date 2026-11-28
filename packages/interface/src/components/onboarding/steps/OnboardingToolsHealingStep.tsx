@@ -1,23 +1,31 @@
-import { useState, type ReactNode } from 'react';
-import { Bandage, BoxSelect, Columns2, Download, PencilLine, Sparkles, Type } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, ChevronDown, Sparkles } from 'lucide-react';
 
 import {
   DockToolAnimatedPreview,
   type DockToolPreviewKind,
 } from '../../../features/dashboard/components/DockToolAnimatedPreview';
 import { useI18n } from '../../../i18n';
-import { OnbBadge, OnbSection, cx } from '../onboardingPrimitives';
-import { OnbTabs, tabPanelProps } from '../onboardingChoiceControls';
+import { OnbBadge, OnbNotice, OnbSection, cx } from '../onboardingPrimitives';
 import { useOnbSkin } from '../onboardingSkin';
-
-type ToolsTabId = 'healing' | 'text' | 'selection';
+import { AreaCanvasLabSandbox } from '../interactive-tools/AreaCanvasLabSandbox';
+import { HealingLabSandbox } from '../interactive-tools/HealingLabSandbox';
+import {
+  areAllMissionsComplete,
+  countCompletedMissions,
+  createInitialCompletion,
+  type InteractiveMissionId,
+  type InteractiveToolsCompletion,
+} from '../interactive-tools/InteractiveToolsTypes';
+import { MissionProgressStrip } from '../interactive-tools/InteractiveTourChrome';
+import { RefineTextLabSandbox } from '../interactive-tools/RefineTextLabSandbox';
 
 interface ToolCardSpec {
   readonly kind: DockToolPreviewKind;
   readonly key: string;
 }
 
-const HEALING_TOOLS: readonly ToolCardSpec[] = [
+const REFERENCE_TOOLS: readonly ToolCardSpec[] = [
   { kind: 'healing', key: 'healing' },
   { kind: 'magic-wand', key: 'magicWand' },
   { kind: 'segment-brush', key: 'segmentBrush' },
@@ -26,144 +34,142 @@ const HEALING_TOOLS: readonly ToolCardSpec[] = [
   { kind: 'paint-eraser', key: 'paintEraser' },
   { kind: 'clear-paint', key: 'clearPaint' },
   { kind: 'reset-edits', key: 'resetEdits' },
-];
-
-const SELECTION_TOOLS: readonly ToolCardSpec[] = [
   { kind: 'area-select', key: 'areaSelect' },
   { kind: 'config', key: 'config' },
   { kind: 'clear-page', key: 'clearPage' },
 ];
 
-const TEXT_TOOLS = [
-  { Icon: PencilLine, key: 'inline' },
-  { Icon: Type, key: 'typo' },
-  { Icon: Columns2, key: 'compare' },
-  { Icon: Download, key: 'export' },
-] as const;
+export interface OnboardingToolsHealingStepProps {
+  completion?: InteractiveToolsCompletion;
+  onCompleteMission?: (mission: InteractiveMissionId) => void;
+  onCompletionChange?: (doneCount: number, allComplete: boolean) => void;
+}
 
-const HEALING_FLOW_KEYS = [
-  'onboarding.tools.healingFlow.step1',
-  'onboarding.tools.healingFlow.step2',
-  'onboarding.tools.healingFlow.step3',
-  'onboarding.tools.healingFlow.step4',
-] as const;
-
-const TABS_ID = 'koma-onb-tools';
-const toolTitle = (key: string): string => `onboarding.tools.card.${key}Title`;
-const toolDesc = (key: string): string => `onboarding.tools.card.${key}Desc`;
-
-function ToolPicker({
-  tools,
-  featured,
-  onFeature,
-  children,
-}: {
-  tools: readonly ToolCardSpec[];
-  featured: DockToolPreviewKind;
-  onFeature: (kind: DockToolPreviewKind) => void;
-  children?: ReactNode;
-}) {
+export function OnboardingToolsHealingStep({
+  completion: controlledCompletion,
+  onCompleteMission,
+  onCompletionChange,
+}: OnboardingToolsHealingStepProps) {
   const { t } = useI18n();
   const skin = useOnbSkin();
   const variant = skin.noir ? 'noir' : 'classic';
-  const current = tools.find((tool) => tool.kind === featured) ?? tools[0];
-  if (!current) return null;
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className={cx('koma-onb-spotlight grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]', skin.item, skin.itemOn)}>
-        <div className="overflow-hidden">
-          <DockToolAnimatedPreview kind={current.kind} variant={variant} size="card" label={t(toolTitle(current.key))} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-2" aria-live="polite">
-          <strong className={skin.itemTitle}>{t(toolTitle(current.key))}</strong>
-          <p className={skin.body}>{t(toolDesc(current.key))}</p>
-          {children}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {tools.map((tool) => {
-          const on = tool.kind === featured;
-          return (
-            <button
-              key={tool.kind}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onFeature(tool.kind)}
-              className={cx('flex flex-col gap-2 text-left', skin.item, skin.press, on ? skin.itemOn : skin.itemOff)}
-            >
-              <DockToolAnimatedPreview kind={tool.kind} variant={variant} size="card" playMode="hover" label={t(toolTitle(tool.key))} />
-              <span className={cx('block', skin.itemTitle)}>{t(toolTitle(tool.key))}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+  const [internalCompletion, setInternalCompletion] = useState<InteractiveToolsCompletion>(() =>
+    createInitialCompletion(false),
   );
-}
+  const [activeMission, setActiveMission] = useState<InteractiveMissionId>('healing');
+  const [referenceOpen, setReferenceOpen] = useState(false);
 
-export function OnboardingToolsHealingStep() {
-  const { t } = useI18n();
-  const skin = useOnbSkin();
-  const [tab, setTab] = useState<ToolsTabId>('healing');
-  const [healing, setHealing] = useState<DockToolPreviewKind>('healing');
-  const [selection, setSelection] = useState<DockToolPreviewKind>('area-select');
+  const completion = controlledCompletion ?? internalCompletion;
+  const doneCount = countCompletedMissions(completion);
+  const allComplete = areAllMissionsComplete(completion);
+
+  const handleComplete = (mission: InteractiveMissionId): void => {
+    const next = { ...completion, [mission]: true };
+    if (!controlledCompletion) {
+      setInternalCompletion(next);
+    }
+    onCompleteMission?.(mission);
+    onCompletionChange?.(countCompletedMissions(next), areAllMissionsComplete(next));
+  };
 
   return (
-    <OnbSection
-      icon={<Sparkles size={14} />}
-      title={t('onboarding.tools.healingFlow.title')}
-      desc={t('onboarding.tools.intro')}
-      actions={<OnbBadge tone="accent">{t('onboarding.tools.healingFlow.badge')}</OnbBadge>}
-    >
-      <OnbTabs
-        idBase={TABS_ID}
-        label={t('onboarding.tools.tabsAria')}
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { value: 'healing', label: t('onboarding.tools.tab.healing'), icon: <Bandage size={12} aria-hidden="true" /> },
-          { value: 'text', label: t('onboarding.tools.tab.text'), icon: <Type size={12} aria-hidden="true" /> },
-          { value: 'selection', label: t('onboarding.tools.tab.selection'), icon: <BoxSelect size={12} aria-hidden="true" /> },
-        ]}
-      />
+    <div className="flex flex-col gap-4">
+      <OnbSection
+        icon={<Sparkles size={14} />}
+        title={t('onboarding.tools.healingFlow.title')}
+        desc={t('onboarding.tools.intro')}
+        actions={
+          <OnbBadge tone={allComplete ? 'success' : 'accent'}>
+            {t('onboarding.tools.tourProgress', { done: doneCount, total: 3 })}
+          </OnbBadge>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <MissionProgressStrip
+            activeMission={activeMission}
+            completion={completion}
+            onSelectMission={setActiveMission}
+          />
 
-      <div {...tabPanelProps(TABS_ID, tab)} className="mt-3 outline-none">
-        {tab === 'healing' ? (
-          <ToolPicker tools={HEALING_TOOLS} featured={healing} onFeature={setHealing}>
-            <ol className="mt-1 flex flex-col gap-1.5">
-              {HEALING_FLOW_KEYS.map((key, i) => (
-                <li key={key} className={cx('flex items-start gap-2', skin.muted)}>
-                  <span aria-hidden="true" className={skin.badge('neutral')}>{i + 1}</span>
-                  <span>{t(key)}</span>
-                </li>
-              ))}
-            </ol>
-          </ToolPicker>
-        ) : null}
+          {allComplete ? (
+            <OnbNotice tone="success" role="status">
+              <CheckCircle2 size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <strong className="block">{t('onboarding.tools.allDoneTitle')}</strong>
+                {t('onboarding.tools.allDoneBody')}
+              </span>
+            </OnbNotice>
+          ) : null}
 
-        {tab === 'text' ? (
-          <div className="flex flex-col gap-3">
-            <p className={skin.body}>{t('onboarding.tools.text.leadBody')}</p>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {TEXT_TOOLS.map(({ Icon, key }) => (
-                <li key={key} className={cx('flex items-start gap-3', skin.item, skin.itemOff)}>
-                  <span aria-hidden="true" className={skin.sectionIcon}><Icon size={14} /></span>
-                  <span className="min-w-0">
-                    <strong className={cx('block', skin.itemTitle)}>{t(`onboarding.tools.text.${key}Title`)}</strong>
-                    <span className={cx('mt-1 block', skin.muted)}>{t(`onboarding.tools.text.${key}Desc`)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <div role="tabpanel" className="outline-none">
+            {activeMission === 'healing' ? (
+              <HealingLabSandbox
+                completed={completion.healing}
+                onComplete={() => handleComplete('healing')}
+                onNextMission={() => setActiveMission('text')}
+                nextMissionLabel={t('onboarding.tools.tab.text')}
+              />
+            ) : null}
+
+            {activeMission === 'text' ? (
+              <RefineTextLabSandbox
+                completed={completion.text}
+                onComplete={() => handleComplete('text')}
+                onNextMission={() => setActiveMission('selection')}
+                nextMissionLabel={t('onboarding.tools.tab.selection')}
+              />
+            ) : null}
+
+            {activeMission === 'selection' ? (
+              <AreaCanvasLabSandbox
+                active={activeMission === 'selection'}
+                completed={completion.selection}
+                onComplete={() => handleComplete('selection')}
+              />
+            ) : null}
+          </div>
+        </div>
+      </OnbSection>
+
+      <div className={cx('flex flex-col gap-2', skin.item, skin.itemOff)}>
+        <button
+          type="button"
+          data-testid="tools-reference-toggle"
+          aria-expanded={referenceOpen}
+          onClick={() => setReferenceOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
+          <span className={skin.itemTitle}>{t('onboarding.tools.referenceToggle')}</span>
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className={cx('transition-transform', referenceOpen && 'rotate-180')}
+          />
+        </button>
+
+        {referenceOpen ? (
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {REFERENCE_TOOLS.map((tool) => (
+              <div key={tool.kind} className={cx('flex flex-col gap-1.5', skin.item, skin.itemOff)}>
+                <DockToolAnimatedPreview
+                  kind={tool.kind}
+                  variant={variant}
+                  size="card"
+                  playMode="hover"
+                  label={t(`onboarding.tools.card.${tool.key}Title`)}
+                />
+                <strong className={cx('block', skin.itemTitle)}>
+                  {t(`onboarding.tools.card.${tool.key}Title`)}
+                </strong>
+                <span className={cx('block', skin.muted)}>
+                  {t(`onboarding.tools.card.${tool.key}Desc`)}
+                </span>
+              </div>
+            ))}
           </div>
         ) : null}
-
-        {tab === 'selection' ? (
-          <ToolPicker tools={SELECTION_TOOLS} featured={selection} onFeature={setSelection} />
-        ) : null}
       </div>
-    </OnbSection>
+    </div>
   );
 }
