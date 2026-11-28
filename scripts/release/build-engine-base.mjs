@@ -185,7 +185,9 @@ const smokeRelocatedEngine = async ({
   overlayArchivePath,
   pythonEntry,
 }) => {
-  const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "koma-engine-smoke-"));
+  const smokeRoot = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), "koma-engine-smoke-")),
+  );
   const relocatedEngineDir = path.join(smokeRoot, "engine-relocated");
   const overlayDir = path.join(smokeRoot, "overlay");
   try {
@@ -260,7 +262,7 @@ export const buildEngineProfiles = async ({
 
   fs.mkdirSync(outputDir, { recursive: true });
   const overlayBuild = await buildBackendOverlay({ outputDir });
-  const pythonCacheDir = path.join(os.tmpdir(), "koma-uv-python-cache");
+  const pythonCacheDir = path.join(fs.realpathSync.native(os.tmpdir()), "koma-uv-python-cache");
   const environmentFingerprint = `${process.platform}-${process.arch}-py${RELOCATABLE_PYTHON_VERSION}-${ENGINE_ABI_VERSION}`;
 
   const manifestProfiles = {};
@@ -293,7 +295,9 @@ export const buildEngineProfiles = async ({
       }
     }
 
-    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `koma-engine-work-${profile}-`));
+    const workDir = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), `koma-engine-work-${profile}-`)),
+    );
     const stageEngineDir = path.join(workDir, "engine");
     try {
       const pythonBin = installStandalonePython(stageEngineDir, pythonCacheDir);

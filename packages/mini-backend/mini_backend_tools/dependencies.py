@@ -615,7 +615,10 @@ async def provision(
         "Scripts" if platform.system() == "Windows" else "bin"
     )
     if settings.standalone_python:
-        if not resolved_target_python.is_relative_to(resolved_environment_root):
+        if not (
+            resolved_target_python.is_relative_to(resolved_environment_root)
+            or resolved_target_python.resolve().is_relative_to(resolved_environment_root)
+        ):
             raise DependencyError("Provisioning requires target python inside environment root")
     else:
         if environment_root is None and sys.prefix == sys.base_prefix:
