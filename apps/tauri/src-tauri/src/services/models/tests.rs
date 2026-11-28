@@ -433,3 +433,94 @@ fn restore_previous_manifest_cleans_up_empty_incomplete_dir() {
     storage::restore_previous_manifest(temporary.path(), "manga_ocr", None).unwrap();
     assert!(!dir.exists());
 }
+
+#[test]
+fn ctd_text_seg_is_backend_managed_and_completes_via_shared_detector_weights() {
+    let temporary = tempfile::tempdir().unwrap();
+    let payload = DesktopModelDownloadPayload {
+        id: "ctd_text_seg".to_string(),
+        name: "CTD Text Mask (ONNX)".to_string(),
+        version: "1.1.0".to_string(),
+        download_url:
+            "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx"
+                .to_string(),
+        checksum_sha256: "1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f"
+            .to_string(),
+        expected_download_bytes: 94_669_756,
+        required_disk_bytes: 94_669_756,
+        source_language: None,
+        install_strategy: None,
+        runtime_family: Some("onnx".to_string()),
+        backend_install_endpoint: None,
+    };
+
+    let normalized = normalize_download_payload(payload.clone()).expect("ctd_text_seg normalizes");
+    assert_eq!(normalized.install_strategy.as_deref(), Some("backend_managed"));
+    assert_eq!(
+        normalized.backend_install_endpoint.as_deref(),
+        Some("/models/install")
+    );
+
+    let ctd_dir = temporary.path().join("ctd_text_seg");
+    fs::create_dir_all(&ctd_dir).unwrap();
+    assert!(storage::complete_download(temporary.path(), &normalized).is_err());
+
+    let detector_weights = temporary
+        .path()
+        .join("comic_text_detector")
+        .join("comictextdetector.pt.onnx");
+    fs::create_dir_all(detector_weights.parent().unwrap()).unwrap();
+    fs::write(&detector_weights, b"onnx-weights").unwrap();
+    fs::write(ctd_dir.join("segmenter.meta"), b"{}").unwrap();
+
+    let completed = storage::complete_download(temporary.path(), &normalized)
+        .expect("ctd_text_seg completes when comic_text_detector weights exist");
+    assert_eq!(completed.status, "installed");
+
+    fs::remove_file(&detector_weights).unwrap();
+    let records = storage::list_installed_models(temporary.path()).unwrap();
+    let ctd_record = records
+        .iter()
+        .find(|record| record.model_id == "ctd_text_seg")
+        .expect("ctd_text_seg record present");
+    assert_eq!(ctd_record.status, "incomplete");
+}
+
+#[test]
+fn remaining_segmentation_detection_and_direct_enhance_payloads_match_disk_files() {
+    for (id, file, expected_strategy) in [
+        ("comic_text_mask", "model.onnx", Some("backend_managed")),
+        (
+            "yolo_bubble",
+            "manga109_segmentation_bubble_1024.onnx",
+            Some("backend_managed"),
+        ),
+        ("4xnomos2_hq_mosr", "model.onnx", None),
+        ("4xspankendata", "model.onnx", None),
+    ] {
+        let payload = DesktopModelDownloadPayload {
+            id: id.to_string(),
+            name: id.to_string(),
+            version: "1.1.0".to_string(),
+            download_url: "https://huggingface.co/example/repo/resolve/main/model.onnx".to_string(),
+            checksum_sha256: "a".repeat(64),
+            expected_download_bytes: 1024,
+            required_disk_bytes: 2048,
+            source_language: None,
+            install_strategy: None,
+            runtime_family: None,
+            backend_install_endpoint: None,
+        };
+        let normalized = normalize_download_payload(payload).expect(id);
+        assert_eq!(normalized.install_strategy.as_deref(), expected_strategy, "{id}");
+
+        let temporary = tempfile::tempdir().unwrap();
+        let directory = temporary.path().join(id);
+        fs::create_dir_all(&directory).unwrap();
+        assert!(!storage::is_installed_payload_present(id, &directory).unwrap(), "{id}");
+        fs::write(directory.join("model.bin"), b"wrong").unwrap();
+        assert!(!storage::is_installed_payload_present(id, &directory).unwrap(), "{id}");
+        fs::write(directory.join(file), b"weights").unwrap();
+        assert!(storage::is_installed_payload_present(id, &directory).unwrap(), "{id}");
+    }
+}

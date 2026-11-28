@@ -20,7 +20,7 @@ from core.hf_download import (
 from core.models_store import resolve_model_dir
 from core.languages import normalize_language_code
 from models.detection.storage import ensure_detection_model_installed
-from models.enhance.storage import ensure_enhance_model_installed
+from models.enhance.storage import ENHANCE_MODEL_SPECS, ensure_enhance_model_installed
 from models.image_edit import (
     LOCAL_IMAGE_EDIT_MODEL_IDS,
     ensure_local_image_edit_model_installed,
@@ -111,7 +111,14 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     if expected_sha is not None and set(expected_sha) == {"0"}:
         logger.warning("registry.checksum_placeholder", extra={"model_id": model_id})
         expected_sha = None
-    target_path = target_dir / "model.bin"
+    enhance_spec = ENHANCE_MODEL_SPECS.get(model_id)
+    if enhance_spec is not None:
+        target_name = str(enhance_spec.get("target") or "model.onnx")
+    elif parts.path.lower().endswith(".onnx"):
+        target_name = "model.onnx"
+    else:
+        target_name = "model.bin"
+    target_path = target_dir / target_name
     bridge = progress_bridge_var.get()
     if bridge is not None and declared_bytes > 0:
         bridge.declare_total(declared_bytes)

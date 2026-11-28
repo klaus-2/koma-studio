@@ -65,6 +65,34 @@ class SegmentationStorageTests(unittest.TestCase):
             self.assertTrue(storage.segmentation_runtime_ready("ctd_text_seg"))
             mock_ready.assert_called_with("comic_text_detector")
 
+    def test_ctd_text_seg_install_writes_marker_and_reuses_detector_weights(self) -> None:
+        with _models_root() as tmp:
+            det_dir = tmp / "comic_text_detector"
+            det_dir.mkdir(parents=True, exist_ok=True)
+            fake_report = {
+                "modelId": "comic_text_detector",
+                "directory": str(det_dir),
+                "fileCount": 1,
+                "file": {
+                    "target": "comictextdetector.pt.onnx",
+                    "source": "local-cache",
+                    "sha256": "1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f",
+                    "downloaded": False,
+                },
+            }
+            with patch.object(
+                storage,
+                "ensure_detection_model_installed",
+                return_value=fake_report,
+            ) as mock_det:
+                report = storage.ensure_segmentation_model_installed("ctd_text_seg")
+
+            mock_det.assert_called_once_with("comic_text_detector")
+            self.assertEqual(report["file"]["target"], "comictextdetector.pt.onnx")
+            marker = tmp / "ctd_text_seg" / "segmenter.meta"
+            self.assertTrue(marker.is_file())
+            self.assertIn("comic_text_detector", marker.read_text(encoding="utf-8"))
+
     def test_comic_text_mask_readiness_checks_exact_size(self) -> None:
         with _models_root() as tmp:
             self.assertFalse(storage.segmentation_runtime_ready("comic_text_mask"))

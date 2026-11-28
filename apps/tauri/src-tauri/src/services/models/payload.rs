@@ -34,7 +34,10 @@ const INPAINT_LAMA_MODEL_ID: &str = "lama_manga";
 const INPAINT_OPENCV_LAMA_MODEL_ID: &str = "opencv_lama";
 const INPAINT_LAMA_FP32_MODEL_ID: &str = "lama_fp32";
 const SEGMENT_BAKA_MODEL_ID: &str = "baka_content_cc";
+const SEGMENT_CTD_MODEL_ID: &str = "ctd_text_seg";
+const SEGMENT_COMIC_TEXT_MASK_MODEL_ID: &str = "comic_text_mask";
 const COMIC_TEXT_DETECTOR_MODEL_ID: &str = "comic_text_detector";
+const YOLO_BUBBLE_MODEL_ID: &str = "yolo_bubble";
 const FONT_RTDETR_MODEL_ID: &str = "font_rtdetr_v2";
 const PP_DOCLAYOUT_MODEL_ID: &str = "pp_doclayout_v3";
 const FONT_RTDETR_FILE_NAME: &str = "detector.onnx";
@@ -216,9 +219,27 @@ pub fn is_installed_payload_present(model_id: &str, directory: &Path) -> AppResu
         INPAINT_LAMA_FP32_MODEL_ID => has_one("lama_fp32.onnx"),
         "waifu2x_swin_unet_art_scan_2x"
         | "waifu2x_swin_unet_art_scan_4x"
-        | "waifu2x_swin_unet_art_2x" => has_one(ENHANCE_MODEL_FILE_NAME),
+        | "waifu2x_swin_unet_art_2x"
+        | "4xnomos2_hq_mosr"
+        | "4xspankendata" => has_one(ENHANCE_MODEL_FILE_NAME),
         SEGMENT_BAKA_MODEL_ID => has_one("segmenter.meta"),
+        SEGMENT_CTD_MODEL_ID => {
+            has_one("comictextdetector.pt.onnx")
+                || (has_one("segmenter.meta")
+                    && directory.parent().is_some_and(|root| {
+                        root.join(COMIC_TEXT_DETECTOR_MODEL_ID)
+                            .join("comictextdetector.pt.onnx")
+                            .is_file()
+                    }))
+                || directory.parent().is_some_and(|root| {
+                    root.join(COMIC_TEXT_DETECTOR_MODEL_ID)
+                        .join("comictextdetector.pt.onnx")
+                        .is_file()
+                })
+        }
+        SEGMENT_COMIC_TEXT_MASK_MODEL_ID => has_one(ENHANCE_MODEL_FILE_NAME),
         COMIC_TEXT_DETECTOR_MODEL_ID => has_one("comictextdetector.pt.onnx"),
+        YOLO_BUBBLE_MODEL_ID => has_one("manga109_segmentation_bubble_1024.onnx"),
         FONT_RTDETR_MODEL_ID => has_one(FONT_RTDETR_FILE_NAME),
         PP_DOCLAYOUT_MODEL_ID => has_files(&[
             "config.json",

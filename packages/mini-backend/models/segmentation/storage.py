@@ -1,5 +1,3 @@
-"""Install-state bookkeeping and weight resolution for segmentation engines."""
-
 from __future__ import annotations
 
 import hashlib
@@ -38,13 +36,11 @@ _COMIC_TEXT_MASK_SHA256: Final[str] = (
 )
 _COMIC_TEXT_MASK_SIZE: Final[int] = 57_312_337
 
-
 class InstalledFileReport(TypedDict):
     target: str
     source: str
     sha256: str
     downloaded: bool
-
 
 class SegmentationInstallReport(TypedDict):
     modelId: str
@@ -52,19 +48,15 @@ class SegmentationInstallReport(TypedDict):
     fileCount: int
     file: InstalledFileReport
 
-
 def _normalize(model_id: str) -> str:
     return model_id.strip().lower()
-
 
 def resolve_segmentation_model_dir(model_id: str) -> Path | None:
     return resolve_model_dir(_normalize(model_id))
 
-
 def resolve_segmentation_marker_path(model_id: str) -> Path | None:
     model_dir = resolve_segmentation_model_dir(model_id)
     return None if model_dir is None else model_dir / _MARKER_FILENAME
-
 
 def segmentation_runtime_ready(model_id: str) -> bool:
     normalized = _normalize(model_id)
@@ -87,7 +79,6 @@ def segmentation_runtime_ready(model_id: str) -> bool:
         except (OSError, KeyError, TypeError, ValueError):
             return False
     return False
-
 
 def _ensure_marker_install(model_id: str) -> SegmentationInstallReport:
     model_dir = resolve_segmentation_model_dir(model_id)
@@ -114,7 +105,6 @@ def _ensure_marker_install(model_id: str) -> SegmentationInstallReport:
         ),
     )
 
-
 def ensure_segmentation_model_installed(model_id: str) -> SegmentationInstallReport:
     normalized = _normalize(model_id)
     if normalized not in SUPPORTED_SEGMENTATION_MODEL_IDS:
@@ -133,6 +123,20 @@ def ensure_segmentation_model_installed(model_id: str) -> SegmentationInstallRep
             )
         det_report = ensure_detection_model_installed("comic_text_detector")
         file_info = det_report["file"]
+        model_dir.mkdir(parents=True, exist_ok=True)
+        meta_path = model_dir / _MARKER_FILENAME
+        meta_payload = json.dumps(
+            {
+                "modelId": CTD_SEGMENTATION_MODEL_ID,
+                "sharedWith": "comic_text_detector",
+                "target": str(file_info["target"]),
+                "sha256": str(file_info["sha256"]),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if not meta_path.is_file() or meta_path.read_text(encoding="utf-8") != meta_payload:
+            meta_path.write_text(meta_payload, encoding="utf-8")
         return SegmentationInstallReport(
             modelId=normalized,
             directory=str(det_report["directory"]),

@@ -100,6 +100,35 @@ class DetectionManagedInstallDispatchTests(unittest.TestCase):
             generic_mock.assert_not_called()
             self.assertEqual(payload["modelId"], model_id)
 
+    def test_generic_onnx_enhance_download_saves_as_model_onnx(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "4xSPANkendata_fp32.onnx"
+            source.write_bytes(b"fake-onnx")
+            models_root = Path(root) / "models"
+            with (
+                patch.dict(os.environ, {"KOMA_MODELS_ROOT": str(models_root)}),
+                patch.object(
+                    model_install_router,
+                    "download_file",
+                    side_effect=lambda _url, target_path, **_kw: (
+                        target_path.parent.mkdir(parents=True, exist_ok=True),
+                        target_path.write_bytes(source.read_bytes()),
+                    ),
+                ),
+            ):
+                result = model_install_router._download_generic_model(
+                    "4xspankendata",
+                    {
+                        "download_url": "https://raw.githubusercontent.com/terrainer/AI-Upscaling-Models/main/4xSPANkendata/4xSPANkendata_fp32.onnx",
+                    },
+                )
+
+            expected = (models_root / "4xspankendata" / "model.onnx").resolve()
+            self.assertEqual(Path(result["target"]).resolve(), expected)
+            self.assertTrue(expected.is_file())
+
     def test_segmentation_models_use_the_managed_segmentation_installer(self) -> None:
         for model_id in ("ctd_text_seg", "comic_text_mask"):
             with (
@@ -115,6 +144,35 @@ class DetectionManagedInstallDispatchTests(unittest.TestCase):
             installer.assert_called_once_with(model_id)
             generic_mock.assert_not_called()
             self.assertEqual(payload["modelId"], model_id)
+
+    def test_generic_onnx_enhance_download_saves_as_model_onnx(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "4xSPANkendata_fp32.onnx"
+            source.write_bytes(b"fake-onnx")
+            models_root = Path(root) / "models"
+            with (
+                patch.dict(os.environ, {"KOMA_MODELS_ROOT": str(models_root)}),
+                patch.object(
+                    model_install_router,
+                    "download_file",
+                    side_effect=lambda _url, target_path, **_kw: (
+                        target_path.parent.mkdir(parents=True, exist_ok=True),
+                        target_path.write_bytes(source.read_bytes()),
+                    ),
+                ),
+            ):
+                result = model_install_router._download_generic_model(
+                    "4xspankendata",
+                    {
+                        "download_url": "https://raw.githubusercontent.com/terrainer/AI-Upscaling-Models/main/4xSPANkendata/4xSPANkendata_fp32.onnx",
+                    },
+                )
+
+            expected = (models_root / "4xspankendata" / "model.onnx").resolve()
+            self.assertEqual(Path(result["target"]).resolve(), expected)
+            self.assertTrue(expected.is_file())
 
 
 if __name__ == "__main__":

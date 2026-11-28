@@ -223,12 +223,153 @@ const isInstalledPayloadPresent = (modelId: string, modelDir: string): boolean =
     return fs.existsSync(path.join(modelDir, "lama_fp32.onnx"));
   }
 
+  if (
+    normalizedModelId === "waifu2x_swin_unet_art_scan_2x" ||
+    normalizedModelId === "waifu2x_swin_unet_art_scan_4x" ||
+    normalizedModelId === "waifu2x_swin_unet_art_2x" ||
+    normalizedModelId === "4xnomos2_hq_mosr" ||
+    normalizedModelId === "4xspankendata"
+  ) {
+    return fs.existsSync(path.join(modelDir, "model.onnx"));
+  }
+
   if (normalizedModelId === SEGMENT_BAKA_MODEL_ID) {
     return fs.existsSync(path.join(modelDir, "segmenter.meta"));
   }
 
+  if (normalizedModelId === "ctd_text_seg") {
+    const siblingDetector = path.join(path.dirname(modelDir), "comic_text_detector", "comictextdetector.pt.onnx");
+    return (
+      fs.existsSync(path.join(modelDir, "comictextdetector.pt.onnx")) ||
+      fs.existsSync(siblingDetector)
+    );
+  }
+
+  if (normalizedModelId === "comic_text_mask") {
+    return fs.existsSync(path.join(modelDir, "model.onnx"));
+  }
+
+  if (normalizedModelId === "comic_text_detector") {
+    return fs.existsSync(path.join(modelDir, "comictextdetector.pt.onnx"));
+  }
+
+  if (normalizedModelId === "yolo_bubble") {
+    return fs.existsSync(path.join(modelDir, "manga109_segmentation_bubble_1024.onnx"));
+  }
+
   if (normalizedModelId === FONT_RTDETR_MODEL_ID) {
     return fs.existsSync(path.join(modelDir, FONT_RTDETR_FILE_NAME));
+  }
+
+  if (normalizedModelId === "pp_doclayout_v3") {
+    return hasRequiredFiles([
+      "config.json",
+      "preprocessor_config.json",
+      "model.safetensors",
+    ]);
+  }
+
+  if (normalizedModelId === "paddleocr_vl_1_5") {
+    return hasRequiredFiles([
+      "added_tokens.json",
+      "chat_template.jinja",
+      "config.json",
+      "configuration_paddleocr_vl.py",
+      "generation_config.json",
+      "image_processing_paddleocr_vl.py",
+      "modeling_paddleocr_vl.py",
+      "preprocessor_config.json",
+      "processing_paddleocr_vl.py",
+      "processor_config.json",
+      "model.safetensors",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer.model",
+      "tokenizer_config.json",
+    ]);
+  }
+
+  if (normalizedModelId === "vntl_llama3_8b_v2") {
+    return fs.existsSync(path.join(modelDir, "vntl-llama3-8b-v2-hf-q8_0.gguf"));
+  }
+
+  if (normalizedModelId === "lfm2_350m_enjp_mt") {
+    return fs.existsSync(path.join(modelDir, "LFM2-350M-ENJP-MT-Q4_0.gguf"));
+  }
+
+  if (normalizedModelId === "sakura_galtransl_7b_v3_7") {
+    return fs.existsSync(path.join(modelDir, "Sakura-Galtransl-7B-v3.7-IQ4_XS.gguf"));
+  }
+
+  if (normalizedModelId === "sakura_1_5b_qwen2_5_v1_0") {
+    return fs.existsSync(path.join(modelDir, "sakura-1.5b-qwen2.5-v1.0-Q5KS.gguf"));
+  }
+
+  if (normalizedModelId === "hunyuan_7b_mt_v1_0") {
+    return fs.existsSync(path.join(modelDir, "Hunyuan-MT-7B-q4_k_m.gguf"));
+  }
+
+  if (normalizedModelId === "opus-mt-ja-en" || normalizedModelId === "opus-mt-zh-en") {
+    return hasRequiredFiles([
+      "config.json",
+      "generation_config.json",
+      "pytorch_model.bin",
+      "source.spm",
+      "target.spm",
+      "tokenizer_config.json",
+      "vocab.json",
+    ]);
+  }
+
+  if (normalizedModelId === "nllb-200-3.3b") {
+    return hasRequiredFiles([
+      "config.json",
+      "generation_config.json",
+      "pytorch_model-00001-of-00003.bin",
+      "pytorch_model-00002-of-00003.bin",
+      "pytorch_model-00003-of-00003.bin",
+      "pytorch_model.bin.index.json",
+      "sentencepiece.bpe.model",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+    ]);
+  }
+
+  if (normalizedModelId === "nllb-200-600m-int8") {
+    return hasRequiredFiles([
+      "config.json",
+      "model.bin",
+      "sentencepiece.bpe.model",
+      "shared_vocabulary.txt",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+    ]);
+  }
+
+  if (normalizedModelId === "nllb-200-1.3b") {
+    return hasRequiredFiles([
+      "config.json",
+      "generation_config.json",
+      "pytorch_model.bin",
+      "sentencepiece.bpe.model",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+    ]);
+  }
+
+  if (normalizedModelId === "nllb-200-1.3b-int8-ct2") {
+    return hasRequiredFiles([
+      "config.json",
+      "generation_config.json",
+      "model.bin",
+      "shared_vocabulary.json",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+    ]);
   }
 
   if (normalizedModelId === "instruct_pix2pix") {
