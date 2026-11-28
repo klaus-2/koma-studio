@@ -30,7 +30,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["../../packages/interface/src/*"],
-      "@shared/*": ["../../packages/types/src/*"]
+      "@shared/*": ["../../packages/types/src/*"],
+      "@koma/types/*": ["../../packages/types/src/*"]
     },
 
     "types": ["vite/client", "node"]

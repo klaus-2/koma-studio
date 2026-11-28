@@ -235,7 +235,7 @@ jobs:
             platform: linux
             bundles: "appimage deb"
             artifact: koma-tauri-linux-x64
-          - os: macos-14
+          - os: macos-latest
             platform: mac
             bundles: "dmg app"
             artifact: koma-tauri-macos-arm64
@@ -269,6 +269,7 @@ jobs:
           KOMA_TAURI_SKIP_UPDATER_ARTIFACTS: "1"
         run: |
           set -euo pipefail
+          export PATH="$PWD/node_modules/.bin:$PWD/../../node_modules/.bin:$PATH"
           node scripts/with-signing-key.mjs tauri build --bundles ${{ matrix.bundles }}
           node scripts/rename-tauri-installers.mjs
       - name: Stage native installers & generate Zstd binary deltas

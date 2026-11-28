@@ -72,7 +72,7 @@ jobs:
             profiles: "nvidia-cuda"
             manifest: koma-runtime-linux-x64.json
           - id: mac-arm64
-            os: macos-14
+            os: macos-latest
             profiles: "cpu,apple-mps"
             manifest: koma-runtime-darwin-arm64.json
     runs-on: ${{ matrix.os }}
