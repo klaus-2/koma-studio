@@ -198,8 +198,12 @@ export default function KomaTopbarUserMenuNoir({
                   onClick={() => { onClose(); onReplayTour(); }}
                 />
               )}
-              <MenuItem icon={Megaphone} label={t('dashboard.topbar.scanlationFeed')} onClick={() => { onClose(); onOpenScanlationFeed?.(); }} />
-              <MenuItem icon={Trophy} label={t('dashboard.topbar.rankings')} onClick={() => { onClose(); onOpenModelRankings?.(); }} />
+              {onOpenScanlationFeed && (
+                <MenuItem icon={Megaphone} label={t('dashboard.topbar.scanlationFeed')} onClick={() => { onClose(); onOpenScanlationFeed(); }} />
+              )}
+              {onOpenModelRankings && (
+                <MenuItem icon={Trophy} label={t('dashboard.topbar.rankings')} onClick={() => { onClose(); onOpenModelRankings(); }} />
+              )}
               <div className="my-1 border-t border-paper/10" />
               <MenuItem icon={LogOut} label={t('dashboard.topbar.logout')} danger onClick={() => { onClose(); onLogout(); }} />
             </div>

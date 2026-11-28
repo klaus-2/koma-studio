@@ -170,6 +170,8 @@ import { useDashboardKeyboard } from './dashboard/hooks/use-dashboard-keyboard';
 import { useDashboardIdlePreload } from './dashboard/hooks/use-dashboard-idle-preload';
 import DashboardMainLayout from './dashboard/sections/DashboardMainLayout';
 
+const AUTH_DISABLED_LOCAL_USER_ID = 'local-offline-user';
+
 export const DashboardPage = ({
   onOpenSettings,
   onOpenModelRankings,
@@ -184,7 +186,9 @@ export const DashboardPage = ({
     isLoading: authLoading,
     logout,
     sendVerificationEmail,
+    isAuthDisabled,
   } = useAuth();
+  const effectiveUserId = authUser?.id ?? (isAuthDisabled ? AUTH_DISABLED_LOCAL_USER_ID : null);
   const aioPipelineStageLabels = useMemo(() => getAioPipelineStageLabels(t), [t]);
   const aioPipelineStageProgressLabels = useMemo(
     () => getAioPipelineStageProgressLabels(t),
@@ -1551,10 +1555,10 @@ export const DashboardPage = ({
     hasAioRenderRegionsForPsd,
   } = useExportDownloadAvailability({ activeImage });
 
-  const onboarding = useOnboardingState(authUser?.id ?? null);
+  const onboarding = useOnboardingState(effectiveUserId);
 
   const { replayTour, isTourActive } = useDashboardTour({
-    userId: authUser?.id ?? null,
+    userId: effectiveUserId,
     isReady: !authLoading,
     suppressAutoStart: onboarding.suppressAutoTour,
     mode,
@@ -1573,14 +1577,14 @@ export const DashboardPage = ({
   });
 
   useOnboardingSession({
-    userId: authUser?.id ?? null,
+    userId: effectiveUserId,
     isAuthReady: !authLoading,
     replayTour,
     onboarding,
   });
 
   useDashboardModeCoachmarks({
-    userId: authUser?.id ?? null,
+    userId: effectiveUserId,
     isReady: !authLoading,
     suppressed: onboarding.isOpen || isTourActive,
     mode,

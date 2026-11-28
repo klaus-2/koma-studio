@@ -20,6 +20,7 @@ interface SettingsGeneralTabArgs {
   t: TranslationFn;
   user: AuthUser | null;
   authLoading: boolean;
+  isAuthDisabled: boolean;
   isDesktop: boolean;
   verificationBusy: boolean;
   handleVerify: () => Promise<void>;
@@ -84,7 +85,7 @@ const BackdropVideoSectionNoir = ({ t }: { t: TranslationFn }): React.ReactEleme
 };
 
 export const renderSettingsGeneralTabNoir = ({
-  t, user, authLoading, isDesktop, verificationBusy, handleVerify,
+  t, user, authLoading, isAuthDisabled, isDesktop, verificationBusy, handleVerify,
   profileFeedback, profileError,
   maskedDest, travelExpires, travelDuration, travelBusy, emailDeliveryEnabled,
   handleTravel, travelBlocked, travelFeedback, travelMeta, fmtDate, travelDaysLabel, travelError,
@@ -113,7 +114,7 @@ export const renderSettingsGeneralTabNoir = ({
             )}
           </span>
         </SpecRow>
-        <SpecRow label={t("settings.profile.accountId")} mono>{shortId(user?.id)}</SpecRow>
+        <SpecRow label={t("settings.profile.accountId")} mono>{isAuthDisabled ? "—" : shortId(user?.id)}</SpecRow>
         <SpecRow label={t("settings.profile.billing")} mono>
           {user?.email ? user.email.toUpperCase() : t("settings.profile.unspecified")}
         </SpecRow>
@@ -138,6 +139,7 @@ export const renderSettingsGeneralTabNoir = ({
       </div>
     </Sec>
 
+    {!isAuthDisabled && (
     <Sec icon={<Ticket size={14} />} title={t("settings.travel.title")}
       desc={t("settings.travel.description")}>
 
@@ -180,6 +182,7 @@ export const renderSettingsGeneralTabNoir = ({
         {travelError && <Alert tone="error">{travelError}</Alert>}
       </div>
     </Sec>
+    )}
 
     <Sec icon={<Globe2 size={14} />} title={t("settings.language.title")} desc={t("settings.language.description")}>
       <div className="grid gap-4 sm:grid-cols-2">

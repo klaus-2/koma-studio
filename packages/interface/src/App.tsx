@@ -54,6 +54,7 @@ interface AppRouteContentProps {
   handleConfirmNavigateDashboard: () => void;
   handleConfirmSuccess: () => Promise<void>;
   isAuthenticated: boolean;
+  isAuthDisabled: boolean;
   isLoading: boolean;
   navigateDashboard: () => void;
   navigateForgotPassword: () => void;
@@ -72,6 +73,7 @@ const AppRouteContent = ({
   handleConfirmNavigateDashboard,
   handleConfirmSuccess,
   isAuthenticated,
+  isAuthDisabled,
   isLoading,
   navigateDashboard,
   navigateForgotPassword,
@@ -194,8 +196,8 @@ const AppRouteContent = ({
 
     return (
       <DashboardPage
-        onOpenScanlationFeed={navigateScanlationFeed}
-        onOpenModelRankings={navigateModelRankings}
+        onOpenScanlationFeed={isAuthDisabled ? undefined : navigateScanlationFeed}
+        onOpenModelRankings={isAuthDisabled ? undefined : navigateModelRankings}
         onOpenSettings={navigateSettings}
       />
     );
@@ -205,6 +207,7 @@ const AppRouteContent = ({
     handleConfirmNavigateDashboard,
     handleConfirmSuccess,
     isAuthenticated,
+    isAuthDisabled,
     isLoading,
     navigateDashboard,
     navigateForgotPassword,
@@ -224,7 +227,7 @@ const AppShell = () => {
   const [route, setRoute] = useState<RoutePath>(parseHashRoute);
   const routeRef = useRef(route);
   const pendingNavigationRef = useRef(0);
-  const { user, isAuthenticated, isLoading, refreshSession, markEmailVerified, activeBan, clearBanState } = useAuthContext();
+  const { user, isAuthenticated, isAuthDisabled, isLoading, refreshSession, markEmailVerified, activeBan, clearBanState } = useAuthContext();
   const theme = useThemeStore(
     (s: { theme: import("@koma/ui/stores/theme-store").KomaTheme }) => s.theme,
   );
@@ -510,6 +513,7 @@ const AppShell = () => {
               handleConfirmNavigateDashboard={handleConfirmNavigateDashboard}
               handleConfirmSuccess={handleConfirmSuccess}
               isAuthenticated={isAuthenticated}
+              isAuthDisabled={isAuthDisabled}
               isLoading={isLoading}
               navigateDashboard={navigateDashboard}
               navigateForgotPassword={navigateForgotPassword}

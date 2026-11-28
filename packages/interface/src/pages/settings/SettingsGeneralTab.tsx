@@ -17,6 +17,7 @@ interface SettingsGeneralTabArgs {
   t: TranslationFn;
   user: AuthUser | null;
   authLoading: boolean;
+  isAuthDisabled: boolean;
   isDesktop: boolean;
   verificationBusy: boolean;
   handleVerify: () => Promise<void>;
@@ -54,7 +55,6 @@ interface SettingsGeneralTabArgs {
   onReplayTour?: () => void;
 }
 
-// UI scale (90/100/125/150%) + compact density — applies live via applyUiScale (App mount).
 const UiScaleSection = ({ t }: { t: TranslationFn }): JSX.Element => {
   const uiScale = useUiScaleStore((s) => s.uiScale);
   const compactDensity = useUiScaleStore((s) => s.compactDensity);
@@ -75,6 +75,7 @@ export const renderSettingsGeneralTab = ({
   t,
   user,
   authLoading,
+  isAuthDisabled,
   isDesktop,
   verificationBusy,
   handleVerify,
@@ -112,7 +113,6 @@ export const renderSettingsGeneralTab = ({
   onReplayTour,
 }: SettingsGeneralTabArgs): JSX.Element => (
 <div className="koma-stg-panel" key="general">
-  {/* Profile Section */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
@@ -136,10 +136,12 @@ export const renderSettingsGeneralTab = ({
           {authLoading ? t("common.loading") : user?.emailVerified ? t("settings.profile.verified") : t("settings.profile.pending")}
         </span>
       </div>
-      <div className="koma-stg-item">
-        <span className="koma-stg-item__label">{t("settings.profile.accountId")}</span>
-        <span className="koma-stg-item__value koma-stg-item__value--mono">{shortId(user?.id)}</span>
-      </div>
+      {!isAuthDisabled && (
+        <div className="koma-stg-item">
+          <span className="koma-stg-item__label">{t("settings.profile.accountId")}</span>
+          <span className="koma-stg-item__value koma-stg-item__value--mono">{shortId(user?.id)}</span>
+        </div>
+      )}
       <div className="koma-stg-item">
         <span className="koma-stg-item__label">{t("settings.profile.environment")}</span>
         <span className="koma-stg-item__value">{isDesktop ? "Desktop" : "Web"}</span>
@@ -172,7 +174,7 @@ export const renderSettingsGeneralTab = ({
     )}
   </section>
 
-  {/* Travel Token Section */}
+  {!isAuthDisabled && (
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
@@ -243,6 +245,7 @@ export const renderSettingsGeneralTab = ({
       </div>
     )}
   </section>
+  )}
 
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
@@ -284,7 +287,6 @@ export const renderSettingsGeneralTab = ({
     </p>
   </section>
 
-  {/* Theme Family Selector (design system: classic / noir) */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
@@ -314,7 +316,6 @@ export const renderSettingsGeneralTab = ({
     </div>
   </section>
 
-  {/* Theme Selector */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
@@ -347,9 +348,7 @@ export const renderSettingsGeneralTab = ({
     </div>
   </section>
 
-  {/* UI Scale & Density */}
   <UiScaleSection t={t} />
-  {/* Tool Tips */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
@@ -382,7 +381,6 @@ export const renderSettingsGeneralTab = ({
     </label>
   </section>
 
-  {/* Custom Cursor */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">

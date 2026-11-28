@@ -42,18 +42,14 @@ import {
 import './SettingsPresets.css';
 import './SettingsIntegrations.css';
 
-/* ─── Component ─────────────────────────────────────────── */
-
 export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const { locale, localeLabels, setLocale, supportedLocales, systemLocales, t } = useI18n();
   const updater = useUpdater();
-  const { user, isLoading: authLoading, sendVerificationEmail } = useAuth();
+  const { user, isLoading: authLoading, isAuthDisabled, sendVerificationEmail } = useAuth();
   const isDesktop = desktopBridge.isDesktopRuntime();
 
-  /* state — core */
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
-  /* state — theme */
   const currentTheme = useThemeStore((s) => s.theme);
   const setCurrentTheme = useThemeStore((s) => s.setTheme);
   const currentFamily = useThemeStore((s) => s.family);
@@ -70,8 +66,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
     }
     window.sessionStorage.removeItem(SETTINGS_REQUESTED_TAB_STORAGE_KEY);
   }, []);
-
-  /* ─── Derived ─────────────────────────────────────────── */
 
   const initials = useMemo(() => {
     if (!user?.name) return "K";
@@ -123,15 +117,12 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
     setTypographyPresetState: typographyPresets.setTypographyPresetState,
   });
 
-  /* ═══════════════════════════════════════════════════════
-     RENDER — TAB: GENERAL
-     ═══════════════════════════════════════════════════════ */
-
   const renderGeneralTab = () =>
     renderSettingsGeneralTab({
       t,
       user,
       authLoading,
+      isAuthDisabled,
       isDesktop,
       ...profileVerification,
       ...travelToken,
@@ -150,10 +141,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       onOpenOnboarding: handleOpenOnboarding,
       onReplayTour: handleReplayTour,
     });
-
-  /* ═══════════════════════════════════════════════════════
-     RENDER — TAB: PRESETS
-     ═══════════════════════════════════════════════════════ */
 
   const renderPresetsTab = () =>
     renderSettingsPresetsTab({
@@ -176,10 +163,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         typographyPresetFontOptions: presetFontOptions,
       },
     });
-
-  /* ═══════════════════════════════════════════════════════
-     RENDER — TAB: INTEGRATIONS
-     ═══════════════════════════════════════════════════════ */
 
   const renderIntegrationsTab = () =>
     renderSettingsIntegrationsTab({
