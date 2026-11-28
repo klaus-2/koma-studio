@@ -17,12 +17,12 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "mini-backend"]
 
-  - package-ecosystem: pip
+  - package-ecosystem: cargo
     directory: "/apps/discord-support-bot"
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
-    labels: ["dependencies", "discord-bot"]
+    labels: ["dependencies", "discord-bot", "rust"]
 
   - package-ecosystem: cargo
     directory: "/apps/tauri/src-tauri"

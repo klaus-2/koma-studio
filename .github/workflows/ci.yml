@@ -6,7 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Cancel superseded runs on the same ref.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -29,6 +28,7 @@ jobs:
       landing: ${{ steps.filter.outputs.landing }}
       python: ${{ steps.filter.outputs.python }}
       interface: ${{ steps.filter.outputs.interface }}
+      discord_bot: ${{ steps.filter.outputs.discord_bot }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -56,6 +56,8 @@ jobs:
               - 'apps/landing/**'
             python:
               - 'packages/mini-backend/**'
+            discord_bot:
+              - 'apps/discord-support-bot/**'
 
   interface:
     name: Interface (test · build)
@@ -76,9 +78,6 @@ jobs:
       - name: Tests (vitest)
         run: bun run --filter @koma/interface test
       - name: Build (vite)
-        # @koma/interface is a source-exported library (no index.html), so it is
-        # built through the consuming tauri shell. `bun run --filter` cannot
-        # resolve workspace packages when invoked from a member directory.
         run: bun run build:react
         working-directory: apps/tauri
 
@@ -157,6 +156,25 @@ jobs:
       - name: Unit tests
         run: cargo test --manifest-path apps/tauri/src-tauri/Cargo.toml --lib
 
+  discord-bot:
+    name: Discord bot Rust (clippy · test)
+    needs: changes
+    if: ${{ needs.changes.outputs.discord_bot == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/discord-support-bot -> target
+      - name: Clippy
+        run: cargo clippy --manifest-path apps/discord-support-bot/Cargo.toml --all-targets -- -D warnings
+      - name: Unit tests
+        run: cargo test --manifest-path apps/discord-support-bot/Cargo.toml
+
   auth-server:
     name: Auth server (typecheck · test)
     needs: changes
@@ -232,12 +250,9 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Line-count ratchet
-        # Exit 2 means only advisory >300-line component warnings; a hard-limit
-        # breach or a baselined file growing past its allowance exits 1.
         run: bun run --filter @koma/tauri audit:lines || [ $? -eq 2 ]
 
       - name: Reject foreign lockfiles
-        # A single bun.lock at the monorepo root.
         run: |
           set -e
           found=0
@@ -270,8 +285,6 @@ jobs:
           fi
 
       - name: No telemetry or paywalls (shared UI + packages)
-        # Line v2 governance: 100% free, zero telemetry.
-        # The Electron app (v1) and the auth-server have their own context and stay out.
         run: |
           set -e
           pattern='posthog|mixpanel|amplitude\.com|google-analytics|gtag\(|segment\.io|paddle\.com|MONTHLY_QUOTA|PlanTier|hasTierAccess|resolveFeatureEntitlements'
