@@ -7,10 +7,8 @@ import { useExportStore } from '../../pages/dashboard/stores/export-store';
 import { useCurrentUtilityWorkspaceStates } from '../../pages/dashboard/hooks/utility-workspaces';
 import { getModeLabels } from '../../constants/dashboard.constants';
 import type { ToolMode } from '../../types/dashboard.types';
+import { DashboardLazyFallback } from './DashboardLazyFallback';
 
-// Loaders memoize the import() promise so React.lazy's ctor and the idle
-// preload share it — a warmed chunk does not suspend on first mount (no
-// fallback flash).
 const loadStitchWorkspace = memoLoad(() => import('./stitch/StitchWorkspace'));
 const loadSplitterWorkspace = memoLoad(() => import('./splitter/SplitterWorkspace'));
 const loadWatermarkWorkspace = memoLoad(() => import('./watermark/WatermarkWorkspace'));
@@ -21,20 +19,12 @@ const SplitterWorkspace = lazy(loadSplitterWorkspace);
 const WatermarkWorkspace = lazy(loadWatermarkWorkspace);
 const ChapterOptimizerWorkspace = lazy(loadChapterOptimizerWorkspace);
 
-/** Fire-and-forget warmup of the special workspaces (called at browser idle). */
 export function preloadSpecialWorkspaces() {
   void loadStitchWorkspace().catch(() => { });
   void loadSplitterWorkspace().catch(() => { });
   void loadWatermarkWorkspace().catch(() => { });
   void loadChapterOptimizerWorkspace().catch(() => { });
 }
-
-const LazyFallback = () => (
-  <div className="koma-stage__empty" data-tour="dashboard-stage-empty">
-    <div className="koma-spinner" />
-    <p>Loading workspace...</p>
-  </div>
-);
 
 const DashboardSpecialModeStage = ({
   props,
@@ -98,15 +88,11 @@ const DashboardSpecialModeStage = ({
     onWatermarkWorkspaceStateChange,
     onOptimizerWorkspaceStateChange,
   } = props;
-  // Leaf-subscribed utility workspaces: recipe ticks re-render only
-  // this stage, not DashboardPage.
   const {
     currentWatermarkWorkspaceState: watermarkWorkspaceState,
     currentOptimizerWorkspaceState: optimizerWorkspaceState,
   } = useCurrentUtilityWorkspaceStates();
 
-  // Branch on the mode this mount belongs to, not the immediate store mode
-  // (which flips mid-deferral while the old workspace must stay mounted).
   const mode = (stageMode ?? immediateMode) as ToolMode;
 
   if (mode === 'translator' && translatorWorkspaceMode === 'visual' && images.length === 0) {
@@ -129,7 +115,7 @@ const DashboardSpecialModeStage = ({
 
   if (mode === 'stitch') {
     return (
-      <Suspense fallback={<LazyFallback />}>
+      <Suspense fallback={<DashboardLazyFallback />}>
         <StitchWorkspace
           images={images}
           batchPlans={stitchBatchPlans}
@@ -158,7 +144,7 @@ const DashboardSpecialModeStage = ({
 
   if (mode === 'split') {
     return (
-      <Suspense fallback={<LazyFallback />}>
+      <Suspense fallback={<DashboardLazyFallback />}>
         <SplitterWorkspace />
       </Suspense>
     );
@@ -166,7 +152,7 @@ const DashboardSpecialModeStage = ({
 
   if (mode === 'watermark') {
     return (
-      <Suspense fallback={<LazyFallback />}>
+      <Suspense fallback={<DashboardLazyFallback />}>
         <WatermarkWorkspace
           toolboxHostId="koma-watermark-toolbox-host"
           workspaceState={watermarkWorkspaceState}
@@ -191,7 +177,7 @@ const DashboardSpecialModeStage = ({
 
   if (mode === 'optimizer') {
     return (
-      <Suspense fallback={<LazyFallback />}>
+      <Suspense fallback={<DashboardLazyFallback />}>
         <ChapterOptimizerWorkspace
           workspaceState={optimizerWorkspaceState}
           restoreToken={workspaceRestoreToken}

@@ -288,7 +288,7 @@ export default function GuideStepRendererV2({
                             </span>
                           ) : null}
 
-                          <kbd className="min-w-8 border border-paper/15 bg-ink px-2 py-1.5 text-center font-mono text-[0.65rem] font-bold text-paper panel-cut-sm drop-shadow-[2px_2px_0_rgba(255,46,99,0.38)]">
+                          <kbd className="min-w-8 border border-paper/15 bg-ink px-2 py-1.5 text-center font-mono text-[0.65rem] font-bold text-paper panel-cut-sm drop-shadow-[2px_2px_0_color-mix(in_srgb,var(--noir-crimson)_38%,transparent)]">
                             {key}
                           </kbd>
                         </span>
@@ -586,7 +586,7 @@ function Checklist({
                 className={[
                   'grid size-6 shrink-0 place-items-center border panel-cut-sm',
                   checked
-                    ? 'border-mint bg-mint text-ink drop-shadow-[2px_2px_0_#ff2e63]'
+                    ? 'border-mint bg-mint text-ink drop-shadow-[2px_2px_0_var(--noir-crimson)]'
                     : 'border-paper/15 bg-ink text-transparent',
                 ].join(' ')}
                 aria-hidden="true"

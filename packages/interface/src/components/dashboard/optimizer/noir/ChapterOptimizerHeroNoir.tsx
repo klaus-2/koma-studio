@@ -60,7 +60,7 @@ export default function ChapterOptimizerHeroNoir({
       <span aria-hidden className="v-text absolute right-4 top-3 text-crimson/60  font-accent italic text-2xl leading-none select-none">最適化</span>
       <div
         className="absolute -right-8 -top-8 h-40 w-40 rounded-full blur-3xl"
-        style={{ background: 'radial-gradient(circle, rgba(255,46,99,0.35), transparent)' }}
+        style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--noir-crimson) 35%, transparent), transparent)' }}
         aria-hidden
       />
 

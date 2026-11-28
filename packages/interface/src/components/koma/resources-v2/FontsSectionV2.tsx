@@ -150,7 +150,6 @@ export default function FontsSectionV2({
       />
 
       <div className="space-y-5 p-4 sm:p-5">
-        {/* Collections */}
         <section aria-labelledby="resources-font-collections">
           <h3
             id="resources-font-collections"
@@ -355,7 +354,7 @@ export default function FontsSectionV2({
                     index={index}
                     className="h-full"
                   >
-                    <article className="offset-card panel-cut-sm relative flex h-full flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_rgba(255,46,99,0.18)]">
+                    <article className="offset-card panel-cut-sm relative flex h-full flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_color-mix(in_srgb,var(--noir-crimson)_18%,transparent)]">
                       <span
                         className="text-outline pointer-events-none absolute right-4 top-0 z-10 font-display text-6xl font-black leading-none"
                         aria-hidden="true"

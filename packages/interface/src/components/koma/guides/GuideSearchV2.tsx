@@ -478,7 +478,7 @@ export default function GuideSearchV2({
         onKeyDown={
           handleModalKeyDown
         }
-        className="glass panel-cut relative w-full max-w-3xl overflow-hidden drop-shadow-[10px_10px_0_rgba(255,46,99,0.28)]"
+        className="glass panel-cut relative w-full max-w-3xl overflow-hidden drop-shadow-[10px_10px_0_color-mix(in_srgb,var(--noir-crimson)_28%,transparent)]"
       >
         <div
           className="halftone-red pointer-events-none absolute -right-10 -top-10 size-48 opacity-35"
@@ -517,7 +517,7 @@ export default function GuideSearchV2({
             </button>
           </div>
 
-          <div className="panel-cut-sm flex items-center gap-3 border border-paper/12 bg-ink/75 px-4 focus-within:border-crimson/55 focus-within:drop-shadow-[4px_4px_0_rgba(255,46,99,0.22)]">
+          <div className="panel-cut-sm flex items-center gap-3 border border-paper/12 bg-ink/75 px-4 focus-within:border-crimson/55 focus-within:drop-shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson)_22%,transparent)]">
             <Search
               size={18}
               className="shrink-0 text-crimson"
@@ -662,8 +662,6 @@ export default function GuideSearchV2({
                           : 'border-transparent bg-paper/[0.018] hover:border-paper/12 hover:bg-paper/[0.035]',
                       ].join(' ')}
                       onMouseMove={() => {
-                        // setState with an unchanged value still schedules a
-                        // render pass, so skip it while hovering the selection.
                         if (index !== selectedIdx) {
                           setSelectedIdx(index);
                         }

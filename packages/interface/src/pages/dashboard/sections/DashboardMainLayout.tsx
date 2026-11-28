@@ -1,13 +1,11 @@
-import { Suspense, lazy, memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
-import { memoLoad } from '../../../utils/lazyModule';
 import { AlertTriangle } from 'lucide-react';
 
 import KomaTopbar from '../../KomaTopbar.tsx';
 import DashboardBackdrop from '../../../components/dashboard/DashboardBackdrop';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
-import DashboardSidebarSkeleton from '../../../components/dashboard/DashboardSidebarSkeleton';
 import InfoModesToolsPanel from '../../../components/dashboard/InfoModesToolsPanel';
 import ReviewRawToolsPanel from '../../../components/dashboard/ReviewRawToolsPanel';
 import DashboardOverlays from '../../../components/dashboard/DashboardOverlays';
@@ -19,25 +17,11 @@ import ManualToolsDockSection from './ManualToolsDock';
 import WorkflowSidebarPanelsSection from './WorkflowSidebarPanels';
 import DashboardStageSection from './StageGrid';
 import CleanerAiRecognizeTextModelManagerModal from './CleanerAiRecognizeTextModelManagerModal';
-
-const loadAioRightPanel = memoLoad(() => import('./AioRightPanel'));
-const loadCleanerToolsPanel = memoLoad(() => import('./CleanerToolsPanel'));
-const loadTypographerToolsPanel = memoLoad(() => import('./TypographerToolsPanel'));
-const loadTranslatorToolsPanel = memoLoad(() => import('./TranslatorToolsPanel'));
-const loadEnhanceToolsPanel = memoLoad(() => import('./EnhanceToolsPanel'));
-const AioRightPanel = lazy(loadAioRightPanel);
-const CleanerToolsPanel = lazy(loadCleanerToolsPanel);
-const TypographerToolsPanel = lazy(loadTypographerToolsPanel);
-const TranslatorToolsPanel = lazy(loadTranslatorToolsPanel);
-const EnhanceToolsPanelSection = lazy(loadEnhanceToolsPanel);
-
-export function preloadModeToolPanels() {
-  void loadAioRightPanel().catch(() => { });
-  void loadCleanerToolsPanel().catch(() => { });
-  void loadTypographerToolsPanel().catch(() => { });
-  void loadTranslatorToolsPanel().catch(() => { });
-  void loadEnhanceToolsPanel().catch(() => { });
-}
+import AioRightPanel from './AioRightPanel';
+import CleanerToolsPanel from './CleanerToolsPanel';
+import TypographerToolsPanel from './TypographerToolsPanel';
+import TranslatorToolsPanel from './TranslatorToolsPanel';
+import EnhanceToolsPanelSection from './EnhanceToolsPanel';
 
 import type { useSpecialModeStageProps } from '../hooks/utility-workspaces';
 
@@ -1153,7 +1137,6 @@ export default memo(function DashboardMainLayout({
         sidebarResizeStep={SIDEBAR_RESIZE_STEP}
       >
         {deferredStageMode === 'aio' && (
-          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <AioRightPanel
               handleAioSubModeChange={handleAioSubModeChange}
               rewindAioPipeline={rewindAioPipeline}
@@ -1218,10 +1201,8 @@ export default memo(function DashboardMainLayout({
               handleRenderFontImport={handleRenderFontImport}
               isDesktopRuntime={isDesktopRuntime}
             />
-          </Suspense>
         )}
         {deferredStageMode === 'cleaner' && (
-          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <CleanerToolsPanel
               cleanerAiModelOptions={cleanerAiOptionsForSelect}
               availableOcrStageOptions={cleanerAvailableOcrStageOptions}
@@ -1242,10 +1223,8 @@ export default memo(function DashboardMainLayout({
               handleClean={handleClean}
               localApiUrl={apiConfig.localUrl}
             />
-          </Suspense>
         )}
         {deferredStageMode === 'typesetter' && (
-          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <TypographerToolsPanel
               availableRenderFonts={availableRenderFonts}
               handleTypographerPresetChange={handleTypographerPresetChange}
@@ -1268,10 +1247,8 @@ export default memo(function DashboardMainLayout({
               retranslateTranslatorRegions={retranslateTranslatorRegions}
               updateAioRegionsForImage={updateAioRegionsForImage}
             />
-          </Suspense>
         )}
         {deferredStageMode === 'translator' && (
-          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <TranslatorToolsPanel
               translatorAvailableOcrStageOptions={
                 translatorAvailableOcrStageOptions
@@ -1303,7 +1280,6 @@ export default memo(function DashboardMainLayout({
               activeId={resolvedActiveId}
               retranslateTranslatorRegions={retranslateTranslatorRegions}
             />
-          </Suspense>
         )}
         <WorkflowSidebarPanelsSection
           stitchBatchPlans={stitchBatchPlans}
@@ -1311,7 +1287,6 @@ export default memo(function DashboardMainLayout({
         />
         <InfoModesToolsPanel mode={mode} />
         {deferredStageMode === 'enhance' && (
-          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <EnhanceToolsPanelSection
               isDesktopRuntime={isDesktopRuntime}
               selectedEnhanceModel={selectedEnhanceModel}
@@ -1322,7 +1297,6 @@ export default memo(function DashboardMainLayout({
               installSelectedEnhanceModel={installSelectedEnhanceModel}
               processEnhance={processEnhance}
             />
-          </Suspense>
         )}
         <ReviewRawToolsPanel
           mode={mode}

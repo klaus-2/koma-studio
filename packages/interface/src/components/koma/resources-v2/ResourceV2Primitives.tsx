@@ -24,7 +24,7 @@ export const RESOURCE_TONE = {
     background: 'bg-crimson/10',
     solid: 'bg-crimson',
     shadow:
-      'drop-shadow-[6px_6px_0_rgba(255,46,99,0.28)]',
+      'drop-shadow-[6px_6px_0_color-mix(in_srgb,var(--noir-crimson)_28%,transparent)]',
   },
   azure: {
     text: 'text-azure',

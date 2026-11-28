@@ -63,7 +63,7 @@ export const GUIDE_TONE_STYLES = {
     background: 'bg-crimson/10',
     solid: 'bg-crimson',
     shadow:
-      'drop-shadow-[5px_5px_0_rgba(255,46,99,0.3)]',
+      'drop-shadow-[5px_5px_0_color-mix(in_srgb,var(--noir-crimson)_30%,transparent)]',
   },
   azure: {
     text: 'text-azure',

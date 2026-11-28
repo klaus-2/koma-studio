@@ -379,7 +379,7 @@ export default function GlossarySectionV2({
                               className={[
                                 'panel-cut-sm scroll-mt-24 overflow-hidden border transition',
                                 expanded
-                                  ? 'border-crimson/35 drop-shadow-[5px_5px_0_rgba(255,46,99,0.2)]'
+                                  ? 'border-crimson/35 drop-shadow-[5px_5px_0_color-mix(in_srgb,var(--noir-crimson)_20%,transparent)]'
                                   : 'border-paper/10',
                               ].join(' ')}
                             >

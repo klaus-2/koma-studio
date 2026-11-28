@@ -48,7 +48,7 @@ export default function ChapterOptimizerPreviewStageNoir({
 
       {previewLoading ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-ink/68 backdrop-blur-sm">
-          <div className="panel-cut-sm flex items-center gap-3 border border-crimson/30 bg-ink-2 px-4 py-3 drop-shadow-[5px_5px_0_rgba(255,46,99,0.25)]">
+          <div className="panel-cut-sm flex items-center gap-3 border border-crimson/30 bg-ink-2 px-4 py-3 drop-shadow-[5px_5px_0_color-mix(in_srgb,var(--noir-crimson)_25%,transparent)]">
             <span
               className="koma-spinner text-crimson"
               aria-hidden="true"

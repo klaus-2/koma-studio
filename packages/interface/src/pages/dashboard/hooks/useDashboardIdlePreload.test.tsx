@@ -6,7 +6,6 @@ import { useDashboardIdlePreload } from './use-dashboard-idle-preload';
 
 const preloads = vi.hoisted(() => ({
   stageHeavy: vi.fn(),
-  modeToolPanels: vi.fn(),
   specialWorkspaces: vi.fn(),
   infoModeModules: vi.fn(),
 }));
@@ -17,9 +16,6 @@ const idle = vi.hoisted(() => ({
 
 vi.mock('../sections/StageGrid', () => ({
   preloadStageHeavyModules: preloads.stageHeavy,
-}));
-vi.mock('../sections/DashboardMainLayout', () => ({
-  preloadModeToolPanels: preloads.modeToolPanels,
 }));
 vi.mock('../../../components/dashboard/DashboardSpecialModeStage', () => ({
   preloadSpecialWorkspaces: preloads.specialWorkspaces,
@@ -43,7 +39,6 @@ describe('useDashboardIdlePreload', () => {
 
     expect(idle.callbacks).toHaveLength(1);
     expect(preloads.stageHeavy).not.toHaveBeenCalled();
-    expect(preloads.modeToolPanels).not.toHaveBeenCalled();
     expect(preloads.specialWorkspaces).not.toHaveBeenCalled();
     expect(preloads.infoModeModules).not.toHaveBeenCalled();
   });
@@ -71,7 +66,6 @@ describe('useDashboardIdlePreload', () => {
     });
 
     expect(preloads.stageHeavy).toHaveBeenCalledTimes(1);
-    expect(preloads.modeToolPanels).toHaveBeenCalledTimes(1);
     expect(preloads.specialWorkspaces).toHaveBeenCalledTimes(1);
     expect(preloads.infoModeModules).toHaveBeenCalledTimes(1);
   });

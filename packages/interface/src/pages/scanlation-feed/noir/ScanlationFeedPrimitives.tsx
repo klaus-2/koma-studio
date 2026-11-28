@@ -23,7 +23,6 @@ export const feedBtn = {
   full: 'w-full justify-center',
 };
 
-/* ══ Field primitives ══ */
 export function FeedField({
   label,
   hint,
@@ -70,7 +69,6 @@ export function FeedSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
-/* ══ Weekday pill ══ */
 export function WeekdayPill({
   active,
   onClick,
@@ -95,7 +93,6 @@ export function WeekdayPill({
   );
 }
 
-/* ══ Composer section shell ══ */
 export function ComposerSection({
   icon: Icon,
   label,
@@ -127,7 +124,6 @@ export function ComposerSection({
   );
 }
 
-/* ══ Sidebar card + list item ══ */
 export function SideCard({
   icon: Icon,
   title,
@@ -218,10 +214,9 @@ export const FeedModal = ({
         className={`glass panel-cut relative flex max-h-[88vh] w-full flex-col border border-paper/15 ${wide ? 'max-w-3xl' : 'max-w-lg'
           }`}
       >
-        {/* Risograph strip */}
         <span
           aria-hidden
-          className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[linear-gradient(90deg,#ff2e63_0_68%,#ffc857_68%_82%,transparent_82%)]"
+          className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[linear-gradient(90deg,var(--noir-crimson)_0_68%,#ffc857_68%_82%,transparent_82%)]"
         />
         <span
           aria-hidden

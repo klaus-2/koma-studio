@@ -100,8 +100,8 @@ function ComparePaneNoir({
                 <polygon
                   key={`mask-polygon-${polygon.regionId}`}
                   points={polygonPoints(polygon)}
-                  fill="rgba(255, 46, 99, 0.28)"
-                  stroke="#ff2e63"
+                  fill="color-mix(in srgb, var(--noir-crimson) 28%, transparent)"
+                  stroke="var(--noir-crimson)"
                   strokeWidth={2}
                 />
               ))}

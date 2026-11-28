@@ -59,7 +59,6 @@ export const StitchWorkspaceNoir = ({
 
   return (
     <div className="grid gap-4 font-display text-paper xl:grid-cols-[1.6fr_1fr]">
-      {/* ═══════════ PREVIEW ═══════════ */}
       <WsPanel accent="crimson" className="flex flex-col">
         <WsHead
           icon={Layers3}
@@ -76,7 +75,6 @@ export const StitchWorkspaceNoir = ({
           ) : undefined}
         />
 
-        {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-1.5 border-b border-paper/8 p-3">
           <ToolBtn disabled={!selectedBatchHasPrevious} onClick={() => onSelectBatchIndex(Math.max(0, selectedBatchIndex - 1))} ariaLabel={t('stitch.workspace.previousBatch')}><ChevronLeft size={14} /></ToolBtn>
           <ToolBtn disabled={!selectedBatchHasNext} onClick={() => onSelectBatchIndex(Math.min(batchPlans.length - 1, selectedBatchIndex + 1))} ariaLabel={t('stitch.workspace.nextBatch')}><ChevronRight size={14} /></ToolBtn>
@@ -101,7 +99,6 @@ export const StitchWorkspaceNoir = ({
           )}
         </div>
 
-        {/* Stage */}
         <div ref={stageRef} className="halftone relative flex min-h-[420px] flex-1 items-start justify-center overflow-auto bg-ink/50 p-6">
           {!selectedBatch && (
             <div className="m-auto flex flex-col items-center gap-3 text-center">
@@ -138,7 +135,6 @@ export const StitchWorkspaceNoir = ({
         )}
       </WsPanel>
 
-      {/* ═══════════ PLANNING ═══════════ */}
       <WsPanel accent="azure" className="flex flex-col">
         <WsHead
           icon={Layers3}
@@ -149,13 +145,12 @@ export const StitchWorkspaceNoir = ({
         />
 
         <div className="flex-1 space-y-3 overflow-auto p-3">
-          {/* Batch cards */}
           <div className="space-y-2">
             {batchPlans.map((batch, idx) => {
               const active = selectedBatchIndex === idx;
               return (
                 <button key={batch.id} type="button" onClick={() => onSelectBatchIndex(idx)}
-                  className={`panel-cut-sm block w-full space-y-2 border p-3 text-left transition-all duration-200 ${active ? 'border-crimson/60 bg-crimson/8 -translate-x-0.5 -translate-y-0.5 shadow-[4px_4px_0_rgba(255,46,99,0.25)]' : 'border-paper/10 bg-ink hover:border-paper/25'
+                  className={`panel-cut-sm block w-full space-y-2 border p-3 text-left transition-all duration-200 ${active ? 'border-crimson/60 bg-crimson/8 -translate-x-0.5 -translate-y-0.5 shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson)_25%,transparent)]' : 'border-paper/10 bg-ink hover:border-paper/25'
                     }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -184,7 +179,6 @@ export const StitchWorkspaceNoir = ({
             })}
           </div>
 
-          {/* Active batch */}
           <div className="glass panel-cut-sm space-y-3 border-l-2 border-l-mint p-3">
             <span className="kicker !text-mint flex items-center gap-1.5"><Layers3 size={11} /> {t('stitch.workspace.activeBatch')}</span>
             {selectedBatch ? (

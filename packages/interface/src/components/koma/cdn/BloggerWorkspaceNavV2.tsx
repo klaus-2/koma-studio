@@ -77,7 +77,7 @@ export function BloggerWorkspaceNavV2({
           'panel-cut-sm inline-flex min-h-11 items-center justify-center gap-2 border px-4',
           'font-mono text-[0.68rem] font-black uppercase tracking-[0.08em] transition',
           workspaceTab === 'upload'
-            ? 'border-azure bg-azure text-ink drop-shadow-[4px_4px_0_rgba(255,46,99,0.75)]'
+            ? 'border-azure bg-azure text-ink drop-shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson)_75%,transparent)]'
             : 'border-paper/10 bg-paper/[0.025] text-paper/45 hover:border-azure/40 hover:text-paper',
         ].join(' ')}
         onClick={() =>

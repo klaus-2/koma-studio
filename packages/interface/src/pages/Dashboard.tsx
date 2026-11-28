@@ -985,6 +985,7 @@ export const DashboardPage = ({
     authLoading,
     user,
     mode,
+    subMode,
     activeImageFileName: activeImage?.file.name,
     imagesLength: images.length,
     translatorWorkspaceMode,

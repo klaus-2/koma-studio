@@ -12,6 +12,7 @@ import type { LocalResetFeedbackState, TravelTokenMetadata } from "../settings.t
 import { shortId } from "../settings.constants";
 import { Sec, Field, SpecGrid, SpecRow, Alert, ToggleRow, btnGhost, btnDanger, chip, selectCls } from "./primitives";
 import { SettingsBackupsSectionNoir } from "./SettingsBackupsSectionNoir";
+import { NoirAccentSectionNoir } from "./NoirAccentSectionNoir";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 
@@ -56,7 +57,6 @@ interface SettingsGeneralTabArgs {
   onReplayTour?: () => void;
 }
 
-// UI scale + compact density — twin of the Classic section; applies live via applyUiScale (App mount).
 const UiScaleSectionNoir = ({ t }: { t: TranslationFn }): React.ReactElement => {
   const uiScale = useUiScaleStore((s) => s.uiScale);
   const compactDensity = useUiScaleStore((s) => s.compactDensity);
@@ -248,7 +248,8 @@ export const renderSettingsGeneralTabNoir = ({
       </div>
     </Sec>
 
-    {/* UI Scale & Density */}
+    <NoirAccentSectionNoir t={t} />
+
     <UiScaleSectionNoir t={t} />
     <Sec icon={<Lightbulb size={14} />} title={t("settings.tooltips.title")} desc={t("settings.tooltips.description")}>
       <ToggleRow

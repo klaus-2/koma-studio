@@ -62,7 +62,7 @@
 }
 
 :root[data-theme-family='noir'] .koma-stg-theme__preview--noir {
-  background: linear-gradient(135deg, #07070c, #ff2e63 160%);
+  background: linear-gradient(135deg, var(--noir-ink-0, #07070c), var(--noir-crimson, #ff2e63) 160%);
   border: 1px solid rgba(242, 237, 227, 0.18);
   color: #f2ede3;
   font-family: 'JetBrains Mono', monospace;
@@ -126,7 +126,6 @@
   color: var(--noir-paper);
 }
 
-/* ── Tab bar raiz noir (settings) ── */
 :root[data-theme-family='noir'] .koma-stg-tab {
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
   border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);

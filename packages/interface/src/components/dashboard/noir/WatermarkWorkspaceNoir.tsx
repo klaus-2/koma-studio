@@ -156,10 +156,6 @@ const loadImageBitmapSource = async (file: Blob): Promise<ImageBitmap | HTMLImag
   }
 };
 
-// Blob URL state whose whole lifecycle is owned here: every set revokes the
-// previous URL before commit and unmount revokes whatever is current. State
-// updaters must stay pure (StrictMode double-invokes them in dev), so
-// URL.createObjectURL never runs inside one.
 const useBlobUrlState = (): [string | null, (next: string | null) => void] => {
   const [url, setUrl] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
@@ -330,7 +326,6 @@ const WatermarkWorkspaceNoir = ({
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const thumbsStripRef = useHorizontalDragScroll<HTMLDivElement>();
 
-  // ── Stable refs for breaking dependency loops ──
   const onWorkspaceStateChangeRef = useRef(onWorkspaceStateChange);
   onWorkspaceStateChangeRef.current = onWorkspaceStateChange;
   const setStatusMessageRef = useRef(setStatusMessage);
@@ -353,7 +348,6 @@ const WatermarkWorkspaceNoir = ({
     [activeImage, textZoneCache],
   );
 
-  // ── Effects ──
   useEffect(() => {
     if (!activeImageId && images[0]) {
       setActiveImageId(images[0].id);
@@ -370,7 +364,6 @@ const WatermarkWorkspaceNoir = ({
       );
   }, [userPresets]);
 
-  // Restore from workspace state only on explicit restoreToken change
   useEffect(() => {
     if (!workspaceState) return;
     if (lastRestoreTokenRef.current === restoreToken) return;
@@ -417,7 +410,6 @@ const WatermarkWorkspaceNoir = ({
     );
   }, [watermarkImageFile]);
 
-  // Debounced workspace state sync to parent
   useEffect(() => {
     if (!onWorkspaceStateChangeRef.current) return;
     if (wsChangeTimerRef.current) clearTimeout(wsChangeTimerRef.current);
@@ -451,7 +443,6 @@ const WatermarkWorkspaceNoir = ({
     textZoneCache,
   ]);
 
-  // ── Zoom (Ctrl+Wheel) ──
   const flushWheelZoom = useCallback((deltas: readonly number[]) => {
     for (const deltaY of deltas) {
       setZoom((prev) => {
@@ -474,7 +465,6 @@ const WatermarkWorkspaceNoir = ({
     }
   }, [activeImageId, thumbsStripRef]);
 
-  // ── Render helpers ──
   const runRender = useCallback(async (asset: WatermarkRenderAsset) => {
     const worker = workerRef.current;
     if (!worker) return renderWatermarkAsset(asset);
@@ -517,7 +507,6 @@ const WatermarkWorkspaceNoir = ({
     );
   }, []);
 
-  // Stable refs to avoid recreating buildAsset on every draft change
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const textZoneCacheRef = useRef(textZoneCache);
@@ -553,7 +542,6 @@ const WatermarkWorkspaceNoir = ({
     [],
   );
 
-  // ── Text zone detection ──
   const detectTextZones = useCallback(async (img: WatermarkLoadedImage) => {
     const apiConfig = getApiConfig();
     const formData = new FormData();
@@ -625,13 +613,11 @@ const WatermarkWorkspaceNoir = ({
     }
   }, [images, textZoneCache, t]);
 
-  // Lightweight trigger key — changes whenever the preview should re-render
   const previewTrigger = useMemo(
     () => JSON.stringify([draft, outputType, outputQuality, watermarkImageFile?.name ?? null, textZoneCache]),
     [draft, outputType, outputQuality, watermarkImageFile, textZoneCache],
   );
 
-  // ── Preview effect ──
   useEffect(() => {
     if (previewTimeoutRef.current !== null)
       window.clearTimeout(previewTimeoutRef.current);
@@ -671,7 +657,6 @@ const WatermarkWorkspaceNoir = ({
     runRender,
   ]);
 
-  // ── Preset handlers ──
   const applyPreset = useCallback(
     (p: WatermarkPresetV1) => {
       setSelectedPresetId(p.id);
@@ -763,7 +748,6 @@ const WatermarkWorkspaceNoir = ({
     }));
     setAutoSuggestion(s.reason);
     setStatusMessageRef.current(s.reason);
-    // Auto-detect text zones for the active image if not cached
     if (!textZoneCache[activeImage.id]) {
       void detectTextZones(activeImage);
     }
@@ -899,12 +883,8 @@ const WatermarkWorkspaceNoir = ({
     : null;
   const isUserPreset = userPresets.some((p) => p.id === selectedPresetId);
 
-  // =======================================
-  // Toolbox (portaled into sidebar) — V2 NOIR
-  // =======================================
   const toolbox = (
     <div className="font-display text-paper">
-      {/* Header */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <span className="kicker">// {t('watermark.header.eyebrow')}</span>
@@ -915,14 +895,13 @@ const WatermarkWorkspaceNoir = ({
         <span className="stamp"><Stamp size={10} /> {t('watermark.header.badge')}</span>
       </div>
 
-      {/* ── PRESETS ── */}
       <AioSection icon={Layers} title={t('watermark.panel.presets')} defaultOpen={false}>
         <div className="grid grid-cols-2 gap-2">
           {allPresets.map((p) => {
             const active = selectedPresetId === p.id;
             return (
               <button key={p.id} type="button" onClick={() => applyPreset(p)}
-                className={`panel-cut-sm flex flex-col gap-0.5 border p-2 text-left transition-all duration-150 ${active ? 'border-crimson/60 bg-crimson/10 -translate-x-0.5 -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/10 bg-ink hover:border-paper/25'
+                className={`panel-cut-sm flex flex-col gap-0.5 border p-2 text-left transition-all duration-150 ${active ? 'border-crimson/60 bg-crimson/10 -translate-x-0.5 -translate-y-0.5 shadow-[3px_3px_0_color-mix(in_srgb,var(--noir-crimson)_30%,transparent)]' : 'border-paper/10 bg-ink hover:border-paper/25'
                   }`}>
                 <span className="truncate font-display text-[11px] font-bold uppercase tracking-tight">{p.name}</span>
                 <span className={`font-mono text-[8px] uppercase tracking-wider ${p.kind === 'builtin' ? 'text-azure' : 'text-mint'}`}>
@@ -942,7 +921,6 @@ const WatermarkWorkspaceNoir = ({
         </div>
       </AioSection>
 
-      {/* ── TEXT ── */}
       <AioSection icon={Type} title={t('watermark.panel.text')}>
         <LayerToggle label={t('watermark.text.enable')} checked={draft.textLayer.enabled} onChange={(v: boolean) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, enabled: v } }))} />
         <Field label={t('watermark.text.content')}>
@@ -962,7 +940,6 @@ const WatermarkWorkspaceNoir = ({
         <RangeField label={t('watermark.text.shadowBlur')} value={draft.textLayer.shadowBlur} min={0} max={40} step={1} onChange={(v: number) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, shadowBlur: v } }))} />
       </AioSection>
 
-      {/* ── LOGO ── */}
       <AioSection icon={ImageIcon} title={t('watermark.panel.logo')} defaultOpen={false}>
         <LayerToggle label={t('watermark.logo.enable')} checked={draft.imageLayer.enabled} onChange={(v: boolean) => updateDraft((c) => ({ ...c, imageLayer: { ...c.imageLayer, enabled: v } }))} />
         <div className="flex items-center gap-2">
@@ -984,7 +961,6 @@ const WatermarkWorkspaceNoir = ({
         <RangeField label={t('watermark.logo.saturation')} value={draft.imageLayer.saturation} min={0} max={160} step={1} onChange={(v: number) => updateDraft((c) => ({ ...c, imageLayer: { ...c.imageLayer, saturation: v } }))} />
       </AioSection>
 
-      {/* ── SHADOW ── */}
       <AioSection icon={Sparkles} title={t('watermark.panel.shadow')} defaultOpen={false}>
         <LayerToggle label={t('watermark.shadow.enable')} checked={draft.shadowLayer?.enabled ?? false} onChange={(v: boolean) => updateDraft((c) => ({ ...c, shadowLayer: { ...(c.shadowLayer ?? createDefaultWatermarkDraft().shadowLayer), enabled: v } }))} />
         <RangeField label={t('watermark.shadow.blur')} value={draft.shadowLayer?.blur ?? 12} min={0} max={40} step={1} onChange={(v: number) => updateDraft((c) => ({ ...c, shadowLayer: { ...(c.shadowLayer ?? createDefaultWatermarkDraft().shadowLayer), blur: v } }))} />
@@ -993,9 +969,7 @@ const WatermarkWorkspaceNoir = ({
         <ColorInput label={t('watermark.shadow.color')} value={draft.shadowLayer?.color ?? '#000000'} onChange={(v: string) => updateDraft((c) => ({ ...c, shadowLayer: { ...(c.shadowLayer ?? createDefaultWatermarkDraft().shadowLayer), color: v } }))} />
       </AioSection>
 
-      {/* ── DISTRIBUTION ── */}
       <AioSection icon={Zap} title={t('watermark.panel.distribution')}>
-        {/* Anchor grid (3×3 tic-tac-toe) */}
         <Field label={t('watermark.distribution.position')}>
           <div className="grid w-fit grid-cols-3 gap-1 panel-cut-sm bg-ink p-1.5" role="group" aria-label={t('watermark.distribution.position')}>
             {ANCHOR_OPTIONS.map((a) => {
@@ -1020,7 +994,6 @@ const WatermarkWorkspaceNoir = ({
           </div>
         </Field>
 
-        {/* Placement chips */}
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(PLACEMENT_LABELS) as Array<WatermarkDraft['placementMode']>).map((mode) => {
             const active = draft.placementMode === mode;
@@ -1056,7 +1029,6 @@ const WatermarkWorkspaceNoir = ({
         </button>
       </AioSection>
 
-      {/* ── TEXT AVOIDANCE ── */}
       <AioSection icon={ShieldCheck} title={t('watermark.panel.textAvoidance')} defaultOpen={false}>
         <LayerToggle label={t('watermark.textAvoidance.enable')} checked={draft.avoidTextRegions} onChange={(v: boolean) => updateDraft((c) => ({ ...c, avoidTextRegions: v }))} />
         <Hint>{t('watermark.textAvoidance.desc')}</Hint>
@@ -1076,7 +1048,6 @@ const WatermarkWorkspaceNoir = ({
         )}
       </AioSection>
 
-      {/* ── EXECUTE ── */}
       <div className="sticky bottom-0 z-10 space-y-2 border-t border-paper/8 bg-ink/90 py-3 backdrop-blur-md">
         <button type="button"
           className={`btn-primary panel-cut-sm w-full !py-3.5 !text-sm ${processing ? 'animate-pulse' : ''}`}
@@ -1094,17 +1065,12 @@ const WatermarkWorkspaceNoir = ({
     </div>
   );
 
-  // =======================================
-  // Main workspace — V2 NOIR
-  // =======================================
   return (
     <>
       {toolboxHost ? createPortal(toolbox, toolboxHost) : null}
 
       <div className="grid gap-4 font-display text-paper xl:grid-cols-[1.7fr_1fr]">
-        {/* ═══════════ PREVIEW ═══════════ */}
         <div className="glass panel-cut border-l-2 border-l-crimson flex flex-col">
-          {/* Head */}
           <div className="flex items-center justify-between gap-3 border-b border-paper/8 p-4">
             <span className="kicker flex items-center gap-1.5"><Eye size={12} /> // {t('watermark.panel.preview')}</span>
             <div className="flex items-center gap-2">
@@ -1131,20 +1097,18 @@ const WatermarkWorkspaceNoir = ({
             </div>
           </div>
 
-          {/* Empty states */}
           {images.length === 0 ? (
             <EmptyStage icon={ImageIcon} title={t('watermark.preview.empty.title')} desc={t('watermark.preview.empty.desc')} />
           ) : !hasRenderableLayer ? (
             <EmptyStage icon={Stamp} title={t('watermark.preview.noLayer.title')} desc={t('watermark.preview.noLayer.desc')} />
           ) : (
             <>
-              {/* Thumbs */}
               <div ref={thumbsStripRef} className="flex gap-2 overflow-x-auto border-b border-paper/8 p-3" style={{ scrollbarWidth: 'thin' }}>
                 {images.map((img, i) => {
                   const active = activeImage?.id === img.id;
                   return (
                     <button key={img.id} type="button" data-thumb-id={img.id} onClick={() => setActiveImageId(img.id)}
-                      className={`relative h-16 w-14 shrink-0 overflow-hidden panel-cut-sm border transition-all duration-150 ${active ? 'border-crimson -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/12 hover:border-paper/30'}`}>
+                      className={`relative h-16 w-14 shrink-0 overflow-hidden panel-cut-sm border transition-all duration-150 ${active ? 'border-crimson -translate-y-0.5 shadow-[3px_3px_0_color-mix(in_srgb,var(--noir-crimson)_30%,transparent)]' : 'border-paper/12 hover:border-paper/30'}`}>
                       <img src={resultsById.get(img.id)?.previewUrl || img.thumbnailUrl || ensureDirectPageUrl(img)} alt={img.file.name} className="h-full w-full object-cover" />
                       <span className="absolute bottom-0 left-0 bg-ink/80 px-1 py-0.5 font-mono text-[8px] font-bold text-crimson">{i + 1}</span>
                       {textZoneCache[img.id] && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-mint animate-blink" aria-hidden="true" />}
@@ -1153,7 +1117,6 @@ const WatermarkWorkspaceNoir = ({
                 })}
               </div>
 
-              {/* Stage */}
               <div ref={previewStageRef} className="halftone relative flex min-h-[420px] flex-1 items-center justify-center overflow-auto bg-ink/50 p-6">
                 <div style={{ zoom }}>
                   {activeImage && (
@@ -1193,7 +1156,6 @@ const WatermarkWorkspaceNoir = ({
                 )}
               </div>
 
-              {/* File bar */}
               {activeImage && (
                 <div className="flex items-center justify-between gap-3 border-t border-paper/8 px-4 py-2.5">
                   <span className="truncate font-mono text-[11px] text-paper">{activeImage.file.name}</span>
@@ -1209,14 +1171,12 @@ const WatermarkWorkspaceNoir = ({
           )}
         </div>
 
-        {/* ═══════════ OUTPUT ═══════════ */}
         <div className="glass panel-cut border-l-2 border-l-mint flex flex-col">
           <div className="border-b border-paper/8 p-4">
             <span className="kicker !text-mint flex items-center gap-1.5"><Download size={11} /> // {t('watermark.panel.output')}</span>
           </div>
 
           <div className="space-y-3 p-3">
-            {/* Smart suggestion */}
             <div className="glass panel-cut-sm flex items-start gap-2 border-l-2 border-l-gold p-2.5">
               <Sparkles size={12} className="mt-0.5 shrink-0 text-gold" />
               <span className="font-mono text-[10.5px] leading-relaxed text-paper">{autoSuggestion}</span>
@@ -1260,7 +1220,6 @@ const WatermarkWorkspaceNoir = ({
   );
 };
 
-/* ── Empty stage helper ── */
 function EmptyStage({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
   return (
     <div className="halftone flex min-h-[420px] flex-1 items-center justify-center bg-ink/50 p-6">

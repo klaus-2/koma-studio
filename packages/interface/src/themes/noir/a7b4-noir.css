@@ -1,4 +1,3 @@
-/* ── Legal doc prose ───────────────────────────── */
 :root[data-theme-family='noir'] .noir-doc h2 {
   font-family: var(--font-display);
   font-weight: 900;
@@ -13,7 +12,7 @@
 
 :root[data-theme-family='noir'] .noir-doc h2::before {
   content: "¶ ";
-  color: #ff2e63;
+  color: var(--noir-crimson);
 }
 
 :root[data-theme-family='noir'] .noir-doc section:first-child h2 {
@@ -49,11 +48,10 @@
   top: 8px;
   width: 6px;
   height: 6px;
-  background: #ff2e63;
+  background: var(--noir-crimson);
   transform: rotate(45deg);
 }
 
-/* ── Color picker dark-theming (react-colorful / gcolor) ── */
 :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful {
   width: 100%;
 }

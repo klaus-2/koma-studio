@@ -1,11 +1,18 @@
-import { KomaNekoRig } from '../koma-mascot/KomaNekoRig';
+import type React from 'react';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
+import { DashboardLazyFallbackClassic } from './DashboardLazyFallbackClassic';
+import {
+  DashboardLazyFallbackNoir,
+  type DashboardLazyFallbackProps,
+} from './noir/DashboardLazyFallbackNoir';
 
-export default function DashboardLazyFallback() {
-  return (
-    <div className="koma-stage__empty" data-tour="dashboard-stage-empty" role="status" aria-live="polite">
-      <KomaNekoRig pose="stretch" size={84} />
-      <div className="koma-spinner" />
-      <p>Loading workspace...</p>
-    </div>
-  );
+const FamilyDashboardLazyFallback = createFamilyComponent<DashboardLazyFallbackProps>(
+  DashboardLazyFallbackClassic,
+  DashboardLazyFallbackNoir,
+);
+
+export function DashboardLazyFallback(props: DashboardLazyFallbackProps): React.ReactElement {
+  return <FamilyDashboardLazyFallback {...props} />;
 }
+
+export default DashboardLazyFallback;

@@ -86,8 +86,8 @@ function BrutalSelect({
           "font-mono text-[11px] uppercase tracking-[0.12em]",
           "border border-paper/15 panel-cut-sm",
           "transition-all duration-200 ease-out",
-          "hover:border-crimson/50 hover:shadow-[3px_3px_0_0_rgba(255,46,99,0.25)]",
-          "focus:border-crimson focus:shadow-[3px_3px_0_0_#ff2e63] focus-visible:outline-none",
+          "hover:border-crimson/50 hover:shadow-[3px_3px_0_0_color-mix(in_srgb,var(--noir-crimson)_25%,transparent)]",
+          "focus:border-crimson focus:shadow-[3px_3px_0_0_var(--noir-crimson)] focus-visible:outline-none",
           "disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:shadow-none",
         )}
       >
@@ -102,9 +102,6 @@ function BrutalSelect({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────
-   KickerLabel — JetBrains Mono kicker tag
-──────────────────────────────────────────────────────────────── */
 function KickerLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="kicker flex items-center gap-1.5">
@@ -114,9 +111,6 @@ function KickerLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ────────────────────────────────────────────────────────────────
-   InfoNote — paper/gold/crimson note variants
-──────────────────────────────────────────────────────────────── */
 function InfoNote({
   variant,
   icon: Icon,
@@ -144,9 +138,6 @@ function InfoNote({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────
-   StatusStamp — hanko-style status carimbo
-──────────────────────────────────────────────────────────────── */
 function StatusStamp({
   state,
   label,
@@ -177,9 +168,6 @@ function StatusStamp({
   );
 }
 
-/* ════════════════════════════════════════════════════════════════
-   MAIN COMPONENT — EnhanceToolsPanel V2
-════════════════════════════════════════════════════════════════ */
 export default function EnhanceToolsPanel({
   isDesktopRuntime,
   enhanceScale,
@@ -253,7 +241,6 @@ export default function EnhanceToolsPanel({
 
   return (
     <m.div className="koma-mode-tools relative" {...containerAnim}>
-      {/* Decorative vertical katakana accent */}
       <span
         className="v-text absolute -left-5 top-8 font-mono text-[10px] tracking-[0.4em] text-crimson/30 select-none pointer-events-none"
         aria-hidden
@@ -261,7 +248,6 @@ export default function EnhanceToolsPanel({
         拡張 ・ ENHANCE
       </span>
 
-      {/* ═══ MODE TAG ═══ */}
       <m.div
         {...itemAnim}
         className="flex items-center justify-between mb-4 pb-3 border-b border-paper/8"
@@ -281,7 +267,6 @@ export default function EnhanceToolsPanel({
         </span>
       </m.div>
 
-      {/* ═══ CONFIG ═══ */}
       <AioSection icon={Wand2} title={t("dashboard.enhance.title")}>
         <m.div {...itemAnim} className="flex flex-col gap-4">
           <InfoNote variant="info" icon={Wand2}>
@@ -290,7 +275,6 @@ export default function EnhanceToolsPanel({
               : t("dashboard.enhance.desktopRequiredHint")}
           </InfoNote>
 
-          {/* Scale + Profile */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <KickerLabel>{t("dashboard.enhance.scale")}</KickerLabel>
@@ -321,7 +305,6 @@ export default function EnhanceToolsPanel({
             </div>
           </div>
 
-          {/* Model + Format */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <KickerLabel>{t("dashboard.enhance.model")}</KickerLabel>
@@ -358,7 +341,6 @@ export default function EnhanceToolsPanel({
         </m.div>
       </AioSection>
 
-      {/* ═══ MODEL STATUS ═══ */}
       <AioSection
         icon={Layers}
         title={t("dashboard.enhance.status.title")}
@@ -374,7 +356,6 @@ export default function EnhanceToolsPanel({
               transition={{ duration: 0.4, ease: EASE }}
               className="flex flex-col gap-3"
             >
-              {/* Card header */}
               <div
                 className={cn(
                   "glass panel-cut-sm p-4 border",
@@ -405,7 +386,6 @@ export default function EnhanceToolsPanel({
                 )}
               </div>
 
-              {/* Action row */}
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -519,7 +499,6 @@ export default function EnhanceToolsPanel({
         </AnimatePresence>
       </AioSection>
 
-      {/* ═══ EXECUTE BAR ═══ */}
       <m.div
         {...itemAnim}
         className="koma-execute-bar mt-4"
@@ -567,7 +546,6 @@ export default function EnhanceToolsPanel({
         </m.button>
       </m.div>
 
-      {/* Decorative footer ticker */}
       <div
         className="mt-3 flex items-center gap-2 font-mono text-[9px] text-paper/25 uppercase tracking-[0.25em] overflow-hidden"
         aria-hidden

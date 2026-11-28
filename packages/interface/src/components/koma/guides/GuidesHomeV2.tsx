@@ -245,10 +245,9 @@ export default function GuidesHomeV2() {
         }
       />
 
-      {/* Search console */}
       <button
         type="button"
-        className="glass panel-cut-sm group flex w-full items-center gap-4 border-paper/10 p-3 text-left transition hover:-translate-x-1 hover:-translate-y-1 hover:border-crimson/40 hover:drop-shadow-[6px_6px_0_rgba(255,46,99,0.28)] sm:p-4"
+        className="glass panel-cut-sm group flex w-full items-center gap-4 border-paper/10 p-3 text-left transition hover:-translate-x-1 hover:-translate-y-1 hover:border-crimson/40 hover:drop-shadow-[6px_6px_0_color-mix(in_srgb,var(--noir-crimson)_28%,transparent)] sm:p-4"
         aria-label={t(
           'guides.home.searchAria',
         )}
@@ -282,7 +281,6 @@ export default function GuidesHomeV2() {
         </kbd>
       </button>
 
-      {/* Marquee */}
       <div
         className="koma-guide-marquee overflow-hidden border-y border-paper/[0.065] py-2"
         aria-hidden="true"
@@ -313,7 +311,6 @@ export default function GuidesHomeV2() {
         </div>
       </div>
 
-      {/* Continue */}
       {inProgressGuide ? (
         <m.button
           type="button"
@@ -343,7 +340,7 @@ export default function GuidesHomeV2() {
               : 0.45,
             ease: GUIDE_EASE,
           }}
-          className="glass panel-cut relative w-full overflow-hidden border-crimson/20 p-5 text-left drop-shadow-[7px_7px_0_rgba(255,46,99,0.22)] sm:p-6"
+          className="glass panel-cut relative w-full overflow-hidden border-crimson/20 p-5 text-left drop-shadow-[7px_7px_0_color-mix(in_srgb,var(--noir-crimson)_22%,transparent)] sm:p-6"
           onClick={continueReading}
         >
           <div
@@ -438,7 +435,6 @@ export default function GuidesHomeV2() {
         </m.button>
       ) : null}
 
-      {/* Categories */}
       <section>
         <GuideSectionHeading
           index="01"
@@ -591,7 +587,6 @@ export default function GuidesHomeV2() {
         </m.div>
       </section>
 
-      {/* Bookmarks */}
       {bookmarkedGuides.length > 0 ? (
         <section>
           <GuideSectionHeading

@@ -72,7 +72,6 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
 
   return (
     <div className="relative space-y-3">
-      {/* Mode stamp */}
       <span className="stamp inline-flex items-center gap-1.5" aria-hidden>
         <span className="blink h-1.5 w-1.5 bg-crimson" /> {t("typo.tag")}
       </span>
@@ -80,9 +79,7 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
         文字職人
       </span>
 
-      {/* ═══ Session ═══ */}
       <AioSection icon={Paintbrush} title={t("typo.session.title")} badge={badge(regionsCount)}>
-        {/* Context ticker */}
         <p className="mb-3 font-mono text-[9px] uppercase tracking-wider text-paper/40">
           {t("typo.session.image")}{" "}
           <strong className="text-paper">{activeImageName ?? "—"}</strong>
@@ -93,7 +90,6 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
           </strong>
         </p>
 
-        {/* Tool strip — ink slide */}
         <div role="group" aria-label={t("typo.tools.aria")}
           className="panel-cut-sm mb-3 flex gap-0.5 border border-paper/12 bg-ink p-1">
           {TOOLS.map(({ key, Icon, labelKey }) => {
@@ -117,7 +113,6 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
           })}
         </div>
 
-        {/* Shape actions */}
         <div className="grid grid-cols-2 gap-1.5">
           <button type="button" className={btnGhost} onClick={props.onRefineShape} disabled={!activeRegion}>
             <ScanSearch size={11} /> {t("typo.actions.refine")}
@@ -134,12 +129,11 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
         </div>
 
         <button type="button" onClick={props.onDeleteRegion} disabled={!activeRegion}
-          className="panel-cut-sm mt-1.5 inline-flex w-full items-center justify-center gap-1.5 border border-crimson/40 bg-crimson/8 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-crimson transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:[filter:drop-shadow(3px_3px_0_rgba(255,46,99,0.5))] disabled:opacity-30 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:[filter:none]">
+          className="panel-cut-sm mt-1.5 inline-flex w-full items-center justify-center gap-1.5 border border-crimson/40 bg-crimson/8 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-crimson transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:[filter:drop-shadow(3px_3px_0_color-mix(in_srgb,var(--noir-crimson)_50%,transparent))] disabled:opacity-30 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:[filter:none]">
           <Trash2 size={11} /> {t("typo.actions.delete")}
         </button>
       </AioSection>
 
-      {/* ═══ Presets ═══ */}
       <AioSection icon={Library} title={t("typo.presets.title")} defaultOpen={false}>
         <TypographerPresetBrowserNoir
           presets={props.availablePresets}
@@ -155,7 +149,6 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
         />
       </AioSection>
 
-      {/* ═══ Snapshots ═══ */}
       <AioSection icon={Save} title={t("typo.snapshots.title")} defaultOpen={false}
         badge={session?.snapshots.length ? badge(session.snapshots.length) : undefined}>
         <p className="mb-3 font-mono text-[9px] text-paper/40">{t("typo.snapshots.hint")}</p>
@@ -187,7 +180,6 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
         )}
       </AioSection>
 
-      {/* ═══ Text Queue ═══ */}
       <TypographerTextQueueNoir
         draftText={session?.draftText ?? ""}
         queue={session?.queue ?? []}

@@ -227,7 +227,7 @@ export default function ChapterOptimizerPreviewPanelNoir({
                     className={[
                       'panel-cut-sm relative h-16 w-12 shrink-0 overflow-hidden border transition',
                       active
-                        ? 'border-crimson drop-shadow-[3px_3px_0_rgba(255,46,99,0.38)]'
+                        ? 'border-crimson drop-shadow-[3px_3px_0_color-mix(in_srgb,var(--noir-crimson)_38%,transparent)]'
                         : 'border-paper/10 opacity-48 hover:border-paper/30 hover:opacity-100',
                     ].join(' ')}
                     onClick={() =>

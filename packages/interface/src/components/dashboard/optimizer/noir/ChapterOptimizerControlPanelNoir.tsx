@@ -122,7 +122,6 @@ export default function ChapterOptimizerControlPanelNoir({
       }}
       className="glass panel-cut overflow-hidden"
     >
-      {/* Presets */}
       <ControlSection
         index="A01"
         icon={Gauge}
@@ -151,7 +150,7 @@ export default function ChapterOptimizerControlPanelNoir({
                 className={[
                   'offset-card panel-cut-sm min-h-24 border p-3 text-left',
                   active
-                    ? 'border-crimson/65 bg-crimson/10 drop-shadow-[4px_4px_0_rgba(255,46,99,0.3)]'
+                    ? 'border-crimson/65 bg-crimson/10 drop-shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson)_30%,transparent)]'
                     : 'border-paper/10 bg-ink/50 hover:border-crimson/35',
                 ].join(' ')}
                 onClick={() =>
@@ -184,7 +183,6 @@ export default function ChapterOptimizerControlPanelNoir({
         </div>
       </ControlSection>
 
-      {/* Output */}
       <ControlSection
         index="A02"
         icon={ImageIcon}
@@ -254,13 +252,11 @@ export default function ChapterOptimizerControlPanelNoir({
         </div>
       </ControlSection>
 
-      {/* Dimensions */}
       <ChapterOptimizerDimensionsSectionNoir
         recipe={recipe}
         onRecipeChange={onRecipeChange}
       />
 
-      {/* Filters */}
       <ChapterOptimizerFiltersSectionNoir
         recipe={recipe}
         expanded={filtersExpanded}
@@ -268,7 +264,6 @@ export default function ChapterOptimizerControlPanelNoir({
         onToggle={onToggleFilters}
       />
 
-      {/* Advanced */}
       <ChapterOptimizerAdvancedSectionNoir
         recipe={recipe}
         activeImage={activeImage}
@@ -278,7 +273,6 @@ export default function ChapterOptimizerControlPanelNoir({
         onToggle={onToggleAdvanced}
       />
 
-      {/* Execute */}
       <ChapterOptimizerExecuteSectionNoir
         imageCount={imageCount}
         busy={busy}

@@ -1,11 +1,7 @@
-/* ============================================================
-   KŌMA STUDIO — Theme Store
-   Theme family (classic | noir) × dark/light mode,
-   localStorage persistence
-   ============================================================ */
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { normalizeHexColor } from '../themes/noir-accent';
 
 import { DEFAULT_THEME_FAMILY } from '../themes/registry';
 import type { KomaThemeFamily } from '../themes/theme-family';
@@ -14,17 +10,18 @@ export type { KomaThemeFamily } from '../themes/theme-family';
 export type KomaTheme = 'dark' | 'light';
 
 const THEME_STORAGE_KEY = 'koma_theme';
-const THEME_STORAGE_VERSION = 2;
+const THEME_STORAGE_VERSION = 3;
 
 interface ThemeStore {
   theme: KomaTheme;
   family: KomaThemeFamily;
+  noirAccent: string | null;
   setTheme: (theme: KomaTheme) => void;
   setFamily: (family: KomaThemeFamily) => void;
+  setNoirAccent: (hex: string | null) => void;
+  resetNoirAccent: () => void;
 }
 
-// Dark is the shipped default; light is opt-in from settings, independent of
-// the OS color scheme.
 const DEFAULT_THEME: KomaTheme = 'dark';
 
 export const useThemeStore = create<ThemeStore>()(
@@ -32,21 +29,42 @@ export const useThemeStore = create<ThemeStore>()(
     persist(
       (set) => ({
         theme: DEFAULT_THEME,
-        // Noir is the shipped design system; classic stays reachable from
-        // settings as the legacy family.
         family: DEFAULT_THEME_FAMILY,
+        noirAccent: null,
         setTheme: (theme) => set({ theme }),
         setFamily: (family) => set({ family }),
+        setNoirAccent: (hex) =>
+          set({
+            noirAccent: hex === null ? null : normalizeHexColor(hex),
+          }),
+        resetNoirAccent: () => set({ noirAccent: null }),
       }),
       {
         name: THEME_STORAGE_KEY,
         version: THEME_STORAGE_VERSION,
         migrate: (persisted, version) => {
           const state = persisted as Partial<ThemeStore>;
+          const normalizedAccent =
+            typeof state.noirAccent === 'string'
+              ? normalizeHexColor(state.noirAccent)
+              : null;
           if (version < 2) {
-            return { ...state, family: DEFAULT_THEME_FAMILY };
+            return {
+              ...state,
+              family: DEFAULT_THEME_FAMILY,
+              noirAccent: normalizedAccent,
+            };
           }
-          return state;
+          if (version < 3) {
+            return {
+              ...state,
+              noirAccent: normalizedAccent,
+            };
+          }
+          return {
+            ...state,
+            noirAccent: normalizedAccent,
+          };
         },
       },
     ),
@@ -54,14 +72,25 @@ export const useThemeStore = create<ThemeStore>()(
   ),
 );
 
-/**
- * Apply the current theme (mode + family) to the document root.
- * Must be called once on mount and whenever theme/family changes.
- */
-export function applyTheme(theme: KomaTheme, family: KomaThemeFamily = DEFAULT_THEME_FAMILY): void {
+export function applyTheme(
+  theme: KomaTheme,
+  family: KomaThemeFamily = DEFAULT_THEME_FAMILY,
+  noirAccent: string | null = null,
+): void {
   const root = document.documentElement;
   root.setAttribute('data-theme', theme);
   root.setAttribute('data-theme-family', family);
+
+  const normalizedAccent =
+    family === 'noir' && typeof noirAccent === 'string'
+      ? normalizeHexColor(noirAccent)
+      : null;
+
+  if (normalizedAccent) {
+    root.style.setProperty('--noir-crimson', normalizedAccent);
+  } else {
+    root.style.removeProperty('--noir-crimson');
+  }
 
   if (theme === 'dark') {
     root.classList.add('dark');
@@ -71,7 +100,5 @@ export function applyTheme(theme: KomaTheme, family: KomaThemeFamily = DEFAULT_T
     root.classList.remove('dark');
   }
 
-  // Clear the pre-paint background set by the shell bootstrap script so the
-  // themed stylesheet takes over (inline style would win specificity).
   root.style.removeProperty('background-color');
 }

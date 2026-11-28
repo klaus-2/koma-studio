@@ -360,8 +360,7 @@ export default function ResourcesPageV2({
           </div>
         </div>
 
-        {/* Search */}
-        <label className="glass panel-cut-sm flex items-center gap-3 border-paper/10 px-4 transition focus-within:-translate-x-0.5 focus-within:-translate-y-0.5 focus-within:border-crimson/50 focus-within:drop-shadow-[4px_4px_0_rgba(255,46,99,0.22)]">
+        <label className="glass panel-cut-sm flex items-center gap-3 border-paper/10 px-4 transition focus-within:-translate-x-0.5 focus-within:-translate-y-0.5 focus-within:border-crimson/50 focus-within:drop-shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson)_22%,transparent)]">
           <Search
             size={17}
             className="shrink-0 text-crimson"
@@ -417,7 +416,6 @@ export default function ResourcesPageV2({
           )}
         </label>
 
-        {/* Tabs */}
         {showTabs ? (
           <div
             className="glass panel-cut koma-scrollbar flex gap-2 overflow-x-auto p-2"
@@ -513,7 +511,6 @@ export default function ResourcesPageV2({
           </div>
         ) : null}
 
-        {/* Content */}
         <div
           id={`resource-panel-${activeTab}`}
           role="tabpanel"
