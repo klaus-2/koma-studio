@@ -116,8 +116,6 @@ const RenderTextPreviewContextMenuNoir = ({
     vars?: Record<string, string | number | null | undefined>,
   ) => string;
 
-  // The menu root is clipped by its panel-cut shape, so the preset submenu is
-  // portaled to <body> and anchored to the row it hangs off.
   const presetRowRef = useRef<HTMLDivElement | null>(null);
   const [presetPanelPos, setPresetPanelPos] = useState<{
     left: number;
@@ -130,10 +128,16 @@ const RenderTextPreviewContextMenuNoir = ({
       const panelWidth = 240;
       const panelHeight = 360;
       const margin = 8;
+      const preferredLeft = rect.right + 4;
+      const flippedLeft = rect.left - panelWidth - 4;
+      const left =
+        preferredLeft + panelWidth <= window.innerWidth - margin
+          ? preferredLeft
+          : Math.max(margin, flippedLeft);
       setPresetPanelPos({
         left: Math.max(
           margin,
-          Math.min(rect.right + 4, window.innerWidth - panelWidth - margin),
+          Math.min(left, window.innerWidth - panelWidth - margin),
         ),
         top: Math.max(
           margin,
@@ -149,15 +153,16 @@ const RenderTextPreviewContextMenuNoir = ({
     onContextSubmenuChange(null);
   }, [onContextSubmenuChange]);
 
-  if (!contextMenu || !targetRegion) return null;
+  if (!contextMenu || !targetRegion || typeof document === 'undefined') return null;
 
   const hasOcr = (targetRegion.recognizedText ?? '').trim().length > 0;
   const hasTl = (targetRegion.translatedText ?? '').trim().length > 0;
   const regionLockFields: RegionLockField[] = ['geometry', 'text', 'style'];
 
-  return (
+  return createPortal(
     <div
-      className="glass panel-cut absolute z-50 w-56 border-crimson/30 p-1.5 shadow-hard-crimson"
+      data-koma-ctx-menu="true"
+      className="glass panel-cut fixed z-[var(--z-context-menu)] w-56 border-crimson/30 p-1.5 shadow-hard-crimson"
       style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
       onPointerDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
@@ -218,7 +223,8 @@ const RenderTextPreviewContextMenuNoir = ({
 
             {contextSubmenu === 'presets' && presetPanelPos && createPortal(
               <div
-                className="glass panel-cut fixed z-[150] w-60 border-crimson/30 p-1.5 shadow-hard-crimson"
+                data-koma-ctx-menu="true"
+                className="glass panel-cut fixed z-[141] w-60 border-crimson/30 p-1.5 shadow-hard-crimson"
                 style={{ left: presetPanelPos.left, top: presetPanelPos.top }}
                 onMouseLeave={closePresetSubmenu}
                 role="menu" aria-label={t('renderPreview.typographyPresets')}
@@ -276,7 +282,8 @@ const RenderTextPreviewContextMenuNoir = ({
       <div className="relative my-1 border-t border-paper/10" aria-hidden="true" />
       <CtxItem icon={Trash2} label={t('renderPreview.removeRegion')} onClick={onRemoveRegion} disabled={!editable} danger
         title={editable ? t('renderPreview.removeRegion') : t('renderPreview.manualModeRequired')} />
-    </div>
+    </div>,
+    document.body,
   );
 };
 

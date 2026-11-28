@@ -1,30 +1,19 @@
-/* ================================================================
-   Dock Tools — KOMA Design System
-   Tool Palette (Manual) + Type Dock (Render)
-   ================================================================ */
 
-/* ── Shared Dock Foundation ──────────────────────────────────── */
 .koma-dock-base {
   position: absolute;
   z-index: 40;
   pointer-events: auto;
 }
 
-/* ================================================================
-   TOOL PALETTE — Manual Dock (Vertical Toolbar)
-   ================================================================ */
-
 .koma-tool-palette {
   position: fixed;
   top: 22%;
-  /* transform: translateY(-50%); */
-  /* right is set via inline style */
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
   width: 46px;
-  height: auto; /* ← key fix: content-driven height */
+  height: auto;
   padding: 6px 0;
   border-radius: 16px;
   border: 1px solid rgba(168, 85, 247, 0.1);
@@ -35,12 +24,8 @@
     0 0 40px rgba(168, 85, 247, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.025);
   animation: koma-dock-appear 0.22s ease forwards;
-  /* Above the dashboard sidebars (3 desktop / 95 <=1100px) and the
-     chrome toggles (140); below the topbar (105), modals (120+) and
-     tooltips (220) / popovers (230). */
-  z-index: 100;
+  z-index: var(--z-dock, 90);
   pointer-events: auto;
-  /* safety: never exceed viewport */
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -62,7 +47,6 @@
   }
 }
 
-/* ── Tool Group ───────────────────────────────────────────────── */
 .koma-tool-palette__group {
   display: flex;
   flex-direction: column;
@@ -72,7 +56,6 @@
   width: 100%;
 }
 
-/* Group divider with label */
 .koma-tool-palette__divider {
   display: flex;
   align-items: center;
@@ -111,7 +94,6 @@
   white-space: nowrap;
 }
 
-/* ── Tool Button ──────────────────────────────────────────────── */
 .koma-tool-palette__btn {
   position: relative;
   display: flex;
@@ -144,7 +126,6 @@
   cursor: not-allowed;
 }
 
-/* Active state with side indicator */
 .koma-tool-palette__btn--active {
   background: linear-gradient(
     135deg,
@@ -169,14 +150,12 @@
   box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
 }
 
-/* Danger variant */
 .koma-tool-palette__btn--danger:hover:not(:disabled) {
   background: rgba(244, 63, 94, 0.08);
   color: var(--auth-rose);
   border-color: rgba(244, 63, 94, 0.12);
 }
 
-/* Tooltip (shows on hover) */
 .koma-tool-palette__btn[title] {
   position: relative;
 }
@@ -562,7 +541,6 @@
   100% { transform: rotate(-360deg); }
 }
 
-/* ── Separator (thin line) ────────────────────────────────────── */
 .koma-tool-palette__sep {
   width: 22px;
   height: 1px;
@@ -571,15 +549,10 @@
   flex-shrink: 0;
 }
 
-/* ================================================================
-   TOOL CONFIG — Flyout Panel
-   ================================================================ */
-
 .koma-tool-config {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  /* right is set via inline style */
   width: 272px;
   height: auto;
   max-height: calc(100vh - 48px);
@@ -594,10 +567,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
   animation: koma-config-in 0.2s ease forwards;
   pointer-events: auto;
-  z-index: 150;
+  z-index: var(--z-dock-flyout, 95);
 }
 
-/* ── Responsive: smaller screens, palette shrinks ─────────────── */
 @media (max-height: 600px) {
   .koma-tool-palette {
     padding: 4px 0;
@@ -650,7 +622,6 @@
   }
 }
 
-/* Config Header */
 .koma-tool-config__head {
   display: flex;
   align-items: center;
@@ -711,7 +682,6 @@
   outline-offset: -1px;
 }
 
-/* Config Body */
 .koma-tool-config__body {
   padding: 12px 16px 16px;
   display: flex;
@@ -719,7 +689,6 @@
   gap: 10px;
 }
 
-/* Config Section (grouped controls) */
 .koma-tool-config__section {
   display: flex;
   flex-direction: column;
@@ -742,7 +711,6 @@
   gap: 5px;
 }
 
-/* Compact button grid for conversion tools */
 .koma-tool-config__btn-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -754,7 +722,6 @@
   padding: 6px 8px;
 }
 
-/* Compact row for wand actions */
 .koma-tool-config__action-row {
   display: flex;
   gap: 4px;
@@ -766,7 +733,6 @@
   padding: 6px 8px;
 }
 
-/* Color input override */
 .koma-tool-config__color {
   width: 100%;
   height: 30px;
@@ -787,7 +753,6 @@
   outline-offset: -1px;
 }
 
-/* Hint inside config */
 .koma-tool-config__hint {
   font-family: var(--auth-font-body);
   font-size: 10px;
@@ -801,15 +766,9 @@
   font-weight: 600;
 }
 
-/* ================================================================
-   TYPE DOCK — Render Dock (Contextual Floating Panel)
-   ================================================================ */
-
 .koma-type-dock {
-  /* Portaled to <body> with viewport coordinates: fixed keeps it out of the
-     stage's scroll/clip box and above the dashboard sidebars. */
   position: fixed;
-  z-index: 102;
+  z-index: var(--z-dock, 90);
   pointer-events: auto;
   border-radius: var(--auth-radius);
   border: 1px solid rgba(168, 85, 247, 0.1);
@@ -837,19 +796,16 @@
   }
 }
 
-/* Placement modifiers (set via className) */
 .koma-type-dock--left,
 .koma-type-dock--right,
 .koma-type-dock--top,
 .koma-type-dock--bottom {
-  /* placement-specific offsets are handled by inline style */
 }
 
 .koma-type-dock--compact {
   max-width: 420px;
 }
 
-/* ── Quick Bar — 3 rows of controls ──────────────────────────── */
 .koma-type-dock__bar {
   display: flex;
   flex-direction: column;
@@ -857,7 +813,6 @@
   padding: 8px 10px;
 }
 
-/* Row within the bar */
 .koma-type-dock__row {
   display: flex;
   align-items: center;
@@ -867,18 +822,15 @@
   min-height: 32px;
 }
 
-/* Row 1 specifically: font stretches */
 .koma-type-dock__row--primary {
   gap: 6px;
 }
 
-/* Row 2: format controls, can wrap on small viewports */
 .koma-type-dock__row--format {
   gap: 4px;
   flex-wrap: wrap;
 }
 
-/* Row 3: transform + actions */
 .koma-type-dock__row--actions {
   gap: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -886,7 +838,6 @@
   margin-top: 2px;
 }
 
-/* Thin row separator */
 .koma-type-dock__row-sep {
   width: 100%;
   height: 1px;
@@ -900,7 +851,6 @@
   flex-shrink: 0;
 }
 
-/* ── Select (dropdown inside dock) ───────────────────────────── */
 .koma-type-dock__select {
   height: 28px;
   padding: 0 8px;
@@ -938,7 +888,6 @@
   flex-shrink: 0;
 }
 
-/* ── Compact Label (above selects) ────────────────────────────── */
 .koma-type-dock__mini-label {
   font-family: var(--auth-font-heading);
   font-size: 8px;
@@ -947,10 +896,9 @@
   text-transform: uppercase;
   color: rgba(168, 85, 247, 0.4);
   margin-bottom: -2px;
-  display: none; /* only show if needed */
+  display: none;
 }
 
-/* ── Stepper (font size, rotation, skew) ─────────────────────── */
 .koma-type-dock__stepper {
   display: inline-flex;
   align-items: center;
@@ -1009,7 +957,6 @@
   user-select: none;
 }
 
-/* Stepper with a label on top (for skew, shows e.g. "Sx") */
 .koma-type-dock__stepper--labeled .koma-type-dock__step-val {
   flex-direction: column;
   font-size: 9px;
@@ -1026,7 +973,6 @@
   text-transform: uppercase;
 }
 
-/* ── Icon Button Group ────────────────────────────────────────── */
 .koma-type-dock__icon-group {
   display: inline-flex;
   align-items: center;
@@ -1073,7 +1019,6 @@
   box-shadow: inset 0 -2px 0 rgba(168, 85, 247, 0.3);
 }
 
-/* Text-based icon button (AA, H, V, etc.) */
 .koma-type-dock__icon-text {
   font-family: var(--auth-font-heading);
   font-size: 10px;
@@ -1081,12 +1026,10 @@
   letter-spacing: -0.02em;
 }
 
-/* Separator between icon buttons within a group */
 .koma-type-dock__icon-btn + .koma-type-dock__icon-btn {
   border-left: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-/* ── Action Buttons (Ajustes, Refinar) ────────────────────────── */
 .koma-type-dock__action {
   display: inline-flex;
   align-items: center;
@@ -1134,23 +1077,17 @@
   border-color: rgba(168, 85, 247, 0.15);
 }
 
-/* Spacer to push items right */
 .koma-type-dock__spacer {
   flex: 1;
   min-width: 4px;
 }
 
-/* Inline pipe separator */
 .koma-type-dock__pipe {
   width: 1px;
   height: 16px;
   background: rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
-
-/* ================================================================
-   TYPE DOCK — Fine-Tune Expanded Panel
-   ================================================================ */
 
 .koma-type-dock__fine {
   border-top: 1px solid rgba(168, 85, 247, 0.08);
@@ -1174,14 +1111,12 @@
   }
 }
 
-/* Fine controls grid: 2 columns */
 .koma-type-dock__fine-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px 10px;
 }
 
-/* Single fine field */
 .koma-type-dock__fine-field {
   display: flex;
   flex-direction: column;
@@ -1253,7 +1188,6 @@
   white-space: nowrap;
 }
 
-/* Toggle row (Auto Font Size, Hyphenation) */
 .koma-type-dock__fine-toggle {
   display: flex;
   align-items: center;
@@ -1290,7 +1224,6 @@
   color: var(--auth-text-muted);
 }
 
-/* ── Effects Row ─────────────────────────────────────────────── */
 .koma-type-dock__effects-row {
   display: flex;
   gap: 4px;
@@ -1334,7 +1267,6 @@
   display: none;
 }
 
-/* ── Fine section divider ─────────────────────────────────────── */
 .koma-type-dock__fine-divider {
   height: 1px;
   background: linear-gradient(
@@ -1345,10 +1277,6 @@
   );
   grid-column: 1 / -1;
 }
-
-/* ================================================================
-   SHARED — Popover Trigger Overrides (inside dock context)
-   ================================================================ */
 
 .koma-type-dock .koma-color-popover__trigger,
 .koma-tool-config .koma-color-popover__trigger {
@@ -1406,10 +1334,6 @@
   max-width: 80px;
 }
 
-/* ================================================================
-   DRAFT BOX (unchanged, kept for reference)
-   ================================================================ */
-
 .koma-render-box--draft {
   position: absolute;
   border: 2px dashed rgba(168, 85, 247, 0.4);
@@ -1417,10 +1341,6 @@
   background: rgba(168, 85, 247, 0.06);
   pointer-events: none;
 }
-
-/* ================================================================
-   RESPONSIVE
-   ================================================================ */
 
 @media (max-width: 768px) {
   .koma-type-dock {
@@ -1449,10 +1369,6 @@
     grid-template-columns: 1fr;
   }
 }
-
-/* ================================================================
-   LIGHT MODE OVERRIDES
-   ================================================================ */
 
 [data-theme="light"] .koma-tool-palette {
   border-color: rgba(0, 0, 0, 0.08);
@@ -1508,7 +1424,6 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* ── Tooltip: light mode should actually be light ───────────── */
 [data-theme="light"] .koma-tool-rich-tooltip {
   border-color: rgba(168, 85, 247, 0.2);
   background:
@@ -1557,7 +1472,6 @@
   color: rgba(15, 23, 42, 0.88);
 }
 
-/* ── Tool Config Panel ──────────────────────────────────────── */
 [data-theme="light"] .koma-tool-config {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -1615,7 +1529,6 @@
   color: #1e293b;
 }
 
-/* ── Type Dock ──────────────────────────────────────────────── */
 [data-theme="light"] .koma-type-dock {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
@@ -1734,7 +1647,6 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* ── Fine-Tune Panel ────────────────────────────────────────── */
 [data-theme="light"] .koma-type-dock__fine {
   border-top-color: rgba(168, 85, 247, 0.1);
 }
@@ -1774,7 +1686,6 @@
   );
 }
 
-/* ── Effects Row ────────────────────────────────────────────── */
 [data-theme="light"] .koma-type-dock__effects-row {
   border-top-color: rgba(0, 0, 0, 0.06);
 }
@@ -1789,7 +1700,6 @@
   border-color: rgba(0, 0, 0, 0.12);
 }
 
-/* ── Shared Popover Overrides ───────────────────────────────── */
 [data-theme="light"] .koma-type-dock .koma-color-popover__trigger:hover,
 [data-theme="light"] .koma-tool-config .koma-color-popover__trigger:hover {
   background: rgba(0, 0, 0, 0.04);
@@ -1810,13 +1720,11 @@
   color: #1e293b;
 }
 
-/* ── Draft Box ──────────────────────────────────────────────── */
 [data-theme="light"] .koma-render-box--draft {
   border-color: rgba(168, 85, 247, 0.35);
   background: rgba(168, 85, 247, 0.05);
 }
 
-/* ── Tooltip internal elements (keep dark backgrounds) ──────── */
 [data-theme="light"] .koma-tool-rich-tooltip__eraser-swipe,
 [data-theme="light"] .koma-tool-rich-tooltip__erase-track {
   background: rgba(15, 23, 42, 0.92);

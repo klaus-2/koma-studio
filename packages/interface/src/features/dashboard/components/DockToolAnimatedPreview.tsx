@@ -49,7 +49,7 @@ export const DockToolAnimatedPreview: React.FC<DockToolAnimatedPreviewProps> = R
     const asset = KOMA_TOOL_MEDIA[variant][kind];
     const shouldPlayVideo =
       !prefersReducedMotion && !isJsdomEnv() && (playMode === 'always' || hovered);
-    const cornerStroke = variant === 'noir' ? '#ff2e63' : '#a855f7';
+    const cornerStroke = variant === 'noir' ? 'var(--noir-crimson, #ff2e63)' : '#a855f7';
     const frameStroke =
       variant === 'noir' ? 'rgba(242, 237, 227, 0.16)' : 'rgba(168, 85, 247, 0.24)';
 

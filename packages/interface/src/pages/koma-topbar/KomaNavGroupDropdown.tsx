@@ -9,6 +9,7 @@ import {
 import { useI18n } from '../../i18n';
 import type { DropdownId, NavGroup, NavItem, ToolMode } from './KomaTopbar.shared';
 import { cn, isModeUnderDevelopment } from './KomaTopbar.shared';
+import { TopbarDropdownPortal } from './TopbarDropdownPortal';
 
 type KomaNavGroupDropdownProps = {
   id: Exclude<DropdownId, 'download' | 'user' | null>;
@@ -71,7 +72,7 @@ export default function KomaNavGroupDropdown({
         <TooltipContent side="bottom">{group.label}</TooltipContent>
       </Tooltip>
 
-      {isOpen && (
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="left" offsetY={6}>
         <div className="koma-navdrop__panel" data-tour={tourTarget} role="menu" aria-label={group.label}>
           <div className="koma-navdrop__panel-arrow" aria-hidden="true" />
           <div className="koma-navdrop__panel-header">{group.label}</div>
@@ -109,7 +110,7 @@ export default function KomaNavGroupDropdown({
             })}
           </div>
         </div>
-      )}
+      </TopbarDropdownPortal>
     </div>
   );
 }

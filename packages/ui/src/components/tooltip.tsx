@@ -49,7 +49,7 @@ function TooltipContent({
         className={cn(
           noir
             ? "w-fit max-w-xs border border-paper/18 bg-ink-2 px-3 py-2 text-[11px] leading-relaxed text-paper/80 " +
-            "shadow-[4px_4px_0_rgba(255,46,99,0.5)] " +
+            "shadow-[4px_4px_0_color-mix(in_srgb,var(--noir-crimson,#ff2e63)_50%,transparent)] " +
             "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 " +
             "origin-(--radix-tooltip-content-transform-origin)"
             : "bg-popover text-popover-foreground border border-border/60 shadow-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",

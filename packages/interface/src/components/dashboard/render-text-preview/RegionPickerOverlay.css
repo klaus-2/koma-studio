@@ -1,7 +1,7 @@
 .koma-region-picker__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: var(--z-modal, 150);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -77,7 +77,6 @@
   white-space: nowrap;
 }
 
-/* Noir skin: cut panels, paper-on-ink, crimson accents. */
 :root[data-theme-family='noir'] .koma-region-picker__panel {
   border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
   border-radius: 0;

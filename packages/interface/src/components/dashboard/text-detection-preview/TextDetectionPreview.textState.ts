@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useExclusiveOverlay } from '@koma/ui/stores/overlay-coordinator';
 import type { AioTextRegion, EditableRegionTextTarget } from '../../../types/dashboard.types';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import { clamp, getRegionTranslationNotesForDisplay } from '../../../utils/dashboard.utils';
@@ -14,6 +15,8 @@ export interface TextDetectionPreviewContextMenu {
   regionId: string;
   x: number;
   y: number;
+  overlayX: number;
+  overlayY: number;
 }
 
 export interface TextDetectionPreviewTextEditor {
@@ -145,12 +148,6 @@ export const useTextDetectionPreviewTextState = ({
             translatedText: normalizedText,
             translationNotes: undefined,
             translationNoteOverlay: undefined,
-            // Provenance of the text IS manual: stamp unconditionally so a
-            // hand-edited ENGINE region is also caught by the reimport
-            // conflict predicate (sheet corrections never clobber manual
-            // edits silently). The TM/cache provenance is stale once the text
-            // is hand-edited — cleared so the TM hit-count readout stays
-            // truthful.
             translatorModelKey: 'manual_edit',
             translationSource: null,
           };
@@ -214,8 +211,8 @@ export const useTextDetectionPreviewTextState = ({
       const height = node?.clientHeight ?? 520;
       const editorWidth = 248;
       const editorHeight = 172;
-      const x = clamp(contextMenu.x, 8, Math.max(8, width - editorWidth));
-      const y = clamp(contextMenu.y, 8, Math.max(8, height - editorHeight));
+      const x = clamp(contextMenu.overlayX, 8, Math.max(8, width - editorWidth));
+      const y = clamp(contextMenu.overlayY, 8, Math.max(8, height - editorHeight));
       setTextEditor({
         regionId: region.id,
         x,
@@ -241,21 +238,68 @@ export const useTextDetectionPreviewTextState = ({
       const node = overlayRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
-      const x = clamp(
+      const overlayX = clamp(
         event.clientX - rect.left,
         6,
         Math.max(6, rect.width - 6),
       );
-      const y = clamp(
+      const overlayY = clamp(
         event.clientY - rect.top,
         6,
         Math.max(6, rect.height - 6),
       );
-      setContextMenu({ regionId: region.id, x, y });
+      const viewportW =
+        typeof window !== 'undefined' && window.innerWidth > 0
+          ? window.innerWidth
+          : 1280;
+      const viewportH =
+        typeof window !== 'undefined' && window.innerHeight > 0
+          ? window.innerHeight
+          : 800;
+      const menuWidth = 228;
+      const menuHeight = 280;
+      const margin = 8;
+      const x = clamp(
+        event.clientX,
+        margin,
+        Math.max(margin, viewportW - menuWidth - margin),
+      );
+      const y = clamp(
+        event.clientY,
+        margin,
+        Math.max(margin, viewportH - menuHeight - margin),
+      );
+      setContextMenu({ regionId: region.id, x, y, overlayX, overlayY });
       setHoveredRegionId(region.id);
     },
     [onCardSelect, onSelectRegion, overlayRef, selectionEnabled],
   );
+
+  const ctxOverlayId = `ctx-detect:${useId()}`;
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+  useExclusiveOverlay(ctxOverlayId, contextMenu !== null, closeContextMenu);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-koma-ctx-menu]')) return;
+      setContextMenu(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu]);
 
   const handleRegionDoubleClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, region: AioTextRegion) => {
@@ -356,10 +400,6 @@ export const useTextDetectionPreviewTextState = ({
     setTextEditor((prev) => (prev ? { ...prev, value: nextValue } : prev));
   }, []);
 
-  // These two memos run during render, so they read the committed `regions`
-  // prop (with it in deps) rather than the commit-mirrored regionsRef — a ref
-  // read here would lag one commit behind whenever regions and hover/menu
-  // change in the same render.
   const hoveredRegionTooltip = useMemo(
     () => {
       if (!hoveredRegionId) return null;

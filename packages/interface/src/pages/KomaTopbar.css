@@ -1,14 +1,9 @@
-/* ================================================================
-   KŌMA Topbar — Glass Command Bar
-   KOMA Design System · Manhwa Glass UI
-   ================================================================ */
 
-/* ── Bar Root ─────────────────────────────────────────────────── */
 .koma-topbar {
   container: koma-topbar / inline-size;
   position: sticky;
   top: 0;
-  z-index: 105;
+  z-index: var(--z-topbar, 105);
   display: flex;
   align-items: center;
   height: 44px;
@@ -21,10 +16,9 @@
     0 4px 24px rgba(0, 0, 0, 0.3),
     inset 0 -1px 0 rgba(255, 255, 255, 0.015);
   flex-shrink: 0;
-  overflow: visible; /* ← explicit: never clip children */
+  overflow: visible;
 }
 
-/* Top accent line */
 .koma-topbar::before {
   content: '';
   position: absolute;
@@ -42,7 +36,6 @@
   pointer-events: none;
 }
 
-/* ── Sidebar Dock (when sidebar collapsed) ────────────────────── */
 .koma-topbar__sidebar-dock {
   display: flex;
   align-items: center;
@@ -76,7 +69,6 @@
   outline-offset: -1px;
 }
 
-/* Brand (inline with sidebar) */
 .koma-topbar__sidebar-brand {
   display: flex;
   align-items: baseline;
@@ -104,7 +96,6 @@
   color: rgba(168, 85, 247, 0.35);
 }
 
-/* ── Nav Dividers ─────────────────────────────────────────────── */
 .koma-topbar__nav-sep {
   width: 1px;
   height: 18px;
@@ -116,30 +107,32 @@
   margin: 0 2px;
 }
 
-/* ── Main Navigation ──────────────────────────────────────────── */
 .koma-topbar__nav {
   display: flex;
   align-items: center;
   gap: 3px;
   flex: 1;
   min-width: 0;
-  /* No overflow — dropdowns must escape the container.
-     Items hide via responsive breakpoints instead. */
 }
 
-/* ── Navdrop panel stacking fix ───────────────────────────────── */
 .koma-navdrop {
   position: relative;
   flex-shrink: 0;
-  /* Ensure the dropdown panel can escape the topbar visually */
 }
 
 .koma-navdrop__panel,
 .koma-dlmenu,
 .koma-usermenu {
-  /* Already have position: absolute + z-index: 50.
-     Add isolation to guarantee paint order above siblings. */
   isolation: isolate;
+}
+
+[data-koma-topbar-dropdown="true"] .koma-navdrop__panel,
+[data-koma-topbar-dropdown="true"] .koma-dlmenu,
+[data-koma-topbar-dropdown="true"] .koma-usermenu {
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
 }
 
 .koma-topbar__nav-group {
@@ -148,7 +141,6 @@
   gap: 2px;
 }
 
-/* ── Nav Tab ──────────────────────────────────────────────────── */
 .koma-navtab {
   display: flex;
   align-items: center;
@@ -190,7 +182,6 @@
   box-shadow: 0 2px 10px rgba(168, 85, 247, 0.08);
 }
 
-/* Active bottom indicator */
 .koma-navtab--active::after {
   content: '';
   position: absolute;
@@ -228,7 +219,6 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* ── Nav Dropdown ─────────────────────────────────────────────── */
 .koma-navdrop {
   position: relative;
   flex-shrink: 0;
@@ -293,7 +283,6 @@
   transform: rotate(180deg);
 }
 
-/* ── Dropdown Panel ───────────────────────────────────────────── */
 .koma-navdrop__panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -306,7 +295,7 @@
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(168, 85, 247, 0.03);
-  z-index: 50;
+  z-index: var(--z-dropdown, 120);
   animation: koma-drop-in 0.15s ease forwards;
   overflow: hidden;
 }
@@ -361,7 +350,6 @@
   gap: 1px;
 }
 
-/* ── Dropdown Item ────────────────────────────────────────────── */
 .koma-navdrop__item {
   display: flex;
   align-items: center;
@@ -459,7 +447,6 @@
   flex-shrink: 0;
 }
 
-/* ── Right Actions Strip ──────────────────────────────────────── */
 .koma-topbar__right {
   display: flex;
   align-items: center;
@@ -474,12 +461,10 @@
   gap: 3px;
 }
 
-/* Mobile mode pill */
 .koma-topbar__mode-pill {
   display: none;
 }
 
-/* ── Icon Button ──────────────────────────────────────────────── */
 .koma-topbar__iconbtn {
   display: flex;
   align-items: center;
@@ -535,17 +520,14 @@
   color: rgba(186, 199, 247, 0.3);
 }
 
-/* Tools reveal (separate positioning) */
 .koma-topbar__tools-reveal {
   margin-left: 2px;
 }
 
-/* Desktop-only icon buttons */
 .koma-topbar__iconbtn--desktop {
   display: flex;
 }
 
-/* ── Zoom Control ─────────────────────────────────────────────── */
 .koma-zoomctl {
   display: inline-flex;
   align-items: center;
@@ -594,7 +576,6 @@
   user-select: none;
 }
 
-/* ── Batch Thread Control ─────────────────────────────────────── */
 .koma-threadctl {
   display: inline-flex;
   align-items: center;
@@ -662,7 +643,6 @@
   opacity: 0.3;
 }
 
-/* ── View Mode Segmented ──────────────────────────────────────── */
 .koma-viewseg {
   display: inline-flex;
   height: 28px;
@@ -709,7 +689,6 @@
   border-left: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-/* ── User Button ──────────────────────────────────────────────── */
 .koma-topbar__userbtn {
   display: flex;
   align-items: center;
@@ -766,7 +745,6 @@
   white-space: nowrap;
 }
 
-/* ── User Menu ────────────────────────────────────────────────── */
 .koma-usermenu {
   position: absolute;
   top: calc(100% + 6px);
@@ -779,7 +757,7 @@
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(168, 85, 247, 0.03);
-  z-index: 50;
+  z-index: var(--z-dropdown, 120);
   animation: koma-drop-in 0.15s ease forwards;
   overflow: hidden;
   padding: 6px;
@@ -803,7 +781,6 @@
   gap: 10px;
   padding: 10px 10px 8px;
 }
-
 
 .koma-usermenu__avatar {
   width: 32px;
@@ -853,7 +830,6 @@
   margin: 4px 6px;
 }
 
-/* ── Language Pill (compact, in usermenu head) ─────────────────── */
 .koma-lang-pill {
   display: inline-flex;
   align-items: center;
@@ -880,7 +856,6 @@
   color: rgba(168, 85, 247, 0.95);
 }
 
-/* ── Language Picker Panel (inline, below head) ────────────────── */
 .koma-lang-picker {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1012,7 +987,6 @@
   color: var(--auth-rose);
 }
 
-/* ── Download Menu ────────────────────────────────────────────── */
 .koma-dlmenu {
   position: absolute;
   top: calc(100% + 6px);
@@ -1025,7 +999,7 @@
   box-shadow:
     0 24px 70px rgba(0, 0, 0, 0.55),
     0 0 48px rgba(168, 85, 247, 0.03);
-  z-index: 50;
+  z-index: var(--z-dropdown, 120);
   animation: koma-drop-in 0.18s ease forwards;
   overflow: hidden;
 }
@@ -1047,7 +1021,27 @@
   overflow-y: auto;
   padding: 8px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+  scrollbar-color: rgba(168, 85, 247, 0.35) rgba(255, 255, 255, 0.03);
+}
+
+.koma-dlmenu__scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.koma-dlmenu__scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 999px;
+  margin: 6px 0;
+}
+
+.koma-dlmenu__scroll::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.32);
+  border-radius: 999px;
+}
+
+.koma-dlmenu__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.55);
 }
 
 .koma-dlmenu__section {
@@ -1094,7 +1088,6 @@
   margin: 4px 8px;
 }
 
-/* Download field */
 .koma-dlfield {
   display: flex;
   flex-direction: column;
@@ -1138,7 +1131,6 @@
   background-position: right 7px center;
 }
 
-/* Download checkboxes */
 .koma-dlmenu__checks {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1187,7 +1179,6 @@
   outline-offset: 1px;
 }
 
-/* Download action buttons */
 .koma-dlmenu__action {
   display: flex;
   align-items: center;
@@ -1242,7 +1233,6 @@
   outline-offset: -1px;
 }
 
-/* Warning inside download menu */
 .koma-dlmenu__warn {
   display: flex;
   align-items: center;
@@ -1257,7 +1247,6 @@
   line-height: 1.3;
 }
 
-/* ── Rich Tooltip ─────────────────────────────────────────────── */
 .koma-tooltip--rich {
   display: flex;
   flex-direction: column;
@@ -1278,11 +1267,10 @@
   line-height: 1.35;
 }
 
-/* ── Mobile Drawer ────────────────────────────────────────────── */
 .koma-drawer-root {
   position: fixed;
   inset: 0;
-  z-index: 106;
+  z-index: var(--z-drawer, 110);
 }
 
 .koma-drawer__backdrop {
@@ -1328,7 +1316,6 @@
   }
 }
 
-/* Drawer decorative orb */
 .koma-drawer__orb {
   position: absolute;
   top: -60px;
@@ -1341,7 +1328,6 @@
   pointer-events: none;
 }
 
-/* Drawer header */
 .koma-drawer__header {
   display: flex;
   align-items: center;
@@ -1402,7 +1388,6 @@
   outline-offset: -1px;
 }
 
-/* Drawer nav */
 .koma-drawer__nav {
   flex: 1;
   overflow-y: auto;
@@ -1432,7 +1417,6 @@
   gap: 1px;
 }
 
-/* Drawer item */
 .koma-drawer__item {
   display: flex;
   align-items: center;
@@ -1521,7 +1505,6 @@
   flex-shrink: 0;
 }
 
-/* Drawer footer */
 .koma-drawer__footer {
   padding: 12px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -1575,7 +1558,6 @@
   white-space: nowrap;
 }
 
-/* ── Responsive ───────────────────────────────────────────────── */
 @container koma-topbar (max-width: 999px) {
   .koma-navtab__text {
     display: none;
@@ -1702,9 +1684,6 @@
   }
 }
 
-/* ================================================================
-   Light Mode Overrides
-   ================================================================ */
 [data-theme="light"] .koma-topbar {
   background: rgba(255, 255, 255, 0.92);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
@@ -1723,7 +1702,6 @@
   );
 }
 
-/* ── Sidebar Dock ─────────────────────────────────────────────── */
 [data-theme="light"] .koma-topbar__sidebar-reveal {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
@@ -1737,12 +1715,10 @@
   color: rgba(168, 85, 247, 0.5);
 }
 
-/* ── Nav Dividers ─────────────────────────────────────────────── */
 [data-theme="light"] .koma-topbar__nav-sep {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* ── Nav Tab ──────────────────────────────────────────────────── */
 [data-theme="light"] .koma-navtab:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.04);
 }
@@ -1768,7 +1744,6 @@
   color: rgba(15, 23, 42, 0.6);
 }
 
-/* ── Nav Dropdown Trigger ─────────────────────────────────────── */
 [data-theme="light"] .koma-navdrop__trigger:hover {
   background: rgba(0, 0, 0, 0.04);
 }
@@ -1781,7 +1756,6 @@
   color: rgba(15, 23, 42, 0.3);
 }
 
-/* ── Dropdown Panel ───────────────────────────────────────────── */
 [data-theme="light"] .koma-navdrop__panel {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.98);
@@ -1813,7 +1787,6 @@
   color: rgba(51, 65, 85, 0.5);
 }
 
-/* ── Dropdown Item ────────────────────────────────────────────── */
 [data-theme="light"] .koma-navdrop__item:hover:not(.koma-navdrop__item--disabled) {
   background: rgba(0, 0, 0, 0.04);
 }
@@ -1851,7 +1824,6 @@
   color: rgba(71, 85, 105, 0.78);
 }
 
-/* ── Icon Button ──────────────────────────────────────────────── */
 [data-theme="light"] .koma-topbar__iconbtn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -1871,7 +1843,6 @@
   color: rgba(15, 23, 42, 0.3);
 }
 
-/* ── Zoom Control ─────────────────────────────────────────────── */
 [data-theme="light"] .koma-zoomctl {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(248, 250, 252, 0.8);
@@ -1891,7 +1862,6 @@
   color: #0f172a;
 }
 
-/* ── Thread Control ───────────────────────────────────────────── */
 [data-theme="light"] .koma-threadctl {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(248, 250, 252, 0.7);
@@ -1901,7 +1871,6 @@
   border-left: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* ── View Segmented ───────────────────────────────────────────── */
 [data-theme="light"] .koma-viewseg {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(248, 250, 252, 0.7);
@@ -1923,7 +1892,6 @@
   border-left: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* ── User Button ──────────────────────────────────────────────── */
 [data-theme="light"] .koma-topbar__userbtn {
   border-color: rgba(0, 0, 0, 0.06);
   background: rgba(0, 0, 0, 0.02);
@@ -1938,7 +1906,6 @@
   border-color: rgba(168, 85, 247, 0.12);
 }
 
-/* ── User Menu ────────────────────────────────────────────────── */
 [data-theme="light"] .koma-usermenu {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.98);
@@ -1990,7 +1957,6 @@
   background: rgba(220, 38, 38, 0.05);
 }
 
-/* ── Download Menu ────────────────────────────────────────────── */
 [data-theme="light"] .koma-dlmenu {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.98);
@@ -2006,7 +1972,19 @@
 }
 
 [data-theme="light"] .koma-dlmenu__scroll {
-  scrollbar-color: rgba(168, 85, 247, 0.15) transparent;
+  scrollbar-color: rgba(124, 58, 237, 0.32) rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-dlmenu__scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-dlmenu__scroll::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.28);
+}
+
+[data-theme="light"] .koma-dlmenu__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.48);
 }
 
 [data-theme="light"] .koma-dlmenu__section {
@@ -2054,7 +2032,6 @@
   color: #92400e;
 }
 
-/* ── Language Pill ────────────────────────────────────────────── */
 [data-theme="light"] .koma-lang-pill {
   border-color: rgba(168, 85, 247, 0.25);
   background: rgba(168, 85, 247, 0.06);
@@ -2068,7 +2045,6 @@
   color: rgba(168, 85, 247, 1);
 }
 
-/* ── Language Options ─────────────────────────────────────────── */
 [data-theme="light"] .koma-lang-option:hover {
   background: rgba(168, 85, 247, 0.06);
   border-color: rgba(168, 85, 247, 0.15);
@@ -2098,7 +2074,6 @@
   box-shadow: 0 0 10px rgba(147,51,234,0.1);
 }
 
-/* ── Mobile Drawer ────────────────────────────────────────────── */
 [data-theme="light"] .koma-drawer__backdrop {
   background: rgba(0, 0, 0, 0.25);
 }
@@ -2167,7 +2142,6 @@
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* ── Responsive Mode Pill ─────────────────────────────────────── */
 @container koma-topbar (max-width: 999px) {
   [data-theme="light"] .koma-topbar__mode-pill {
     background: rgba(168, 85, 247, 0.07);
@@ -2192,7 +2166,6 @@
   }
 }
 
-/* ── Version Badge (inline variant for collapsed sidebar dock) ── */
 .koma-topbar__brand-version {
   font-size: 9px;
   font-weight: 700;
@@ -2206,8 +2179,6 @@
   align-items: center;
   gap: 3px;
 }
-
-
 
 .koma-topbar__version-sep {
   opacity: 0.5;

@@ -10,6 +10,7 @@ import {
 import { useI18n } from '../../../i18n';
 import type { DropdownId, NavGroup, NavItem, ToolMode } from '../KomaTopbar.shared';
 import { cn, isModeUnderDevelopment } from '../KomaTopbar.shared';
+import { TopbarDropdownPortal } from '../TopbarDropdownPortal';
 
 type KomaNavGroupDropdownProps = {
   id: Exclude<DropdownId, 'download' | 'user' | null>;
@@ -77,18 +78,19 @@ export default function KomaNavGroupDropdownNoir({
         <TooltipContent side="bottom" className="glass panel-cut-sm">{group.label}</TooltipContent>
       </Tooltip>
 
-      <AnimatePresence>
-        {isOpen && (
-          <m.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            role="menu"
-            aria-label={group.label}
-            data-tour={tourTarget}
-            className="glass panel-cut absolute left-0 top-[calc(100%+10px)] z-50 w-72 border-gold/30 p-2 shadow-hard-crimson"
-          >
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="left">
+        <AnimatePresence>
+          {isOpen && (
+            <m.div
+              initial={{ opacity: 0, y: -8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              role="menu"
+              aria-label={group.label}
+              data-tour={tourTarget}
+              className="glass panel-cut relative w-72 border-gold/30 p-2 shadow-hard-crimson"
+            >
             <div className="halftone pointer-events-none absolute inset-0 opacity-30" aria-hidden="true" />
             <div className="relative mb-2 flex items-center gap-2 border-b border-paper/10 px-2 pb-2">
               <span className="kicker !text-gold">// {group.label}</span>
@@ -148,9 +150,10 @@ export default function KomaNavGroupDropdownNoir({
                 );
               })}
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+            </m.div>
+          )}
+        </AnimatePresence>
+      </TopbarDropdownPortal>
     </div>
   );
 }

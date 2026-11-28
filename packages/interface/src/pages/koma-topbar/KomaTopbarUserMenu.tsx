@@ -20,6 +20,7 @@ import {
 import { useI18n } from '../../i18n';
 import { useThemeStore } from "@koma/ui/stores/theme-store";
 import { cn } from './KomaTopbar.shared';
+import { TopbarDropdownPortal } from './TopbarDropdownPortal';
 
 type KomaTopbarUserMenuProps = {
   isOpen: boolean;
@@ -61,8 +62,6 @@ export default function KomaTopbarUserMenu({
   const setCurrentTheme = useThemeStore((state) => state.setTheme);
   const [langPickerOpen, setLangPickerOpen] = useState(false);
 
-  // Reset the sub-picker when the menu closes (adjust during render; the menu
-  // itself stays mounted while hidden, so the state must not leak across opens).
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   if (prevIsOpen !== isOpen) {
     setPrevIsOpen(isOpen);
@@ -86,8 +85,8 @@ export default function KomaTopbarUserMenu({
         <ChevronDown size={10} />
       </button>
 
-      {isOpen && (
-      <div className="koma-usermenu" data-tour="topbar-user-panel" role="menu">
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="right" offsetY={6}>
+        <div className="koma-usermenu" data-tour="topbar-user-panel" role="menu">
         <div className="koma-usermenu__arrow" aria-hidden="true" />
         <div className="koma-usermenu__head">
           <div className="koma-usermenu__avatar">
@@ -178,8 +177,8 @@ export default function KomaTopbarUserMenu({
         <MenuItem icon={Trophy} label={t('dashboard.topbar.rankings')} onClick={() => { onClose(); onOpenModelRankings?.(); }} />
         <div className="koma-usermenu__sep" />
         <MenuItem icon={LogOut} label={t('dashboard.topbar.logout')} danger onClick={() => { onClose(); onLogout(); }} />
-      </div>
-      )}
+        </div>
+      </TopbarDropdownPortal>
     </div>
   );
 }

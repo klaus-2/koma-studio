@@ -21,6 +21,7 @@ import type {
   PsdCompression,
 } from '../KomaTopbar.shared';
 import { cn } from '../KomaTopbar.shared';
+import { TopbarDropdownPortal } from '../TopbarDropdownPortal';
 import {
   CheckRow,
   Field,
@@ -159,20 +160,21 @@ export default function KomaTopbarDownloadMenuNoir({
         <TooltipContent className="glass panel-cut-sm">{t('dashboard.topbar.export')}</TooltipContent>
       </Tooltip>
 
-      <AnimatePresence>
-        {isOpen && (
-          <m.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            role="menu"
-            aria-label={t('dashboard.topbar.export')}
-            data-tour="topbar-download-panel"
-            className="glass panel-cut absolute right-0 top-[calc(100%+10px)] z-50 w-80 border-crimson/30 shadow-hard-crimson"
-          >
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="right">
+        <AnimatePresence>
+          {isOpen && (
+            <m.div
+              initial={{ opacity: 0, y: -8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              role="menu"
+              aria-label={t('dashboard.topbar.export')}
+              data-tour="topbar-download-panel"
+              className="glass panel-cut relative w-80 border-crimson/30 shadow-hard-crimson"
+            >
             <div className="halftone-red pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
-            <div className="relative max-h-[70vh] overflow-y-auto p-3">
+            <div className="koma-noir-scrollbar relative max-h-[70vh] overflow-y-auto p-3">
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2 border-b border-paper/10 pb-2">
                   <Download size={13} className="text-crimson" />
@@ -269,9 +271,10 @@ export default function KomaTopbarDownloadMenuNoir({
                 />
               )}
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+            </m.div>
+          )}
+        </AnimatePresence>
+      </TopbarDropdownPortal>
     </div>
   );
 }
@@ -335,7 +338,6 @@ function ImagePackageControls({
   );
 }
 
-/** File-name pattern editor: input + live preview + recent patterns. */
 function NamingPatternControlsNoir({ downloadBundleFormat }: { downloadBundleFormat: DownloadBundleFormat }) {
   const { t } = useI18n();
   const namingPattern = useExportStore((s) => s.namingPattern);
@@ -351,7 +353,6 @@ function NamingPatternControlsNoir({ downloadBundleFormat }: { downloadBundleFor
       works,
       targetLanguage: aioTgtLang,
       pageIndex: 0,
-      // The bundle-format union values are the archive extensions themselves.
       ext: downloadBundleFormat,
     });
     const pageStem = exportNaming.buildExportName(namingPattern, context);

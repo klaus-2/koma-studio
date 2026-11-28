@@ -37,11 +37,6 @@ interface DetectionRegionBoxProps {
   onRemoveClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-/**
- * One detection overlay box plus its translation-notes block. Memoized so a
- * drag frame only re-renders the box whose region object actually changed —
- * the parent maps regions inline and re-renders per interaction tick.
- */
 const DetectionRegionBox = memo(function DetectionRegionBox({
   region,
   selected,
@@ -56,9 +51,6 @@ const DetectionRegionBox = memo(function DetectionRegionBox({
 }: DetectionRegionBoxProps) {
   const { t } = useI18n();
   const [x1, y1, x2, y2] = region.bbox;
-  // Direct reads keep the falsy semantics of the previous full-style clone
-  // (DEFAULT_RENDER_STYLE.rotation/skewX/skewY are 0, and a missing key or 0
-  // both fall through `|| 0`).
   const styleSource = region.renderStyle ?? fallbackStyle;
   const regionRotation = styleSource?.rotation || 0;
   const regionNotes = getRegionTranslationNotesForDisplay(
@@ -451,9 +443,12 @@ const TextDetectionPreviewView = ({
                   })()
                 : null}
               {contextMenu &&
-              contextMenuTargetRegion ? (
-                <div
-                  className="koma-ctx"
+              contextMenuTargetRegion &&
+              typeof document !== 'undefined' ? (
+                createPortal(
+                  <div
+                    data-koma-ctx-menu="true"
+                    className="koma-ctx"
                   style={{
                     left: `${contextMenu.x}px`,
                     top: `${contextMenu.y}px`,
@@ -550,7 +545,9 @@ const TextDetectionPreviewView = ({
                       {t('detectionPreview.removeRegion')}
                     </span>
                   </button>
-                </div>
+                </div>,
+                  document.body,
+                )
               ) : null}
               {textEditor ? (
                 <div

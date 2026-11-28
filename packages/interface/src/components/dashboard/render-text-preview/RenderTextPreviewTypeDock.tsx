@@ -1,5 +1,9 @@
 
-import React from 'react';
+import React, { useCallback, useId } from 'react';
+import {
+  OverlayParentProvider,
+  useExclusiveOverlay,
+} from '@koma/ui/stores/overlay-coordinator';
 import {
   AlignCenter,
   AlignLeft,
@@ -103,6 +107,11 @@ const RenderTextPreviewTypeDock = ({
   syncInlineEditorSelection,
 }: RenderTextPreviewTypeDockProps) => {
   const { t } = useI18n();
+  const typeDockOverlayId = `type-dock:${useId()}`;
+  const closeExpandedDock = useCallback(() => {
+    setDockExpanded(false);
+  }, [setDockExpanded]);
+  useExclusiveOverlay(typeDockOverlayId, dockExpanded, closeExpandedDock);
 
   const handleTextEffectChange = React.useCallback(
     (presetId: NativeTextEffectPresetId) =>
@@ -121,6 +130,7 @@ const RenderTextPreviewTypeDock = ({
   );
 
   return (
+    <OverlayParentProvider id={typeDockOverlayId}>
     <div
       ref={dockRef}
       className={cn(
@@ -1241,6 +1251,7 @@ const RenderTextPreviewTypeDock = ({
         </div>
       )}
     </div>
+    </OverlayParentProvider>
   );
 };
 

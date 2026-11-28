@@ -43,7 +43,7 @@ export default function KomaMobileDrawerNoir({
   const initial = userDisplayName?.charAt(0)?.toUpperCase() ?? 'K';
 
   return (
-    <div className="fixed inset-0 z-[106]">
+    <div className="fixed inset-0 z-[var(--z-drawer)]">
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -84,7 +84,6 @@ export default function KomaMobileDrawerNoir({
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="relative flex-1 overflow-y-auto p-4">
           {navGroups.map((group) => (
             <div key={group.id} className="mb-5">

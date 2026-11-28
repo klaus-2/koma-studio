@@ -20,6 +20,7 @@ import {
 import { useI18n } from '../../../i18n';
 import { useThemeStore } from "@koma/ui/stores/theme-store";
 import { cn } from '../KomaTopbar.shared';
+import { TopbarDropdownPortal } from '../TopbarDropdownPortal';
 
 type KomaTopbarUserMenuProps = {
   isOpen: boolean;
@@ -94,20 +95,20 @@ export default function KomaTopbarUserMenuNoir({
         <ChevronDown size={10} className={cn('transition-transform', isOpen && 'rotate-180')} />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <m.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            role="menu"
-            data-tour="topbar-user-panel"
-            className="glass panel-cut absolute right-0 top-[calc(100%+10px)] z-50 w-72 border-crimson/30 p-2 shadow-hard-crimson"
-          >
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="right">
+        <AnimatePresence>
+          {isOpen && (
+            <m.div
+              initial={{ opacity: 0, y: -8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              role="menu"
+              data-tour="topbar-user-panel"
+              className="glass panel-cut relative w-72 border-crimson/30 p-2 shadow-hard-crimson"
+            >
             <div className="halftone-red pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
 
-            {/* Head */}
             <div className="relative mb-2 flex items-center gap-2.5 border-b border-paper/10 p-2 pb-3">
               <span className="panel-cut-sm grid h-10 w-10 place-items-center bg-crimson font-display text-base font-black text-ink shadow-hard-gold">
                 {initial}
@@ -202,9 +203,10 @@ export default function KomaTopbarUserMenuNoir({
               <div className="my-1 border-t border-paper/10" />
               <MenuItem icon={LogOut} label={t('dashboard.topbar.logout')} danger onClick={() => { onClose(); onLogout(); }} />
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+            </m.div>
+          )}
+        </AnimatePresence>
+      </TopbarDropdownPortal>
     </div>
   );
 }

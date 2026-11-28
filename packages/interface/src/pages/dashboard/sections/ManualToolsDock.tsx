@@ -1,6 +1,7 @@
 import type { TypographyShapeKind } from '../../../typography/types';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useId, useMemo } from 'react';
+import { useExclusiveOverlay } from '@koma/ui/stores/overlay-coordinator';
 import { useI18n } from '../../../i18n';
 import type { useAioRegionEditing } from '../hooks/region-editor';
 import type { useCleanerManualEdits } from '../hooks/cleaner';
@@ -23,7 +24,6 @@ import { HealingToolHint } from '../../../components/dashboard/HealingToolHint';
 type AioRegionEditingApi = ReturnType<typeof useAioRegionEditing>;
 
 interface ManualToolsDockSectionProps {
-  /* ── Dock gating (stage-class booleans; tool-value derivations are local) ── */
   manualDockVisible: boolean;
   manualDockRightOffset: number;
   isAioManualMode: boolean;
@@ -31,13 +31,11 @@ interface ManualToolsDockSectionProps {
   activeStageAllowsSegmentTools: boolean;
   activeStageAllowsManualImageTools: boolean;
 
-  /* ── Region editor / typographer callbacks (not yet migrated) ── */
   duplicateSelectedTypographerRegion: AioRegionEditingApi['duplicateSelectedTypographerRegion'];
   applyAutoDetectedShapeToActiveRegion: AioRegionEditingApi['applyAutoDetectedShapeToActiveRegion'];
   convertActiveTypographerShape: AioRegionEditingApi['convertActiveTypographerShape'];
   clearAioRegionsForActiveImage: AioRegionEditingApi['clearAioRegionsForActiveImage'];
 
-  /* ── Manual tools callbacks (hooks/manual-tools + hooks/cleaner) ── */
   applyHealingFromActiveWandSelection: ReturnType<
     typeof useAioWandHealing
   >['applyHealingFromActiveWandSelection'];
@@ -62,19 +60,12 @@ interface ManualToolsDockSectionProps {
     typeof useAioManualEdits
   >['resetAioManualImageEditsForImage'];
 
-  /* ── Active-image manual edit memos (mode-dependent page memos) ── */
   activeHasManualWandSelection: boolean;
   activeManualHealingBusy: boolean;
   activeHasManualPaintLayer: boolean;
   activeHasManualEdits: boolean;
 }
 
-/**
- * Manual tools dock view (the `DashboardManualDock` mount + the healing
- * tool hint). Reads the manual-tools/shell/aio stores and forwards the
- * same-name props the page previously passed (multi-store gating memos
- * stay page props).
- */
 export default function ManualToolsDockSection({
   manualDockVisible,
   manualDockRightOffset,
@@ -200,6 +191,15 @@ export default function ManualToolsDockSection({
     manualToolHasConfigActiveStage;
   const manualToolsConfigVisible =
     manualDockVisible && manualToolsConfigOpen && activeDockToolHasConfig;
+  const dockConfigOverlayId = `manual-dock-config:${useId()}`;
+  const closeManualToolsConfig = useCallback(() => {
+    setManualToolsConfigOpen(false);
+  }, [setManualToolsConfigOpen]);
+  useExclusiveOverlay(
+    dockConfigOverlayId,
+    manualToolsConfigVisible,
+    closeManualToolsConfig,
+  );
   const manualToolsConfigTitle = areaSelectionToolHasConfig
     ? t('dashboard.status.toolSelectArea')
     : segmentToolHasConfig

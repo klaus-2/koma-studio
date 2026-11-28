@@ -21,6 +21,7 @@ import type {
 } from './KomaTopbar.shared';
 import { cn } from './KomaTopbar.shared';
 import KomaTopbarDownloadMenuPsdSection from './KomaTopbarDownloadMenuPsdSection';
+import { TopbarDropdownPortal } from './TopbarDropdownPortal';
 
 type KomaTopbarDownloadMenuProps = {
   isOpen: boolean;
@@ -146,7 +147,7 @@ export default function KomaTopbarDownloadMenu({
         <TooltipContent>{t('dashboard.topbar.export')}</TooltipContent>
       </Tooltip>
 
-      {isOpen && (
+      <TopbarDropdownPortal isOpen={isOpen} anchorRef={dropdownRef} align="right" offsetY={6}>
         <div className="koma-dlmenu" data-tour="topbar-download-panel" role="menu" aria-label={t('dashboard.topbar.export')}>
           <div className="koma-dlmenu__arrow" aria-hidden="true" />
           <div className="koma-dlmenu__scroll">
@@ -243,7 +244,7 @@ export default function KomaTopbarDownloadMenu({
             )}
           </div>
         </div>
-      )}
+      </TopbarDropdownPortal>
     </div>
   );
 }
@@ -302,7 +303,6 @@ function ImagePackageControls({
   );
 }
 
-/** File-name pattern editor: input + live preview + recent patterns. */
 function NamingPatternControls({ downloadBundleFormat }: { downloadBundleFormat: DownloadBundleFormat }) {
   const { t } = useI18n();
   const namingPattern = useExportStore((s) => s.namingPattern);
@@ -318,7 +318,6 @@ function NamingPatternControls({ downloadBundleFormat }: { downloadBundleFormat:
       works,
       targetLanguage: aioTgtLang,
       pageIndex: 0,
-      // The bundle-format union values are the archive extensions themselves.
       ext: downloadBundleFormat,
     });
     const pageStem = exportNaming.buildExportName(namingPattern, context);

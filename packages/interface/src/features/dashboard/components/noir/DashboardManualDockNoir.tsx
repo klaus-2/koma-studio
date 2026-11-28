@@ -203,7 +203,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
 
   return (
     <>
-      {/* ═══ Tool Config Flyout ═══ */}
       <AnimatePresence>
         {manualToolsConfigVisible && (
           <m.aside
@@ -211,13 +210,12 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 16, scale: 0.97 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="glass panel-cut custom-scrollbar fixed top-20 z-[102] max-h-[70vh] w-64 overflow-y-auto border-crimson/30 shadow-hard-crimson"
+            className="glass panel-cut custom-scrollbar fixed top-20 z-[var(--z-dock-flyout)] max-h-[70vh] w-64 overflow-y-auto border-crimson/30 shadow-hard-crimson"
             style={{ right: manualDockRightOffset + 62 }}
             aria-label={t('dashboard.dock.config.ariaLabel')}
           >
             <div className="halftone-red pointer-events-none absolute inset-0 opacity-15" aria-hidden="true" />
 
-            {/* Head */}
             <div className="relative flex items-center gap-2 border-b-2 border-crimson/25 p-3">
               <span className="panel-cut-sm grid h-6 w-6 place-items-center bg-crimson text-ink" aria-hidden="true">
                 <Wrench size={12} />
@@ -235,7 +233,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             </div>
 
             <div className="relative flex flex-col gap-4 p-3">
-              {/* ── Area Selection Config ── */}
               {areaSelectionToolHasConfig && (
                 <ConfigSection icon={ScanText} title={t('dashboard.dock.areaSelection.sectionTitle')}>
                   <Field label={t('dashboard.dock.areaSelection.shapeLabel')}>
@@ -263,7 +260,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                 </ConfigSection>
               )}
 
-              {/* ── Segment Brush/Eraser Config ── */}
               {activeStageAllowsSegmentTools && (segmentEditTool === 'brush' || segmentEditTool === 'eraser') && (
                 <ConfigSection
                   icon={segmentEditTool === 'brush' ? Paintbrush : Eraser}
@@ -274,7 +270,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                 </ConfigSection>
               )}
 
-              {/* ── Manual Image Tool Config ── */}
               {activeStageAllowsManualImageTools && (manualImageTool === 'paint' || manualImageTool === 'paint_eraser' || manualImageTool === 'healing_brush') && (
                 <ConfigSection
                   icon={manualImageTool === 'paint' ? Paintbrush : manualImageTool === 'paint_eraser' ? Eraser : Sparkles}
@@ -298,7 +293,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                 </ConfigSection>
               )}
 
-              {/* ── Magic Wand Config ── */}
               {activeStageAllowsManualImageTools && manualImageTool === 'magic_wand' && (
                 <ConfigSection icon={Wand2} title={t('dashboard.dock.magicWand.title')}>
                   <KlSlider label={t('dashboard.dock.magicWand.toleranceLabel')} value={manualImageWandTolerance} min={0} max={160} step={1} onChange={setManualImageWandTolerance} resetVal={34} />
@@ -318,7 +312,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                 </ConfigSection>
               )}
 
-              {/* ── Healing Model Info ── */}
               {activeStageAllowsManualImageTools && (manualImageTool === 'magic_wand' || manualImageTool === 'healing_brush') && (
                 <div className="panel-cut-sm border border-azure/30 bg-azure/8 p-2">
                   <p className="font-mono text-[9px] leading-relaxed text-paper-dim">
@@ -332,23 +325,20 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
         )}
       </AnimatePresence>
 
-      {/* ═══ Tool Palette Bar ═══ */}
       <TooltipProvider delayDuration={1000} skipDelayDuration={120}>
         <m.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="glass panel-cut fixed top-1/2 z-[100] flex -translate-y-1/2 flex-col items-center gap-1 border-crimson/30 p-1.5 shadow-hard-crimson"
+          className="glass panel-cut fixed top-1/2 z-[var(--z-dock)] flex -translate-y-1/2 flex-col items-center gap-1 border-crimson/30 p-1.5 shadow-hard-crimson"
           data-tour="dashboard-manual-dock"
           style={{ right: manualDockRightOffset }}
           role="toolbar"
           aria-label={t('dashboard.dock.palette.ariaLabel')}
         >
           <div className="halftone-red pointer-events-none absolute inset-0 opacity-15" aria-hidden="true" />
-          {/* vertical katakana decoration */}
           <span className="v-text pointer-events-none absolute -left-5 top-1/2 -translate-y-1/2 font-display text-2xl font-black text-outline opacity-30" aria-hidden="true">道具</span>
 
-          {/* Config Toggle */}
           <div className="relative flex flex-col gap-1">
             <DockTooltipButton
               active={manualToolsConfigVisible}
@@ -366,7 +356,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             </DockTooltipButton>
           </div>
 
-          {/* ── Region Tools ── */}
           {isAioManualMode && (
             <>
               <DockDivider label={t('dashboard.dock.divider.reg')} />
@@ -409,7 +398,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             </>
           )}
 
-          {/* ── Segment Tools ── */}
           <DockDivider label={t('dashboard.dock.divider.seg')} />
           <div className="relative flex flex-col gap-1">
             <DockTooltipButton
@@ -441,7 +429,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             </DockTooltipButton>
           </div>
 
-          {/* ── Image Tools ── */}
           <DockDivider label={t('dashboard.dock.divider.img')} />
           <div className="relative flex flex-col gap-1">
             <DockTooltipButton
@@ -489,7 +476,6 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             </DockTooltipButton>
           </div>
 
-          {/* ── Destructive Actions ── */}
           <span className="my-1 h-0.5 w-8 bg-crimson/30" aria-hidden="true" />
           <div className="relative flex flex-col gap-1">
             <DockTooltipButton

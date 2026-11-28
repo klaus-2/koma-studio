@@ -1,0 +1,14 @@
+:root {
+  --z-canvas-overlay: 20;
+  --z-grain: 60;
+  --z-dock: 90;
+  --z-dock-flyout: 95;
+  --z-topbar: 105;
+  --z-drawer: 110;
+  --z-dropdown: 120;
+  --z-popover: 130;
+  --z-context-menu: 140;
+  --z-modal: 150;
+  --z-toast: 180;
+  --z-tooltip: 220;
+}

@@ -1,11 +1,7 @@
-// Context menu wiring for RenderTextPreview: clipboard copy actions,
-// preset/shape dispatch, region removal, hover tooltip content, plus the
-// segment-brush canvas observers that sit between these callbacks in the
-// original hook order. Moved verbatim from RenderTextPreview.tsx (T07 split);
-// hook order preserved.
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useId } from 'react';
 import type React from 'react';
+import { useExclusiveOverlay } from '@koma/ui/stores/overlay-coordinator';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import type { useI18n } from '../../../i18n';
@@ -139,6 +135,34 @@ export const useRenderTextPreviewContextMenu = ({
     }
   }, []);
 
+  const menuOverlayId = `ctx-render:${useId()}`;
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+    setContextSubmenu(null);
+  }, [setContextMenu, setContextSubmenu]);
+
+  useExclusiveOverlay(menuOverlayId, contextMenu !== null, closeContextMenu);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-koma-ctx-menu]')) return;
+      closeContextMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeContextMenu();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu, closeContextMenu]);
+
   const handleRegionContextMenu = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, region: AioTextRegion) => {
       event.preventDefault();
@@ -146,24 +170,32 @@ export const useRenderTextPreviewContextMenu = ({
       onCardSelect();
       if (!areaSelectionEnabled) return;
       onSelectRegion(region.id);
-      const node = overlayRef.current;
-      if (!node) return;
-      const rect = node.getBoundingClientRect();
+      const viewportW =
+        typeof window !== 'undefined' && window.innerWidth > 0
+          ? window.innerWidth
+          : 1280;
+      const viewportH =
+        typeof window !== 'undefined' && window.innerHeight > 0
+          ? window.innerHeight
+          : 800;
+      const menuWidth = 232;
+      const menuHeight = 368;
+      const margin = 8;
       const x = clamp(
-        event.clientX - rect.left,
-        6,
-        Math.max(6, rect.width - 6),
+        event.clientX,
+        margin,
+        Math.max(margin, viewportW - menuWidth - margin),
       );
       const y = clamp(
-        event.clientY - rect.top,
-        6,
-        Math.max(6, rect.height - 6),
+        event.clientY,
+        margin,
+        Math.max(margin, viewportH - menuHeight - margin),
       );
       setContextMenu({ regionId: region.id, x, y });
       setContextSubmenu(null);
       setHoveredRegionId(region.id);
     },
-    [areaSelectionEnabled, onCardSelect, onSelectRegion],
+    [areaSelectionEnabled, onCardSelect, onSelectRegion, setContextMenu, setContextSubmenu, setHoveredRegionId],
   );
 
   const handleContextCopyRecognized = useCallback(() => {

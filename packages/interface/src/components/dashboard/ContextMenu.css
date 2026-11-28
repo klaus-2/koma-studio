@@ -1,12 +1,7 @@
-/* ================================================================
-   Region Context Menu — KOMA Design System
-   Manhwa Glass UI · Right-click context actions
-   ================================================================ */
 
-/* ── Menu Root ────────────────────────────────────────────────── */
 .koma-ctx {
-  position: absolute;
-  z-index: 50;
+  position: fixed;
+  z-index: var(--z-context-menu, 140);
   min-width: 200px;
   max-width: 260px;
   padding: 5px;
@@ -33,7 +28,6 @@
   }
 }
 
-/* Top accent stripe */
 .koma-ctx::before {
   content: '';
   position: absolute;
@@ -52,7 +46,6 @@
   pointer-events: none;
 }
 
-/* ── Menu Item ────────────────────────────────────────────────── */
 .koma-ctx__item {
   display: flex;
   align-items: center;
@@ -73,7 +66,6 @@
   position: relative;
 }
 
-/* ── Menu Item ────────────────────────────────────────────────── */
 .koma-ctx__item:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
   color: var(--auth-text);
@@ -89,13 +81,11 @@
   cursor: not-allowed;
 }
 
-/* Active state (for submenu parent) */
 .koma-ctx__item--active {
   background: rgba(168, 85, 247, 0.06);
   color: var(--auth-text);
 }
 
-/* ── Item Icon ────────────────────────────────────────────────── */
 .koma-ctx__item-icon {
   display: flex;
   align-items: center;
@@ -114,7 +104,6 @@
   color: var(--auth-purple);
 }
 
-/* Item label */
 .koma-ctx__item-label {
   flex: 1;
   min-width: 0;
@@ -122,7 +111,6 @@
   text-overflow: ellipsis;
 }
 
-/* Chevron for submenu trigger */
 .koma-ctx__item-chevron {
   color: rgba(186, 199, 247, 0.25);
   flex-shrink: 0;
@@ -133,7 +121,6 @@
   color: var(--auth-purple);
 }
 
-/* ── Separator ────────────────────────────────────────────────── */
 .koma-ctx__sep {
   height: 1px;
   margin: 3px 8px;
@@ -145,7 +132,6 @@
   );
 }
 
-/* ── Section Label ────────────────────────────────────────────── */
 .koma-ctx__label {
   padding: 6px 10px 2px;
   font-family: var(--auth-font-heading);
@@ -157,7 +143,6 @@
   user-select: none;
 }
 
-/* ── Danger Item ──────────────────────────────────────────────── */
 .koma-ctx__item--danger:hover:not(:disabled) {
   background: rgba(244, 63, 94, 0.06);
   color: var(--auth-rose);
@@ -168,14 +153,13 @@
   color: var(--auth-rose);
 }
 
-/* ── Submenu Host ─────────────────────────────────────────────── */
 .koma-ctx__submenu-host {
   position: relative;
 }
 
-/* ── Submenu Panel ────────────────────────────────────────────── */
 .koma-ctx__submenu {
   position: absolute;
+  z-index: calc(var(--z-context-menu, 140) + 1);
   left: calc(100% + 4px);
   top: -5px;
   min-width: 180px;
@@ -206,7 +190,6 @@
   }
 }
 
-/* Submenu title */
 .koma-ctx__submenu-title {
   padding: 6px 10px 4px;
   font-family: var(--auth-font-heading);
@@ -218,7 +201,6 @@
   flex-shrink: 0;
 }
 
-/* Submenu scrollable list */
 .koma-ctx__submenu-list {
   flex: 1;
   overflow-y: auto;
@@ -242,7 +224,6 @@
   border-radius: 999px;
 }
 
-/* ── Shortcut Badge ───────────────────────────────────────────── */
 .koma-ctx__shortcut {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
@@ -253,14 +234,12 @@
   padding-left: 8px;
 }
 
-/* ── Presets Submenu (wider, with search) ─────────────────────── */
 .koma-ctx__submenu--presets {
   min-width: 220px;
   max-width: 280px;
   max-height: 360px;
 }
 
-/* Search input inside submenu */
 .koma-ctx__submenu-search {
   padding: 4px 6px;
   flex-shrink: 0;
@@ -289,7 +268,6 @@
   border-color: rgba(168, 85, 247, 0.45);
 }
 
-/* Filter chips row */
 .koma-ctx__submenu-filters {
   display: flex;
   flex-wrap: wrap;
@@ -328,7 +306,6 @@
   border-color: rgba(168, 85, 247, 0.4);
 }
 
-/* Group label inside list */
 .koma-ctx__submenu-group-label {
   padding: 5px 10px 2px;
   font-family: var(--auth-font-heading, sans-serif);
@@ -339,7 +316,6 @@
   color: rgba(168, 85, 247, 0.35);
 }
 
-/* Item description meta */
 .koma-ctx__item-meta {
   margin-left: auto;
   padding-left: 6px;
@@ -353,7 +329,6 @@
   flex-shrink: 0;
 }
 
-/* Empty state */
 .koma-ctx__submenu-empty {
   padding: 10px 12px;
   font-family: var(--auth-font-body, sans-serif);
@@ -364,7 +339,6 @@
   text-align: center;
 }
 
-/* ── Responsive: flip submenu if near right edge ──────────────── */
 .koma-ctx--flip-sub .koma-ctx__submenu {
   left: auto;
   right: calc(100% + 4px);
@@ -386,10 +360,6 @@
     padding: 6px 8px;
   }
 }
-
-/* ================================================================
-   LIGHT THEME OVERRIDES
-   ================================================================ */
 
 [data-theme="light"] .koma-ctx {
   border-color: rgba(168, 85, 247, 0.12);

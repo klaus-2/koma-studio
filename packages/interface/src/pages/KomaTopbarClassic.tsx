@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
+import { useState, useRef, useCallback, useEffect, useId, useMemo, memo } from 'react';
+import { useExclusiveOverlay } from '@koma/ui/stores/overlay-coordinator';
 import {
   ChevronDown,
   PanelLeftOpen,
@@ -58,7 +59,6 @@ import {
 
 type TranslateFn = ReturnType<typeof useI18n>['t'];
 
-// ── Nav Config ──
 export const createNavGroups = (t: TranslateFn): NavGroup[] => [
   {
     id: 'main',
@@ -211,8 +211,6 @@ function clampBatchThreads(v: number) {
   return clamp(Math.round(v), 1, MAX_BATCH_THREADS);
 }
 
-// Zoom lives in a dedicated subscriber so a Ctrl+wheel gesture re-renders
-// only this control cluster instead of the whole memoized topbar.
 function KomaZoomControls() {
   const zoom = useUiShellStore((s) => s.zoom);
   const setZoom = useUiShellStore((s) => s.setZoom);
@@ -240,7 +238,6 @@ function KomaZoomControls() {
   );
 }
 
-// ── Component Props ──
 interface KomaTopbarProps {
   mode: ToolMode;
   onModeChange: (mode: ToolMode) => void;
@@ -263,7 +260,6 @@ interface KomaTopbarProps {
   onImportWorkspace: () => void;
   onCloseWorkspace: () => void;
 
-  // Download
   hasDownloadActions: boolean;
   hasDownloads: boolean;
   activeDownloadScope: string | null;
@@ -283,7 +279,6 @@ interface KomaTopbarProps {
   hasInpaintedOutputs: boolean;
   onDownload: (scope: string | null) => void;
 
-  // PSD
   canExportPsd: boolean;
   downloadPsdLoading: boolean;
   downloadPsdCompression: PsdCompression;
@@ -305,7 +300,6 @@ interface KomaTopbarProps {
   hasAioRenderRegionsForPsd: boolean;
   onDownloadPsd: () => void;
 
-  // Tools panel
   toolsPanelVisible: boolean;
   onToolsPanelToggle: () => void;
   isCompactViewport?: boolean;
@@ -313,12 +307,10 @@ interface KomaTopbarProps {
   onOpenShortcuts: () => void;
   shortcutModalOpen?: boolean;
 
-  // Sidebar (mobile)
   sidebarCollapsed?: boolean;
   onSidebarToggle?: () => void;
   sidebarRevealButtonRef?: (node: HTMLButtonElement | null) => void;
 
-  // User
   userDisplayName: string;
   userDisplayEmail: string;
   onOpenSettings?: () => void;
@@ -330,12 +322,7 @@ interface KomaTopbarProps {
   onStatusMessage?: (msg: string) => void;
 }
 
-// ═══════════════════════════════════════════
-// ═══════════════════════════════════════════
 
-// Memoized: the layout re-renders far more often than the topbar's own
-// inputs change. Mount site must keep every prop identity stable (no inline
-// closures/callback refs) or this memo is silently defeated.
 const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps) {
   const {
     mode,
@@ -423,11 +410,9 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
   const infoGroup = navGroups[3];
   const allNavItems = useMemo(() => navGroups.flatMap((group) => group.items), [navGroups]);
 
-  // ── State ──
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<DropdownId>(null);
 
-  // ── Refs ──
   const productionDropdownRef = useRef<HTMLDivElement>(null);
   const utilsDropdownRef = useRef<HTMLDivElement>(null);
   const infoDropdownRef = useRef<HTMLDivElement>(null);
@@ -450,7 +435,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     ],
   );
 
-  // ── Derived ──
   const currentNavItem = useMemo(
     () => allNavItems.find((i) => i.mode === mode),
     [allNavItems, mode],
@@ -474,7 +458,17 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     mode === 'translator' && translatorWorkspaceMode === 'visual';
   const effectiveDropdown = forcedDropdown ?? activeDropdown;
 
-  // ── Handlers ──
+  const topbarOverlayId = `topbar-classic:${useId()}`;
+  const closeTopbarOverlays = useCallback(() => {
+    setMobileNavOpen(false);
+    setActiveDropdown(null);
+  }, []);
+  useExclusiveOverlay(
+    topbarOverlayId,
+    activeDropdown !== null || mobileNavOpen,
+    closeTopbarOverlays,
+  );
+
   const toggleDropdown = useCallback(
     (id: DropdownId) => {
       if (forcedDropdown !== null) {
@@ -504,8 +498,12 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
   useEffect(() => {
     if (!activeDropdown || forcedDropdown !== null) return;
     const handler = (e: MouseEvent) => {
+      const target = e.target;
+      if (target instanceof Element && target.closest('[data-koma-topbar-dropdown]')) {
+        return;
+      }
       const ref = dropdownRefs[activeDropdown];
-      if (ref?.current && !ref.current.contains(e.target as Node)) {
+      if (ref?.current && !ref.current.contains(target as Node)) {
         setActiveDropdown(null);
       }
     };
@@ -513,7 +511,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     return () => document.removeEventListener('mousedown', handler);
   }, [activeDropdown, dropdownRefs, forcedDropdown]);
 
-  // Close mobile nav on resize to desktop
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 861px)');
     const handler = () => {
@@ -523,7 +520,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Lock body scroll when mobile nav open
   useEffect(() => {
     document.body.style.overflow = mobileNavOpen ? 'hidden' : '';
     return () => {
@@ -531,7 +527,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     };
   }, [mobileNavOpen]);
 
-  // ── Render helpers ──
   const renderGroupDropdown = (
     id: 'production' | 'utils' | 'info',
     group: NavGroup,
@@ -553,7 +548,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
   return (
     <TooltipProvider delayDuration={200}>
       <header className="koma-topbar">
-        {/* ═══ Navigation ═══ */}
         <nav
           className="koma-topbar__nav"
           data-tour="topbar-main-nav"
@@ -561,7 +555,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
           aria-label={t('dashboard.topbar.tools')}
           onKeyDown={handleTablistArrowKeys}
         >
-          {/* Sidebar dock (collapsed state) */}
           {sidebarCollapsed && onSidebarToggle && (
             <>
               <div className="koma-topbar__sidebar-dock">
@@ -602,7 +595,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
             </>
           )}
 
-          {/* Main tabs (Organize, AIO) */}
           <div className="koma-topbar__nav-group">
             {mainGroup?.items.map((item) => {
               const Icon = item.icon;
@@ -652,9 +644,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
           {infoGroup ? renderGroupDropdown('info', infoGroup, activeInfoItem) : null}
         </nav>
 
-        {/* ═══ Right Strip ═══ */}
         <div className="koma-topbar__right">
-          {/* Mobile mode pill */}
           <div className="koma-topbar__mode-pill" data-tour="topbar-mode-pill">
             <span className="koma-topbar__mode-pill-label">
               {currentNavItem && <currentNavItem.icon size={12} aria-hidden="true" />}
@@ -699,10 +689,8 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
               </Tooltip>
             )}
 
-            {/* Zoom */}
             <KomaZoomControls />
 
-            {/* Batch Threads */}
             <div
               className={cn(
                 'koma-threadctl',
@@ -750,7 +738,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
               />
             </div>
 
-            {/* View Mode */}
             <div
               className="koma-viewseg"
               role="group"
@@ -790,7 +777,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
               </Tooltip>
             </div>
 
-            {/* Rotate */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -856,7 +842,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
               onToggle={() => toggleDropdown('download')}
             />
 
-            {/* Shortcuts */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -905,7 +890,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
               <TooltipContent>{t('dashboard.topbar.shortcutsHint')}</TooltipContent>
             </Tooltip>
 
-            {/* Tools panel toggle (compact viewport) */}
             {isCompactViewport && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -951,7 +935,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
             onLogout={onLogout}
           />
 
-          {/* Tools reveal (desktop, when hidden) */}
           {!isCompactViewport && !toolsPanelVisible && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -971,7 +954,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
         </div>
       </header>
 
-      {/* ═══ Mobile Drawer ═══ */}
       <KomaMobileDrawer
         open={mobileNavOpen}
         navGroups={navGroups}

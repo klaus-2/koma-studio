@@ -3,6 +3,10 @@ import { Popover as PopoverPrimitive } from "radix-ui";
 
 import { cn } from "../utils/cn";
 import { useThemeStore } from "../stores/theme-store";
+import {
+  OverlayParentProvider,
+  useExclusiveOverlay,
+} from "../stores/overlay-coordinator";
 
 let activePointerButtons = 0;
 
@@ -19,9 +23,43 @@ if (typeof window !== "undefined") {
 }
 
 function Popover({
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
+  children,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? Boolean(controlledOpen) : uncontrolledOpen;
+  const overlayId = `popover:${React.useId()}`;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [isControlled, onOpenChange],
+  );
+
+  const handleClose = React.useCallback(() => {
+    handleOpenChange(false);
+  }, [handleOpenChange]);
+
+  useExclusiveOverlay(overlayId, isOpen, handleClose);
+
+  return (
+    <PopoverPrimitive.Root
+      data-slot="popover"
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      {...props}
+    >
+      <OverlayParentProvider id={overlayId}>{children}</OverlayParentProvider>
+    </PopoverPrimitive.Root>
+  );
 }
 
 function PopoverTrigger({
@@ -46,7 +84,7 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         updatePositionStrategy="always"
-        style={{ zIndex: 230, ...style }}
+        style={{ zIndex: 130, ...style }}
         className={cn(
           "origin-(--radix-popover-content-transform-origin) animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           noir &&

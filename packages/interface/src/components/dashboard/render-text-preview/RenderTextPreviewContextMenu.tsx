@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import {
   Circle,
   ClipboardCopy,
@@ -82,15 +83,16 @@ const RenderTextPreviewContextMenu = ({
     vars?: Record<string, string | number | null | undefined>,
   ) => string;
 
-  if (!contextMenu || !targetRegion) return null;
+  if (!contextMenu || !targetRegion || typeof document === 'undefined') return null;
 
   const hasOcr = (targetRegion.recognizedText ?? '').trim().length > 0;
   const hasTl = (targetRegion.translatedText ?? '').trim().length > 0;
 
   const regionLockFields: RegionLockField[] = ['geometry', 'text', 'style'];
 
-  return (
+  return createPortal(
     <div
+      data-koma-ctx-menu="true"
       className="koma-ctx"
       style={{
         left: `${contextMenu.x}px`,
@@ -262,7 +264,8 @@ const RenderTextPreviewContextMenu = ({
           {t('renderPreview.removeRegion')}
         </span>
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
