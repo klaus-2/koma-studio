@@ -142,12 +142,14 @@ export function OnbTabs<T extends string>({
   value,
   tabs,
   onChange,
+  variant = 'scroll',
 }: {
   idBase: string;
   label: string;
   value: T;
   tabs: readonly OnbOption<T>[];
   onChange: (value: T) => void;
+  variant?: 'scroll' | 'grid';
 }) {
   const skin = useOnbSkin();
   const values = tabs.map((tab) => tab.value);
@@ -155,7 +157,11 @@ export function OnbTabs<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+      className={
+        variant === 'grid'
+          ? 'grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6'
+          : '-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1'
+      }
       onKeyDown={(e) => moveRoving(e, 'tab', values, value, onChange)}
     >
       {tabs.map((tab) => {
@@ -170,10 +176,14 @@ export function OnbTabs<T extends string>({
             aria-controls={`${idBase}-panel`}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(tab.value)}
-            className={cx(skin.tab, on ? skin.tabOn : skin.tabOff)}
+            className={cx(
+              skin.tab,
+              variant === 'grid' ? 'min-w-0 justify-center text-center' : null,
+              on ? skin.tabOn : skin.tabOff,
+            )}
           >
             {tab.icon}
-            <span>{tab.label}</span>
+            <span className={variant === 'grid' ? 'truncate' : undefined}>{tab.label}</span>
           </button>
         );
       })}

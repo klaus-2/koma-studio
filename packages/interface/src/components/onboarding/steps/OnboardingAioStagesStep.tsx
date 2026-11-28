@@ -64,6 +64,7 @@ export function OnboardingAioStagesStep() {
           label={t('onboarding.aio.stageTabsAria')}
           value={active}
           onChange={setActive}
+          variant="grid"
           tabs={STAGES.map((entry, i) => ({
             value: entry.id,
             label: `${i + 1}. ${t(entry.labelKey)}`,

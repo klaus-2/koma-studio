@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Globe2, Layers, Monitor, Moon, Palette, Sparkles, Sun } from 'lucide-react';
 import { useThemeStore, type KomaTheme } from '@koma/ui/stores/theme-store';
-import { THEME_FAMILIES } from '@koma/ui/themes/registry';
+import { THEME_FAMILIES, type ThemeFamilyDef } from '@koma/ui/themes/registry';
 import { UI_SCALE_OPTIONS, useUiScaleStore } from '@koma/ui/stores/ui-scale-store';
 
 import { useI18n } from '../../../i18n';
@@ -17,6 +17,7 @@ import {
 } from '../onboardingPrimitives';
 import { OnbChoiceGroup, OnbSegmented } from '../onboardingChoiceControls';
 import { useOnbSkin } from '../onboardingSkin';
+import { OnboardingAccentColorSection } from '../OnboardingAccentColorSection';
 
 const NOIR_SWATCH: Record<string, string> = {
   noir: 'bg-gradient-to-br from-ink via-ink to-crimson/70 text-paper',
@@ -39,7 +40,7 @@ export function OnboardingWelcomeStep() {
   const compactDensity = useUiScaleStore((s) => s.compactDensity);
   const setCompactDensity = useUiScaleStore((s) => s.setCompactDensity);
 
-  const familyOptions = THEME_FAMILIES.map((entry) => ({
+  const familyOptions = THEME_FAMILIES.map((entry: ThemeFamilyDef) => ({
     value: entry.id,
     title: t(entry.nameKey),
     desc: t(entry.descKey),
@@ -98,6 +99,8 @@ export function OnboardingWelcomeStep() {
           onChange={setFamily}
         />
       </OnbSection>
+
+      <OnboardingAccentColorSection />
 
       <div className="grid gap-4 md:grid-cols-2">
         <OnbSection

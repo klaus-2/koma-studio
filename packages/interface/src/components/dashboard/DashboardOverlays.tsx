@@ -23,6 +23,7 @@ interface DashboardOverlaysProps {
   statusMessage: string;
   userEmail: string;
   onboardingOpen: boolean;
+  onboardingIsReviewing: boolean;
   userId: string | null;
   githubUrl: string;
   onCloseOnboarding: () => void;
@@ -47,6 +48,7 @@ export default memo(function DashboardOverlays({
   statusMessage,
   userEmail,
   onboardingOpen,
+  onboardingIsReviewing,
   userId,
   githubUrl,
   onCloseOnboarding,
@@ -71,6 +73,7 @@ export default memo(function DashboardOverlays({
         <Suspense fallback={null}>
           <OnboardingModal
             open={onboardingOpen}
+            isReviewing={onboardingIsReviewing}
             userId={userId}
             githubUrl={githubUrl}
             onClose={onCloseOnboarding}

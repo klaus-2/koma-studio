@@ -147,6 +147,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
                 title={t('onboarding.actions.skipHint')}
                 onClick={ctrl.handleDismiss}
                 className={skin.closeBtn}
+                hidden={!ctrl.canDismiss}
               >
                 <X size={14} aria-hidden="true" />
               </button>
@@ -180,15 +181,17 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <div className="flex shrink-0 items-center gap-2">
               {!ctrl.isLast ? (
                 <>
-                  <button
-                    type="button"
-                    className={skin.btnGhost}
-                    title={t('onboarding.actions.skipHint')}
-                    onClick={ctrl.handleDismiss}
-                  >
-                    <SkipForward size={13} aria-hidden="true" />
-                    <span>{t('onboarding.actions.skip')}</span>
-                  </button>
+                  {ctrl.canDismiss ? (
+                    <button
+                      type="button"
+                      className={skin.btnGhost}
+                      title={t('onboarding.actions.skipHint')}
+                      onClick={ctrl.handleDismiss}
+                    >
+                      <SkipForward size={13} aria-hidden="true" />
+                      <span>{t('onboarding.actions.skip')}</span>
+                    </button>
+                  ) : null}
                   <button type="button" className={skin.btnPrimary} onClick={ctrl.goNext}>
                     <span>{t('onboarding.actions.next')}</span>
                     <ChevronRight size={13} aria-hidden="true" />

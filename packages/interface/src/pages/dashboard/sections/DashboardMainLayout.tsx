@@ -983,7 +983,7 @@ export default memo(function DashboardMainLayout({
           onOpenModelRankings={onOpenModelRankings}
           onOpenScanlationFeed={onOpenScanlationFeed}
           onReplayTour={replayTour}
-          onOpenOnboarding={onboarding.open}
+          onOpenOnboarding={() => onboarding.open(true)}
           onOpenShortcuts={openShortcutCenter}
           shortcutModalOpen={shortcutCenterOpen}
         />
@@ -1318,6 +1318,7 @@ export default memo(function DashboardMainLayout({
         statusMessage={statusMessage}
         userEmail={authUser?.email ?? user.email}
         onboardingOpen={onboarding.isOpen}
+        onboardingIsReviewing={onboarding.isReviewing}
         userId={authUser?.id ?? null}
         githubUrl={projectGithubUrl}
         onCloseOnboarding={onboarding.close}

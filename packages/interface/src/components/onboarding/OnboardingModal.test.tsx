@@ -134,7 +134,7 @@ describe('OnboardingModal', () => {
     vi.useRealTimers();
   });
 
-  it('persists dismissed status when skipped and respects shouldAutoOpenOnboarding gating', () => {
+  it('persists dismissed status when skipped (review mode) and respects shouldAutoOpenOnboarding gating', () => {
     const onClose = vi.fn();
     clearOnboardingState('user-77');
     expect(shouldAutoOpenOnboarding('user-77', false)).toBe(true);
@@ -144,6 +144,7 @@ describe('OnboardingModal', () => {
       <I18nProvider>
         <OnboardingModal
           open
+          isReviewing
           userId="user-77"
           onClose={onClose}
           onStartTour={vi.fn()}
@@ -157,6 +158,29 @@ describe('OnboardingModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(readOnboardingState('user-77')?.status).toBe('dismissed');
     expect(shouldAutoOpenOnboarding('user-77', false)).toBe(false);
+  });
+
+  it('cannot be closed, skipped, or escaped on the mandatory first-run flow', () => {
+    const onClose = vi.fn();
+
+    render(
+      <I18nProvider>
+        <OnboardingModal
+          open
+          userId="user-mandatory"
+          onClose={onClose}
+          onStartTour={vi.fn()}
+          onOpenSettingsTab={vi.fn()}
+          onOpenExternalUrl={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByText(enMessages['onboarding.actions.skip'])).toBeNull();
+    expect(screen.getByLabelText(enMessages['onboarding.actions.closeAria'])).not.toBeVisible();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('navigates directly to a Settings tab from Step 6 and dismisses onboarding safely', () => {

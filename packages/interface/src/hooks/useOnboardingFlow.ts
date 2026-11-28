@@ -10,9 +10,10 @@ import { readDashboardTourState } from './useDashboardTour';
 
 export interface OnboardingState {
   isOpen: boolean;
+  isReviewing: boolean;
   suppressAutoTour: boolean;
   shouldAutoOpen: boolean;
-  open: () => void;
+  open: (reviewing?: boolean) => void;
   close: () => void;
   sessionHandledRef: MutableRefObject<boolean>;
   autoCheckedUserRef: MutableRefObject<string | null>;
@@ -20,6 +21,7 @@ export interface OnboardingState {
 
 export const useOnboardingState = (userId: string | null): OnboardingState => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
   const sessionHandledRef = useRef(false);
   const autoCheckedUserRef = useRef<string | null>(null);
 
@@ -27,7 +29,8 @@ export const useOnboardingState = (userId: string | null): OnboardingState => {
   const shouldAutoOpen = shouldAutoOpenOnboarding(userId, hasCompletedMainTour);
   const suppressAutoTour = isOpen || readOnboardingState(userId) !== null || shouldAutoOpen;
 
-  const open = useCallback(() => {
+  const open = useCallback((reviewing: boolean = false) => {
+    setIsReviewing(reviewing);
     setIsOpen(true);
   }, []);
 
@@ -37,6 +40,7 @@ export const useOnboardingState = (userId: string | null): OnboardingState => {
 
   return {
     isOpen,
+    isReviewing,
     suppressAutoTour,
     shouldAutoOpen,
     open,
@@ -69,7 +73,7 @@ export const useOnboardingSession = ({
     if (!sessionHandledRef.current) {
       sessionHandledRef.current = true;
       if (consumeOpenOnboardingRequest()) {
-        open();
+        open(true);
         if (userId) {
           autoCheckedUserRef.current = userId;
         }
@@ -93,7 +97,7 @@ export const useOnboardingSession = ({
     }
     autoCheckedUserRef.current = userId;
     if (shouldAutoOpen) {
-      open();
+      open(false);
     }
   }, [autoCheckedUserRef, isAuthReady, open, replayTour, sessionHandledRef, shouldAutoOpen, userId]);
 };

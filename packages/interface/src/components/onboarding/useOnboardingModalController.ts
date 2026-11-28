@@ -21,6 +21,7 @@ import {
 
 export interface OnboardingModalProps {
   open: boolean;
+  isReviewing?: boolean;
   userId?: string | null;
   githubUrl?: string;
   onClose: () => void;
@@ -72,6 +73,7 @@ export interface OnboardingController {
   petKoma: () => void;
   komaPetting: boolean;
   githubUrl: string;
+  canDismiss: boolean;
   goToStep: (stepId: OnboardingStepId) => void;
   handleDismiss: () => void;
   handleCompleteOnly: () => void;
@@ -81,12 +83,14 @@ export interface OnboardingController {
 
 export function useOnboardingModalController({
   open,
+  isReviewing = false,
   userId = null,
   githubUrl = KOMA_GITHUB_REPO_URL,
   onClose,
   onStartTour,
   onOpenSettingsTab,
 }: OnboardingModalProps): OnboardingController {
+  const canDismiss = isReviewing;
   const [stepIndex, setStepIndex] = useState(0);
   const [komaPetting, setKomaPetting] = useState(false);
   const petTimerRef = useRef<number | null>(null);
@@ -171,9 +175,10 @@ export function useOnboardingModalController({
   }, []);
 
   const handleDismiss = useCallback(() => {
+    if (!canDismiss) return;
     writeOnboardingState(userId, 'dismissed', currentStepId);
     onClose();
-  }, [currentStepId, onClose, userId]);
+  }, [canDismiss, currentStepId, onClose, userId]);
 
   const handleCompleteOnly = useCallback(() => {
     writeOnboardingState(userId, 'completed', 'finish');
@@ -209,7 +214,9 @@ export function useOnboardingModalController({
       }
       if (event.key === 'Escape') {
         event.preventDefault();
-        handleDismiss();
+        if (canDismiss) {
+          handleDismiss();
+        }
         return;
       }
 
@@ -226,7 +233,7 @@ export function useOnboardingModalController({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [goNext, goPrev, handleDismiss, open]);
+  }, [canDismiss, goNext, goPrev, handleDismiss, open]);
 
   return {
     stepIndex,
@@ -243,6 +250,7 @@ export function useOnboardingModalController({
     petKoma,
     komaPetting,
     githubUrl,
+    canDismiss,
     goToStep,
     handleDismiss,
     handleCompleteOnly,
