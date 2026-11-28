@@ -29,7 +29,7 @@ jobs:
           ENGINE_VERSION: ${{ inputs.engine_version }}
         run: |
           set -euo pipefail
-          if gh release view "$ENGINE_TAG" --json isDraft >/tmp/rel.json 2>/dev/null; then
+          if gh release view "$ENGINE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft >/tmp/rel.json 2>/dev/null; then
             if grep -q '"isDraft":false' /tmp/rel.json; then
               echo "::error::Runtime engine release $ENGINE_TAG is already published."
               exit 1
@@ -37,6 +37,7 @@ jobs:
             echo "Draft release $ENGINE_TAG already exists."
           else
             gh release create "$ENGINE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
               --draft \
               --prerelease \
               --title "Runtime Engine v1 (${ENGINE_VERSION})" \
@@ -186,7 +187,7 @@ jobs:
 
           const up = spawnSync(
             "gh",
-            ["release", "upload", process.env.ENGINE_TAG, ...uploadPaths, "--clobber"],
+            ["release", "upload", process.env.ENGINE_TAG, "--repo", process.env.GITHUB_REPOSITORY, ...uploadPaths, "--clobber"],
             { stdio: "inherit" },
           );
           if (up.status !== 0) {
