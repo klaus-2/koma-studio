@@ -467,13 +467,10 @@ fn emit_progress(
 ) {
     let bytes_downloaded = snapshot.bytes_downloaded;
     let total_bytes = snapshot.total_bytes.filter(|total| *total > 0);
-    let percent = match total_bytes {
-        Some(total) => Some(match snapshot.percent {
-            Some(value) if value.is_finite() => value.clamp(0.0, 100.0),
-            _ => (bytes_downloaded as f64 / total as f64 * 100.0).clamp(0.0, 100.0),
-        }),
-        None => None,
-    };
+    let percent = total_bytes.map(|total| match snapshot.percent {
+        Some(value) if value.is_finite() => value.clamp(0.0, 100.0),
+        _ => (bytes_downloaded as f64 / total as f64 * 100.0).clamp(0.0, 100.0),
+    });
     let speed_bytes_per_second = snapshot
         .speed_bytes_per_second
         .unwrap_or(0.0)
