@@ -194,7 +194,7 @@ jobs:
           node scripts/release/build-ui-bundle.mjs --out release-artifacts
           node scripts/release/build-backend-overlay.mjs --out release-artifacts
       - name: Attest OTA archives with GitHub OIDC provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             release-artifacts/koma-ui-*.tar.zst
@@ -427,7 +427,7 @@ jobs:
           }
           EOF
       - name: Attest native installers & delta patches
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release-upload-bin/*
       - name: Upload native installers & delta metadata to draft release

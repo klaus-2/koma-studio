@@ -94,7 +94,7 @@ jobs:
           --profiles "${{ matrix.profiles }}"
           --out release-artifacts/engine
       - name: Attest engine shards with GitHub OIDC provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release-artifacts/engine/*.tar.zst
       - name: Upload engine shards to draft release
