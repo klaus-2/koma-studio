@@ -16,7 +16,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder", "collector", "cache"] }
-sha2 = "0.10"
+sha2 = "0.11"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
